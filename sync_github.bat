@@ -1,62 +1,62 @@
 @echo off
-chcp 65001 >nul
+chcp 936 >nul
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ============================================
-echo   PiliPlus ä¸€é”®åŒæ­¥ GitHub (æœ¬åœ°ä¸ºå‡†)
+echo   PiliPlus Ò»¼üÍ¬²½ GitHub (±¾µØÎª×¼)
 echo ============================================
 
-REM ---------- 1. æ£€æŸ¥ git ----------
+REM ---------- 1. ¼ì²é git ----------
 where git >nul 2>nul
 if errorlevel 1 goto :fail_git
 
-REM ---------- 2. æ£€æŸ¥ origin è¿œç«¯ ----------
+REM ---------- 2. ¼ì²é origin Ô¶¶Ë ----------
 git remote get-url origin >nul 2>nul
 if errorlevel 1 goto :fail_origin
 
-REM ---------- 3. è‡ªåŠ¨æäº¤æœ¬åœ°æ”¹åŠ¨ ----------
+REM ---------- 3. ×Ô¶¯Ìá½»±¾µØ¸Ä¶¯ ----------
 git add -A
 git diff --cached --quiet
 if errorlevel 1 (
     for /f "delims=" %%d in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'"') do set "TS=%%d"
     git commit -m "sync: !TS!"
     if errorlevel 1 goto :fail_commit
-    echo [ä¿¡æ¯] å·²è‡ªåŠ¨æäº¤: sync: !TS!
+    echo [ĞÅÏ¢] ÒÑ×Ô¶¯Ìá½»: sync: !TS!
 ) else (
-    echo [ä¿¡æ¯] æ²¡æœ‰æœªæäº¤çš„æ”¹åŠ¨
+    echo [ĞÅÏ¢] Ã»ÓĞÎ´Ìá½»µÄ¸Ä¶¯
 )
 
-REM ---------- 4. å®Œæ•´é•œåƒæ¨é€ ----------
-REM å¼ºæ¨æœ¬åœ°æ‰€æœ‰åˆ†æ”¯ï¼Œåˆ é™¤äº‘ç«¯å¤šä½™åˆ†æ”¯å¹¶åŒæ­¥æ ‡ç­¾ï¼Œä½¿äº‘ç«¯ä¸æœ¬åœ°å®Œå…¨ä¸€è‡´
-echo [ä¿¡æ¯] æ¨é€ä¸­: å¼ºæ¨æœ¬åœ°åˆ†æ”¯ã€åˆ é™¤äº‘ç«¯å¤šä½™åˆ†æ”¯ã€åŒæ­¥æ ‡ç­¾
+REM ---------- 4. ÍêÕû¾µÏñÍÆËÍ ----------
+REM Ç¿ÍÆ±¾µØËùÓĞ·ÖÖ§£¬É¾³ıÔÆ¶Ë¶àÓà·ÖÖ§²¢Í¬²½±êÇ©£¬Ê¹ÔÆ¶ËÓë±¾µØÍêÈ«Ò»ÖÂ
+echo [ĞÅÏ¢] ÍÆËÍÖĞ: Ç¿ÍÆ±¾µØ·ÖÖ§¡¢É¾³ıÔÆ¶Ë¶àÓà·ÖÖ§¡¢Í¬²½±êÇ©
 git push --prune --force origin +refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*
 if errorlevel 1 goto :fail_push
 
 echo ============================================
-echo   åŒæ­¥å®Œæˆï¼Œäº‘ç«¯å·²ä¸æœ¬åœ°å®Œå…¨ä¸€è‡´
+echo   Í¬²½Íê³É£¬ÔÆ¶ËÒÑÓë±¾µØÍêÈ«Ò»ÖÂ
 echo ============================================
 pause
 exit /b 0
 
 :fail_git
-echo [é”™è¯¯] æœªæ‰¾åˆ° gitï¼Œè¯·å…ˆå®‰è£… Git for Windows
+echo [´íÎó] Î´ÕÒµ½ git£¬ÇëÏÈ°²×° Git for Windows
 goto :fail
 
 :fail_origin
-echo [é”™è¯¯] æœªé…ç½® origin è¿œç«¯
+echo [´íÎó] Î´ÅäÖÃ origin Ô¶¶Ë
 goto :fail
 
 :fail_commit
-echo [é”™è¯¯] è‡ªåŠ¨æäº¤å¤±è´¥
+echo [´íÎó] ×Ô¶¯Ìá½»Ê§°Ü
 goto :fail
 
 :fail_push
-echo [é”™è¯¯] æ¨é€å¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œæˆ– GitHub ç™»å½•å‡­æ®
+echo [´íÎó] ÍÆËÍÊ§°Ü£¬Çë¼ì²éÍøÂç»ò GitHub µÇÂ¼Æ¾¾İ
 goto :fail
 
 :fail
 echo.
-echo [é”™è¯¯] åŒæ­¥å¤±è´¥
+echo [´íÎó] Í¬²½Ê§°Ü
 pause
 exit /b 1

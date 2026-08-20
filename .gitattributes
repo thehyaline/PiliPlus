@@ -1,2 +1,3 @@
 # batch scripts must keep CRLF line endings for cmd.exe parsing
 build_windows.bat text eol=crlf
+sync_github.bat text eol=crlf
