@@ -38,6 +38,7 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_control_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
+import 'package:PiliPlus/plugin/pl_player/models/desktop_fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/gesture_type.dart';
@@ -63,6 +64,7 @@ import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -874,6 +876,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
+      /// 窗口全屏
+      BottomControlType.windowFullScreen => ComBtn(
+        width: widgetWidth,
+        height: 30,
+        tooltip: '窗口全屏',
+        icon: const Icon(Icons.aspect_ratio, size: 20, color: Colors.white),
+        onTap: () => plPlayerController.triggerFullScreen(
+          status: true,
+          inAppFullScreen: true,
+        ),
+      ),
+
       /// 全屏
       BottomControlType.fullscreen => ComBtn(
         width: widgetWidth,
@@ -911,6 +925,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .subtitle,
       .speed,
       if (isNotFileSource && flag) .qa,
+      if (!plPlayerController.isDesktopPip &&
+          PlatformUtils.isWindows &&
+          !isFullScreen)
+        .windowFullScreen,
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
@@ -1095,7 +1113,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       double cumulativeDy = details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
       void fullScreenTrigger(bool status) {
-        plPlayerController.triggerFullScreen(status: status);
+        plPlayerController.triggerFullScreen(
+          status: status,
+          inAppFullScreen: PlatformUtils.isWindows &&
+              Pref.slideFullScreenMode ==
+                  DesktopFullScreenMode.windowFullscreen,
+        );
       }
 
       if (cumulativeDy > threshold) {
@@ -1197,7 +1220,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   void _onDoubleTapDown(TapDownDetails details) {
     switch (details.kind) {
       case ui.PointerDeviceKind.mouse when PlatformUtils.isDesktop:
-        plPlayerController.triggerFullScreen(status: !isFullScreen);
+        plPlayerController.triggerFullScreen(
+          status: !isFullScreen,
+          inAppFullScreen: PlatformUtils.isWindows &&
+              Pref.doubleClickFullScreenMode ==
+                  DesktopFullScreenMode.windowFullscreen,
+        );
       default:
         onDoubleTapDownMobile(details);
     }
@@ -1596,6 +1624,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     controller: _animationController,
                     isFullScreen: isFullScreen,
                     removeSafeArea: plPlayerController.removeSafeArea,
+                    isLive: plPlayerController.isLive,
                     child: plPlayerController.isDesktopPip
                         ? GestureDetector(
                             behavior: HitTestBehavior.translucent,
@@ -1609,6 +1638,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     controller: _animationController,
                     isFullScreen: isFullScreen,
                     removeSafeArea: plPlayerController.removeSafeArea,
+                    isLive: plPlayerController.isLive,
                     child:
                         widget.bottomControl ??
                         BottomControl(

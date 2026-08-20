@@ -201,7 +201,6 @@ class PlPlayerController with BlockConfigMixin {
   late bool isDesktopPip = false;
   late Rect _lastWindowBounds;
 
-  late final showWindowTitleBar = Pref.showWindowTitleBar;
   late final RxBool isAlwaysOnTop = false.obs;
   Future<void> setAlwaysOnTop(bool value) {
     isAlwaysOnTop.value = value;
@@ -210,9 +209,8 @@ class PlPlayerController with BlockConfigMixin {
 
   Future<void> exitDesktopPip() {
     isDesktopPip = false;
+    desktopCaptionHidden.value = false;
     return Future.wait([
-      if (showWindowTitleBar)
-        windowManager.setTitleBarStyle(TitleBarStyle.normal),
       windowManager.setMinimumSize(const Size(400, 700)),
       windowManager.setBounds(_lastWindowBounds),
       setAlwaysOnTop(false),
@@ -224,12 +222,9 @@ class PlPlayerController with BlockConfigMixin {
     if (isFullScreen.value) return;
 
     isDesktopPip = true;
+    desktopCaptionHidden.value = true;
 
     _lastWindowBounds = await windowManager.getBounds();
-
-    if (showWindowTitleBar) {
-      windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-    }
 
     final Size size;
     final state = videoPlayerController!.state;
@@ -1539,8 +1534,12 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  void onCloseAll() {
+  Future<void> onCloseAll() async {
+    if (_isCloseAll) return;
     _isCloseAll = true;
+    if (isFullScreen.value) {
+      await triggerFullScreen(status: false);
+    }
     dispose();
     Get.until((route) => route.isFirst);
   }

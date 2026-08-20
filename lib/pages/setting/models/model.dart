@@ -67,6 +67,23 @@ class SplitModel extends SettingsModel {
   );
 }
 
+class DividerModel extends SettingsModel {
+  const DividerModel();
+
+  @override
+  String? get effectiveSubtitle => null;
+
+  @override
+  String get effectiveTitle => '';
+
+  @override
+  String? get title => null;
+
+  @override
+  Widget get widget =>
+      const Divider(height: 16, indent: 16, endIndent: 16);
+}
+
 class PopupModel<T extends EnumWithLabel> extends SettingsModel {
   const PopupModel({
     required this.title,

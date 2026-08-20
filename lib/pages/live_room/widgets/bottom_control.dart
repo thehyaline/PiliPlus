@@ -5,6 +5,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -193,6 +194,22 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
               ),
             ),
           ),
+          if (!plPlayerController.isDesktopPip &&
+              PlatformUtils.isWindows &&
+              !isFullScreen)
+            ComBtn(
+              height: 30,
+              tooltip: '窗口全屏',
+              icon: const Icon(
+                Icons.aspect_ratio,
+                size: 20,
+                color: Colors.white,
+              ),
+              onTap: () => plPlayerController.triggerFullScreen(
+                status: true,
+                inAppFullScreen: true,
+              ),
+            ),
           if (!plPlayerController.isDesktopPip)
             ComBtn(
               height: 30,

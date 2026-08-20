@@ -9,6 +9,7 @@ class AppBarAni extends StatelessWidget {
     required this.isTop,
     required this.isFullScreen,
     required this.removeSafeArea,
+    required this.isLive,
   });
 
   final Widget child;
@@ -16,6 +17,7 @@ class AppBarAni extends StatelessWidget {
   final bool isTop;
   final bool isFullScreen;
   final bool removeSafeArea;
+  final bool isLive;
 
   static final _topPos = Tween<Offset>(
     begin: const Offset(0.0, -1.0),
@@ -53,7 +55,9 @@ class AppBarAni extends StatelessWidget {
       position: controller.drive(isTop ? _topPos : _bottomPos),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: isTop ? _topDecoration : _bottomDecoration,
+          gradient: isFullScreen || !isLive
+              ? (isTop ? _topDecoration : _bottomDecoration)
+              : null,
         ),
         child: removeSafeArea
             ? child

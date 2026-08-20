@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/custom_toast.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
+import 'package:PiliPlus/common/widgets/window_caption.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
@@ -20,6 +21,7 @@ import 'package:PiliPlus/utils/calc_window_position.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/core_palettes_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/ime_controller.dart';
 import 'package:PiliPlus/utils/json_file_handler.dart';
 import 'package:PiliPlus/utils/max_screen_size.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
@@ -48,7 +50,8 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
-import 'package:window_manager/window_manager.dart' hide calcWindowPosition;
+import 'package:window_manager/window_manager.dart'
+    hide WindowCaption, calcWindowPosition;
 
 WebViewEnvironment? webViewEnvironment;
 
@@ -166,21 +169,18 @@ void main() async {
     }
   } else if (PlatformUtils.isDesktop) {
     FocusManager.instance.addEarlyKeyEventHandler(_onKeyEvent);
+    ImeController.init();
 
     await windowManager.ensureInitialized();
 
-    final windowOptions = WindowOptions(
-      minimumSize: const Size(400, 720),
+    const windowOptions = WindowOptions(
+      minimumSize: Size(400, 720),
       skipTaskbar: false,
-      titleBarStyle: Pref.showWindowTitleBar
-          ? TitleBarStyle.normal
-          : TitleBarStyle.hidden,
       title: Constants.appName,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
-      final windowSize = Pref.windowSize;
       await windowManager.setBounds(
-        await calcWindowPosition(windowSize) & windowSize,
+        await calcWindowBounds(Pref.windowSize),
       );
       if (Pref.isWindowMaximized) await windowManager.maximize();
       await windowManager.show();
@@ -331,6 +331,17 @@ class MyApp extends StatelessWidget {
           viewPadding: tmpPadding,
         ),
         child: child!,
+      );
+    }
+    // Windows 使用自绘标题栏替代原生标题栏（见 window_caption.dart），
+    // 置于 Navigator 之上、所有路由共用；原生窗口已移除 WS_CAPTION。
+    if (PlatformUtils.isWindows && Pref.showWindowTitleBar) {
+      child = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const WindowCaption(),
+          Expanded(child: child),
+        ],
       );
     }
     if (PlatformUtils.isDesktop) {

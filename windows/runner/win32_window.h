@@ -7,6 +7,13 @@
 #include <memory>
 #include <string>
 
+// Computes the hit-test code for a screen-space point |pt| near the frame of
+// |hwnd|. The window has no non-client area (WM_NCCALCSIZE returns 0), so the
+// resize border must be hit-tested manually. Shared by the top-level window
+// proc and the Flutter view subclass (flutter_window.cpp), which covers the
+// whole client area and receives WM_NCHITTEST instead of the top-level window.
+LRESULT HitTestResizeBorder(HWND hwnd, POINT pt);
+
 // A class abstraction for a high DPI-aware Win32 Window. Intended to be
 // inherited from by classes that wish to specialize with custom
 // rendering and input handling

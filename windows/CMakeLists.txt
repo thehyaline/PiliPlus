@@ -10,6 +10,11 @@ set(BINARY_NAME "piliplus")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# flutter_inappwebview_windows 的 add_custom_command(TARGET ...) 带有无效的
+# DEPENDS 关键字 (CMake 3.30+ 的 CMP0175)。将策略默认值设为 OLD 以静默该
+# dev 警告; 该关键字本就被忽略, 不影响构建。
+set(CMAKE_POLICY_DEFAULT_CMP0175 OLD)
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)

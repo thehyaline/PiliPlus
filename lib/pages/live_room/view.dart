@@ -106,7 +106,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
-    maxHeight = size.height;
+    maxHeight = size.height - captionBarHeight;
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * plPlayerController.uiScale,
       height: maxHeight * plPlayerController.uiScale,

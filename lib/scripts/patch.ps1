@@ -2,9 +2,6 @@
     [string]$platform = ""
 )
 
-git config --global user.name "ci"
-git config --global user.email "example@example.com"
-
 # TODO: remove
 # https://github.com/flutter/flutter/issues/182281
 $NewOverScrollIndicator = "362b1de29974ffc1ed6faa826e1df870d7bec75f";
@@ -154,6 +151,11 @@ switch ($platform.ToLower()) {
     "windows" {
     }
     default {}
+}
+
+if ($picks.Count -gt 0 -or $reverts.Count -gt 0) {
+    git config --global user.name "ci"
+    git config --global user.email "example@example.com"
 }
 
 foreach ($pick in $picks) {

@@ -3,20 +3,13 @@ import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
-import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
-import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
+import 'package:PiliPlus/pages/history/widgets/actions.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HistoryItem extends StatelessWidget {
@@ -35,8 +28,6 @@ class HistoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasDuration = item.duration != null && item.duration != 0;
-    int aid = item.history.oid!;
-    String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
     final business = item.history.business;
     final enableMultiSelect = ctr.enableMultiSelect.value;
 
@@ -51,65 +42,7 @@ class HistoryItem extends StatelessWidget {
       child: InkWell(
         onTap: enableMultiSelect
             ? () => ctr.onSelect(item)
-            : () async {
-                if (business?.contains('article') == true) {
-                  PageUtils.toDupNamed(
-                    '/articlePage',
-                    parameters: {
-                      'id': business == 'article-list'
-                          ? '${item.history.cid}'
-                          : '${item.history.oid}',
-                      'type': 'read',
-                    },
-                  );
-                } else if (business == 'live') {
-                  if (item.liveStatus == 1) {
-                    PageUtils.toLiveRoom(item.history.oid);
-                  } else {
-                    SmartDialog.showToast('直播未开播');
-                  }
-                } else if (business == 'pgc') {
-                  PageUtils.viewPgc(
-                    epId: item.history.epid,
-                    progress: item.playbackProgress,
-                  );
-                } else if (business == 'cheese') {
-                  if (item.uri?.isNotEmpty == true) {
-                    PageUtils.viewPgcFromUri(
-                      item.uri!,
-                      isPgc: false,
-                      aid: item.history.oid,
-                      progress: item.playbackProgress,
-                    );
-                  }
-                } else {
-                  int? cid = item.history.cid;
-                  Dimension? dimension;
-                  if (cid == null) {
-                    if (await SearchHttp.ab2cWithDimension(
-                          aid: aid,
-                          bvid: bvid,
-                          part: item.history.page,
-                        )
-                        case final res?) {
-                      cid = res.cid;
-                      dimension = res.dimension;
-                    }
-                  }
-                  if (cid != null) {
-                    // TODO: dimension
-                    PageUtils.toVideoPage(
-                      aid: aid,
-                      bvid: bvid,
-                      cid: cid,
-                      cover: item.cover,
-                      title: item.title,
-                      dimension: dimension,
-                      progress: item.playbackProgress,
-                    );
-                  }
-                }
-              },
+            : () => openHistoryItem(item),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Stack(
@@ -210,55 +143,10 @@ class HistoryItem extends StatelessWidget {
                   size: 18,
                 ),
                 position: PopupMenuPosition.under,
-                itemBuilder: (_) => [
-                  if (item.authorMid != null &&
-                      item.authorName?.isNotEmpty == true)
-                    PopupMenuItem(
-                      onTap: () => Get.toNamed('/member?mid=${item.authorMid}'),
-                      height: 38,
-                      child: Row(
-                        children: [
-                          const Icon(
-                            MdiIcons.accountCircleOutline,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '访问：${item.authorName}',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (business != 'pgc' &&
-                      item.badge != '番剧' &&
-                      item.tagName?.contains('动画') != true &&
-                      business != 'live' &&
-                      business?.contains('article') != true)
-                    PopupMenuItem(
-                      onTap: () =>
-                          UserHttp.toViewLater(bvid: item.history.bvid),
-                      height: 38,
-                      child: const Row(
-                        children: [
-                          Icon(Icons.watch_later_outlined, size: 16),
-                          SizedBox(width: 6),
-                          Text('稍后再看', style: TextStyle(fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  PopupMenuItem(
-                    onTap: () => onDelete(item.kid!, business!),
-                    height: 38,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.close_outlined, size: 16),
-                        SizedBox(width: 6),
-                        Text('删除记录', style: TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder: (_) => buildHistoryItemMenu(
+                  item,
+                  () => onDelete(item.kid!, business!),
+                ),
               ),
             ),
           ],

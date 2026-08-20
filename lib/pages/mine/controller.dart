@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/user/info.dart';
 import 'package:PiliPlus/models/user/stat.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
+import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -27,6 +28,14 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   AccountService accountService = Get.find<AccountService>();
 
   int? favFolderCount;
+
+  // 观看记录板块
+  final Rx<LoadingState<List<HistoryItemModel>?>> historyState =
+      LoadingState<List<HistoryItemModel>?>.loading().obs;
+  bool historyIsLoading = false;
+  bool historyIsEnd = false;
+  int? historyMax;
+  int? historyViewAt;
 
   // 用户信息 头像、昵称、lv
   final Rx<UserInfoData> userInfo = UserInfoData().obs;
@@ -84,6 +93,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       userInfo.value = userInfoCache;
       queryData();
       queryUserInfo();
+      historyQueryData();
     }
   }
 
@@ -144,6 +154,77 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       ps: 20,
       mid: Accounts.main.mid,
     );
+  }
+
+  // 观看记录板块数据（游标分页，同观看记录页"全部"tab）
+  Future<void> historyQueryData([bool isRefresh = true]) async {
+    if (!accountService.isLogin.value) {
+      return;
+    }
+    if (historyIsLoading || (!isRefresh && historyIsEnd)) {
+      return;
+    }
+    if (isRefresh) {
+      // 刷新回到第一页（最新记录在前），否则会带着旧游标拉到下一页
+      historyMax = null;
+      historyViewAt = null;
+    }
+    historyIsLoading = true;
+    final res = await UserHttp.historyList(
+      type: 'all',
+      max: historyMax,
+      viewAt: historyViewAt,
+      account: Accounts.history,
+    );
+    historyIsLoading = false;
+    if (res case Success(:final response)) {
+      final list = response.list;
+      historyIsEnd = list == null || list.isEmpty;
+      if (list != null && list.isNotEmpty) {
+        historyMax = list.last.history.oid;
+        historyViewAt = list.last.viewAt;
+      }
+      if (isRefresh) {
+        historyState.value = Success(list);
+      } else if (historyState.value case Success(:final response)) {
+        if (response == null) {
+          historyState.value = Success(list);
+        } else {
+          response.addAll(list ?? []);
+          historyState.refresh();
+        }
+      } else {
+        historyState.value = Success(list);
+      }
+    } else if (isRefresh) {
+      historyState.value = res as Error;
+    } else {
+      res.toast();
+    }
+  }
+
+  // 删除观看记录
+  Future<void> historyDelete(HistoryItemModel item) async {
+    SmartDialog.showLoading(msg: '请求中');
+    final res = await UserHttp.delHistory(
+      '${item.history.business}_${item.kid}',
+      account: Accounts.history,
+    );
+    SmartDialog.dismiss();
+    if (res.isSuccess) {
+      final list = historyState.value.dataOrNull;
+      if (list != null && list.isNotEmpty) {
+        list.remove(item);
+        if (list.isEmpty && !historyIsEnd) {
+          historyQueryData(false);
+        } else {
+          historyState.refresh();
+        }
+      }
+      SmartDialog.showToast('已删除');
+    } else {
+      res.toast();
+    }
   }
 
   static void onChangeAnonymity() {
@@ -289,6 +370,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       return Future.syncValue(null);
     }
     queryUserInfo();
+    historyQueryData();
     return super.onRefresh().whenComplete(() {
       if (isManual) {
         scrollController.jumpToTop();
@@ -304,6 +386,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       userInfo.value = UserInfoData();
       userStat.value = const UserStat();
       loadingState.value = LoadingState.loading();
+      historyState.value = LoadingState.loading();
     }
   }
 }

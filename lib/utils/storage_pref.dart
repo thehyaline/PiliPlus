@@ -30,6 +30,7 @@ import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart'
     show kFullScreenSCWidth;
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
+import 'package:PiliPlus/plugin/pl_player/models/desktop_fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -211,6 +212,18 @@ abstract final class Pref {
       BtmProgressBehavior.values[_setting.get(
         SettingBoxKey.btmProgressBehavior,
         defaultValue: BtmProgressBehavior.alwaysShow.index,
+      )];
+
+  static DesktopFullScreenMode get doubleClickFullScreenMode =>
+      DesktopFullScreenMode.values[_setting.get(
+        SettingBoxKey.doubleClickFullScreenMode,
+        defaultValue: DesktopFullScreenMode.fullscreen.index,
+      )];
+
+  static DesktopFullScreenMode get slideFullScreenMode =>
+      DesktopFullScreenMode.values[_setting.get(
+        SettingBoxKey.slideFullScreenMode,
+        defaultValue: DesktopFullScreenMode.fullscreen.index,
       )];
 
   static SubtitlePrefType get subtitlePreferenceV2 =>
@@ -943,7 +956,7 @@ abstract final class Pref {
   static Size get windowSize {
     final List<double>? size = (_setting.get(SettingBoxKey.windowSize) as List?)
         ?.fromCast<double>();
-    return size == null ? const Size(1180.0, 720.0) : Size(size[0], size[1]);
+    return size == null ? const Size(1280.0, 720.0) : Size(size[0], size[1]);
   }
 
   static List<double>? get windowPosition =>

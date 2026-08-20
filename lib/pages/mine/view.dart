@@ -8,11 +8,13 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
+import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
+import 'package:PiliPlus/pages/mine/widgets/history_item.dart';
 import 'package:PiliPlus/pages/mine/widgets/item.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
@@ -39,6 +41,13 @@ class _MediaPageState extends CommonPageState<MinePage>
     with AutomaticKeepAliveClientMixin {
   final MineController controller = Get.putOrFind(MineController.new);
   late final MainController _mainController = Get.find<MainController>();
+  final ScrollController _historyScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _historyScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -78,7 +87,12 @@ class _MediaPageState extends CommonPageState<MinePage>
           child: Material(
             type: .transparency,
             child: refreshIndicator(
-              onRefresh: controller.onRefresh,
+              onRefresh: () async {
+                await controller.onRefresh();
+                if (_historyScrollController.hasClients) {
+                  _historyScrollController.jumpTo(0);
+                }
+              },
               child: onBuild(
                 ListView(
                   padding: const .only(bottom: 100),
@@ -86,6 +100,11 @@ class _MediaPageState extends CommonPageState<MinePage>
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
+                    Obx(
+                      () => controller.historyState.value is Loading
+                          ? const SizedBox.shrink()
+                          : _buildHistory(theme, secondary),
+                    ),
                     Obx(
                       () => controller.loadingState.value is Loading
                           ? const SizedBox.shrink()
@@ -443,6 +462,105 @@ class _MediaPageState extends CommonPageState<MinePage>
     const Duration(milliseconds: 150),
     () => controller.onRefresh(isManual: false),
   );
+
+  Widget _buildHistory(ThemeData theme, Color secondary) {
+    return Column(
+      children: [
+        Divider(
+          height: 20,
+          color: theme.dividerColor.withValues(alpha: 0.1),
+        ),
+        ListTile(
+          onTap: () => Get.toNamed('/history')?.whenComplete(_autoRefresh),
+          dense: true,
+          title: Padding(
+            padding: const EdgeInsets.only(left: 10),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '观看记录  ',
+                    style: TextStyle(
+                      fontSize: theme.textTheme.titleMedium!.fontSize,
+                      fontWeight: .bold,
+                    ),
+                  ),
+                  WidgetSpan(
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 18,
+                      color: secondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          trailing: IconButton(
+            tooltip: '刷新',
+            onPressed: () {
+              controller.historyQueryData();
+              if (_historyScrollController.hasClients) {
+                _historyScrollController.jumpTo(0);
+              }
+            },
+            icon: const Icon(Icons.refresh, size: 20),
+          ),
+        ),
+        _buildHistoryBody(theme, secondary, controller.historyState.value),
+      ],
+    );
+  }
+
+  Widget _buildHistoryBody(
+    ThemeData theme,
+    Color secondary,
+    LoadingState<List<HistoryItemModel>?> loadingState,
+  ) {
+    return switch (loadingState) {
+      Loading() => const SizedBox.shrink(),
+      Success(:final response) => Builder(
+        builder: (context) {
+          final historyList = response;
+          if (historyList == null || historyList.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return NotificationListener<ScrollEndNotification>(
+            onNotification: (notification) {
+              final metrics = notification.metrics;
+              if (metrics.pixels >= metrics.maxScrollExtent - 300) {
+                controller.historyQueryData(false);
+              }
+              return false;
+            },
+            child: SizedBox(
+              height: 200,
+              child: ListView.separated(
+                controller: _historyScrollController,
+                padding: const .only(left: 20, top: 10, right: 20),
+                itemCount: historyList.length,
+                itemBuilder: (context, index) => MineHistoryItem(
+                  item: historyList[index],
+                  onDelete: () => controller.historyDelete(historyList[index]),
+                ),
+                scrollDirection: .horizontal,
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
+              ),
+            ),
+          );
+        },
+      ),
+      Error(:final errMsg) => SizedBox(
+        height: 160,
+        child: Center(
+          child: Text(
+            errMsg ?? '',
+            textAlign: .center,
+          ),
+        ),
+      ),
+    };
+  }
 
   Widget _buildFav(ThemeData theme, Color secondary) {
     return Column(
