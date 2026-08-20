@@ -29,7 +29,7 @@ if errorlevel 1 (
 
 REM ---------- 4. 完整镜像推送 ----------
 REM 强推本地所有分支，删除云端多余分支并同步标签，使云端与本地完全一致
-echo [信息] 推送中: 强推本地分支 + 删除云端多余分支 + 同步标签
+echo [信息] 推送中: 强推本地分支、删除云端多余分支、同步标签
 git push --prune --force origin +refs/heads/*:refs/heads/* +refs/tags/*:refs/tags/*
 if errorlevel 1 goto :fail_push
 
