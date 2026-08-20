@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$platform = ""
 )
 
@@ -116,6 +116,11 @@ if ($platform.ToLower() -eq "ios") {
     }
 }
 
+# 防止在 FLUTTER_ROOT 缺失时于错误目录执行 git reset 等破坏性命令
+if (-not $env:FLUTTER_ROOT -or -not (Test-Path "$env:FLUTTER_ROOT/bin/flutter")) {
+    throw "FLUTTER_ROOT 未设置或无效，请通过 build_android.bat / build_windows.bat 运行本脚本"
+}
+
 Set-Location $env:FLUTTER_ROOT
 
 $picks   = @()
@@ -176,6 +181,11 @@ foreach ($revert in $reverts) {
 }
 
 foreach ($patch in $patches) {
+    git apply -R --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "$patch already applied"
+        continue
+    }
     git apply "$env:GITHUB_WORKSPACE/$patch"
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$patch applied"
@@ -215,6 +225,10 @@ $PubCacheDir = "~/.pub-cache"
 switch ($platform.ToLower()) {
     "android" {
         $patches_material += $BottomSheetAndroidPatchMaterial
+        # Windows 本地构建时 pub 缓存位于 %LOCALAPPDATA%\Pub\Cache，而非 ~/.pub-cache
+        if ($env:OS -eq 'Windows_NT') {
+            $PubCacheDir = "$env:LOCALAPPDATA/Pub/Cache"
+        }
     }
     "ios" {
         $patches_material += $BottomSheetIOSFlutterMaterialPatchMaterial
@@ -229,39 +243,67 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-try {
-    $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-        Where-Object { $_.Name -like "material_ui-*" } |
-        Select-Object -Last 1
-
-    if ($MaterialUiDir) {
-        Remove-Item -Path $MaterialUiDir.FullName -Recurse -Force
-    }
-} catch {
-}
-
-flutter pub get
-
 $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
     Where-Object { $_.Name -like "material_ui-*" } |
     Select-Object -Last 1
 
-if (-not $MaterialUiDir) {
-    throw "material_ui package not found in pub cache"
-}
-
-Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/material" -Filter *.patch | ForEach-Object {
-    (Get-Content $_.FullName -Raw) -replace "`r`n", "`n" | 
-        Set-Content -NoNewline $_.FullName
-}
-
-cd $MaterialUiDir.FullName
-
-foreach ($patch in $patches_material) {
-    git apply "$env:GITHUB_WORKSPACE/$patch"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "$patch applied"
-    } else {
-        throw "$LASTEXITCODE"
+# material_ui 在 pub 缓存内就地打补丁。仅当补丁缺失时才删除重下，
+# 否则每次构建都重下会失效 Flutter 增量编译缓存，导致偶发
+# "Type not found" 类构建失败。
+$patchesApplied = $false
+if ($MaterialUiDir) {
+    $patchesApplied = $true
+    Push-Location $MaterialUiDir.FullName
+    foreach ($patch in $patches_material) {
+        git apply -R --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $patchesApplied = $false
+            break
+        }
     }
+    Pop-Location
+}
+
+if (-not $patchesApplied) {
+    if ($MaterialUiDir) {
+        try {
+            Remove-Item -Path $MaterialUiDir.FullName -Recurse -Force -ErrorAction Stop
+        } catch {
+            throw "无法删除 pub 缓存中的 material_ui（可能被其他进程占用）: $($MaterialUiDir.FullName)"
+        }
+        if (Test-Path $MaterialUiDir.FullName) {
+            throw "material_ui 目录删除后仍然存在，请手动删除后重试: $($MaterialUiDir.FullName)"
+        }
+    }
+
+    flutter pub get
+    if ($LASTEXITCODE -ne 0) {
+        throw "flutter pub get 失败，请检查网络与 Flutter SDK 版本: $LASTEXITCODE"
+    }
+
+    $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
+        Where-Object { $_.Name -like "material_ui-*" } |
+        Select-Object -Last 1
+
+    if (-not $MaterialUiDir) {
+        throw "material_ui package not found in pub cache"
+    }
+
+    Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/material" -Filter *.patch | ForEach-Object {
+        (Get-Content $_.FullName -Raw) -replace "`r`n", "`n" |
+            Set-Content -NoNewline $_.FullName
+    }
+
+    cd $MaterialUiDir.FullName
+
+    foreach ($patch in $patches_material) {
+        git apply "$env:GITHUB_WORKSPACE/$patch"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "$patch applied"
+        } else {
+            throw "$LASTEXITCODE"
+        }
+    }
+} else {
+    Write-Host "material_ui patches already applied"
 }

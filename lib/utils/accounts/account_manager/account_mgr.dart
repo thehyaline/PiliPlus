@@ -174,6 +174,7 @@ class AccountManager extends Interceptor {
       'github',
       'hdslb.com',
       'biliimg.com',
+      'bvc.bilivideo.com',
       'site/getCoin',
     ];
     String url = err.requestOptions.uri.toString();

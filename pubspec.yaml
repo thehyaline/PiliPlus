@@ -1,4 +1,4 @@
-name: PiliPlus
+﻿name: PiliPlus
 description: A new Flutter project.
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -17,11 +17,11 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 2.1.0+1
+version: 2.1.0+5208
 
 environment:
   sdk: ">=3.12.0"
-  flutter: 3.47.0
+  flutter: 3.47.1
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
