@@ -135,8 +135,6 @@ switch ($platform.ToLower()) {
         $patches += $BottomSheetAndroidPatch
         $patches += $ScrollViewPatch
         $patches += $NavigatorPatch
-
-        git reset --hard HEAD
     }
     "ios" {
         $patches += $ScrollViewPatch
@@ -144,7 +142,6 @@ switch ($platform.ToLower()) {
         $patches += $NavigatorPatch
     }
     "linux" {
-        git reset --hard HEAD
     }
     "macos" {
     }
@@ -153,9 +150,28 @@ switch ($platform.ToLower()) {
     default {}
 }
 
+# ---------- 安全策略: 不执行 git reset --hard，绝不静默丢弃 Flutter SDK 的未提交修改 ----------
+# 若 SDK 工作区有修改，仅当修改恰好等于"补丁已全部应用"（上次构建残留）时继续，
+# 否则报错中止，由用户手动决定如何处理。
+$sdkDirty = git status --porcelain 2>$null
+if ($LASTEXITCODE -eq 0 -and $sdkDirty) {
+    $allPatchesApplied = $true
+    foreach ($patch in $patches) {
+        git apply -R --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $allPatchesApplied = $false
+            break
+        }
+    }
+    if (-not $allPatchesApplied) {
+        throw "Flutter SDK 工作区存在未提交修改且与补丁状态不符，已中止（不会自动丢弃这些修改）。请先检查: git -C '$env:FLUTTER_ROOT' status，确认无重要内容后手动还原 SDK（如 git -C '$env:FLUTTER_ROOT' checkout .）再重试"
+    }
+}
+
 if ($picks.Count -gt 0 -or $reverts.Count -gt 0) {
-    git config --global user.name "ci"
-    git config --global user.email "example@example.com"
+    # 仅写入 SDK 仓库本地配置，避免污染用户全局 git 身份
+    git config user.name "ci"
+    git config user.email "example@example.com"
 }
 
 foreach ($pick in $picks) {

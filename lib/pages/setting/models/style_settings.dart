@@ -15,6 +15,7 @@ import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
+import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
@@ -97,6 +98,13 @@ List<SettingsModel> get styleSettings => [
       onTap: _showFontWeightDialog,
     ),
   ),
+  if (PlatformUtils.isWindows)
+    NormalModel(
+      title: '应用字体',
+      leading: const Icon(Icons.font_download_outlined),
+      getSubtitle: () => '当前字体：${Pref.appFontFamily.desc}',
+      onTap: _showAppFontDialog,
+    ),
   NormalModel(
     title: '界面缩放',
     getSubtitle: () => '当前缩放比例：${Pref.uiScale.toStringAsFixed(2)}',
@@ -655,6 +663,28 @@ Future<void> _showFontWeightDialog(BuildContext context) async {
   }
 }
 
+Future<void> _showAppFontDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<AppFontType>(
+    context: context,
+    builder: (context) => SelectDialog<AppFontType>(
+      title: '应用字体',
+      value: Pref.appFontFamily,
+      values: [
+        (AppFontType.harmony, 'HarmonyOS Sans（默认）'),
+        (AppFontType.system, AppFontType.system.desc),
+      ],
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.appFontFamily, res.index);
+    Get.updateMyAppTheme();
+    setState();
+  }
+}
+
 Future<void> _showTransitionDialog(
   BuildContext context,
   VoidCallback setState,
@@ -681,7 +711,7 @@ Future<void> _showCardWidthDialog(
   final res = await showDialog<(double, double)>(
     context: context,
     builder: (context) => DualSliderDialog(
-      title: const Text('列表最大列宽度（默认240dp）'),
+      title: const Text('列表最大列宽度（默认220dp）'),
       value1: Pref.recommendCardWidth,
       value2: Pref.smallCardWidth,
       description1: const Text('主页推荐流'),

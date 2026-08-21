@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/video_card/cover_bottom_info.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -10,7 +11,14 @@ import 'package:material_ui/material_ui.dart';
 class LiveItem extends StatelessWidget {
   final SearchLiveItemModel liveItem;
 
-  const LiveItem({super.key, required this.liveItem});
+  /// 桌面端沿用主页推荐流封面样式（白字 12 号 + 播放器同款渐变）
+  final bool useNewStyle;
+
+  const LiveItem({
+    super.key,
+    required this.liveItem,
+    this.useNewStyle = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +51,17 @@ class LiveItem extends StatelessWidget {
                         height: maxHeight,
                         borderRadius: const .vertical(top: .circular(12)),
                       ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: liveStat(
-                          liveItem.online,
-                          liveItem.cateName,
-                        ),
-                      ),
+                      useNewStyle
+                          ? liveStat(liveItem.online, liveItem.cateName)
+                          : Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: liveStat(
+                                liveItem.online,
+                                liveItem.cateName,
+                              ),
+                            ),
                     ],
                   );
                 },
@@ -101,6 +111,15 @@ class LiveItem extends StatelessWidget {
   );
 
   Widget liveStat(int? online, String? cateName) {
+    if (useNewStyle) {
+      return CoverBottomInfo(
+        left: Text(cateName!, style: CoverBottomInfo.textStyle()),
+        right: Text(
+          '${NumUtils.numFormat(online)}围观',
+          style: CoverBottomInfo.textStyle(),
+        ),
+      );
+    }
     return Container(
       height: 45,
       padding: const EdgeInsets.only(top: 22, left: 8, right: 8),

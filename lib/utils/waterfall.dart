@@ -17,7 +17,11 @@ mixin DynMixin {
 
   Widget buildPage(Widget child) {
     if (GlobalData().dynamicsWaterfallFlow) {
-      return child;
+      // 瀑布流模式给左右留出外边距，与普通模式对齐
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
+        sliver: child,
+      );
     }
     return CenteredSliverConstrainedCrossAxis(
       maxExtent: Grid.smallCardWidth * 2,

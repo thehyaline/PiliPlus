@@ -64,11 +64,31 @@ class _LivePageState extends State<LivePage>
                 top: Style.cardSpace,
                 bottom: 100,
               ),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  Obx(() => _buildTop(theme, controller.topState.value)),
-                  Obx(() => _buildBody(theme, controller.loadingState.value)),
-                ],
+              sliver: SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  // 头部元素与下方网格卡片区域对齐（列数受限居中时同款留白）
+                  final hPad = Grid.videoGridPadding(
+                    constraints.crossAxisExtent,
+                  );
+                  return SliverMainAxisGroup(
+                    slivers: [
+                      Obx(
+                        () => _buildTop(
+                          theme,
+                          controller.topState.value,
+                          hPad,
+                        ),
+                      ),
+                      Obx(
+                        () => _buildBody(
+                          theme,
+                          controller.loadingState.value,
+                          hPad,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -77,15 +97,19 @@ class _LivePageState extends State<LivePage>
     );
   }
 
-  Widget _buildTop(ThemeData theme, Pair<LiveCardList?, LiveCardList?> data) {
+  Widget _buildTop(
+    ThemeData theme,
+    Pair<LiveCardList?, LiveCardList?> data,
+    double hPad,
+  ) {
     return SliverMainAxisGroup(
       slivers: [
-        if (data.first != null) ..._buildFollowList(theme, data.first!),
+        if (data.first != null) ..._buildFollowList(theme, data.first!, hPad),
         if (data.second?.cardData?.areaEntranceV3?.list case final list?)
           if (list.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const .only(bottom: 8.0),
+                padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -175,15 +199,15 @@ class _LivePageState extends State<LivePage>
     );
   }
 
-  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    mainAxisSpacing: Style.cardSpace,
-    crossAxisSpacing: Style.cardSpace,
-    maxCrossAxisExtent: Grid.smallCardWidth,
-    childAspectRatio: Style.aspectRatio,
-    mainAxisExtent: textScaler.scale(90),
+  late final gridDelegate = Grid.videoCardVDelegate(
+    mainAxisExtent: textScaler.scale(Style.videoCardContentHeight),
   );
 
-  Widget _buildBody(ThemeData theme, LoadingState<List?> loadingState) {
+  Widget _buildBody(
+    ThemeData theme,
+    LoadingState<List?> loadingState,
+    double hPad,
+  ) {
     return switch (loadingState) {
       Loading() => SliverGrid.builder(
         gridDelegate: gridDelegate,
@@ -195,37 +219,43 @@ class _LivePageState extends State<LivePage>
           if (controller.newTags case final newTags?)
             if (newTags.isNotEmpty)
               SliverToBoxAdapter(
-                child: SizedBox(
-                  // 8+10+13*textScaler
-                  height: 18.0 + textScaler.scale(13),
-                  child: Obx(() {
-                    final tagIndex = controller.tagIndex.value;
-                    return ListView.separated(
-                      scrollDirection: .horizontal,
-                      padding: const .only(bottom: 8),
-                      separatorBuilder: (_, _) => const SizedBox(width: 12),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final item = newTags[index];
-                        final isCurr = index == tagIndex;
-                        return SearchText(
-                          height: 1,
-                          fontSize: 13,
-                          padding: const .symmetric(horizontal: 8, vertical: 5),
-                          text: item.name!,
-                          bgColor: isCurr
-                              ? theme.colorScheme.secondaryContainer
-                              : Colors.transparent,
-                          textColor: isCurr
-                              ? theme.colorScheme.onSecondaryContainer
-                              : null,
-                          onTap: (value) =>
-                              controller.onSelectTag(index, item.sortType),
-                        );
-                      },
-                      itemCount: newTags.length,
-                    );
-                  }),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: SizedBox(
+                    // 8+10+13*textScaler
+                    height: 18.0 + textScaler.scale(13),
+                    child: Obx(() {
+                      final tagIndex = controller.tagIndex.value;
+                      return ListView.separated(
+                        scrollDirection: .horizontal,
+                        padding: const .only(bottom: 8),
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          final item = newTags[index];
+                          final isCurr = index == tagIndex;
+                          return SearchText(
+                            height: 1,
+                            fontSize: 13,
+                            padding: const .symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            text: item.name!,
+                            bgColor: isCurr
+                                ? theme.colorScheme.secondaryContainer
+                                : Colors.transparent,
+                            textColor: isCurr
+                                ? theme.colorScheme.onSecondaryContainer
+                                : null,
+                            onTap: (value) =>
+                                controller.onSelectTag(index, item.sortType),
+                          );
+                        },
+                        itemCount: newTags.length,
+                      );
+                    }),
+                  ),
                 ),
               ),
           response != null && response.isNotEmpty
@@ -259,12 +289,16 @@ class _LivePageState extends State<LivePage>
     };
   }
 
-  List<Widget> _buildFollowList(ThemeData theme, LiveCardList item) {
+  List<Widget> _buildFollowList(
+    ThemeData theme,
+    LiveCardList item,
+    double hPad,
+  ) {
     final totalCount = item.cardData?.myIdolV1?.extraInfo?.totalCount ?? 0;
     return [
       SliverToBoxAdapter(
         child: Padding(
-          padding: const .only(bottom: 8.0),
+          padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 8),
           child: Row(
             mainAxisAlignment: .spaceBetween,
             children: [
@@ -298,7 +332,7 @@ class _LivePageState extends State<LivePage>
         ),
       ),
       if (item.cardData?.myIdolV1?.list case final list?)
-        if (list.isNotEmpty) _buildFollowBody(theme, list, totalCount),
+        if (list.isNotEmpty) _buildFollowBody(theme, list, totalCount, hPad),
     ];
   }
 
@@ -306,92 +340,98 @@ class _LivePageState extends State<LivePage>
     ThemeData theme,
     List<CardLiveItem> followList,
     int totalCount,
+    double hPad,
   ) {
     final listLength = followList.length;
     return SliverToBoxAdapter(
-      child: SizedBox(
-        // 3+4+45+6+10+12*textScaler
-        height: 68.0 + textScaler.scale(12),
-        child: CustomScrollView(
-          scrollDirection: Axis.horizontal,
-          controller: controller.followController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverFixedExtentList.builder(
-              itemExtent: 70,
-              itemCount: totalCount > listLength ? listLength + 1 : listLength,
-              itemBuilder: (context, index) {
-                if (index == listLength) {
-                  return Align(
-                    alignment: const Alignment(0, -0.3),
-                    child: GestureDetector(
-                      onTap: () => Get.to(const LiveFollowPage()),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: .circle,
-                          color: theme.colorScheme.onInverseSurface,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: hPad),
+        child: SizedBox(
+          // 3+4+45+6+10+12*textScaler
+          height: 68.0 + textScaler.scale(12),
+          child: CustomScrollView(
+            scrollDirection: Axis.horizontal,
+            controller: controller.followController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFixedExtentList.builder(
+                itemExtent: 70,
+                itemCount: totalCount > listLength
+                    ? listLength + 1
+                    : listLength,
+                itemBuilder: (context, index) {
+                  if (index == listLength) {
+                    return Align(
+                      alignment: const Alignment(0, -0.3),
+                      child: GestureDetector(
+                        onTap: () => Get.to(const LiveFollowPage()),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: .circle,
+                            color: theme.colorScheme.onInverseSurface,
+                          ),
+                          child: Icon(
+                            Icons.keyboard_arrow_right,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.keyboard_arrow_right,
-                          color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  }
+                  final item = followList[index];
+                  return Padding(
+                    padding: const .only(right: 5),
+                    child: SizedBox(
+                      width: 65,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => PageUtils.toLiveRoom(item.roomid),
+                        onLongPress: () {
+                          Feedback.forLongPress(context);
+                          Get.toNamed('/member?mid=${item.uid}');
+                        },
+                        onSecondaryTap: PlatformUtils.isMobile
+                            ? null
+                            : () => Get.toNamed('/member?mid=${item.uid}'),
+                        child: Column(
+                          mainAxisSize: .min,
+                          children: [
+                            Container(
+                              padding: const .all(2),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  width: 1.5,
+                                  color: theme.colorScheme.primary,
+                                  strokeAlign: BorderSide.strokeAlignInside,
+                                ),
+                                shape: .circle,
+                              ),
+                              child: NetworkImgLayer(
+                                type: .avatar,
+                                width: 45,
+                                height: 45,
+                                src: item.face,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.uname!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, height: 1),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   );
-                }
-                final item = followList[index];
-                return Padding(
-                  padding: const .only(right: 5),
-                  child: SizedBox(
-                    width: 65,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => PageUtils.toLiveRoom(item.roomid),
-                      onLongPress: () {
-                        Feedback.forLongPress(context);
-                        Get.toNamed('/member?mid=${item.uid}');
-                      },
-                      onSecondaryTap: PlatformUtils.isMobile
-                          ? null
-                          : () => Get.toNamed('/member?mid=${item.uid}'),
-                      child: Column(
-                        mainAxisSize: .min,
-                        children: [
-                          Container(
-                            padding: const .all(2),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                width: 1.5,
-                                color: theme.colorScheme.primary,
-                                strokeAlign: BorderSide.strokeAlignInside,
-                              ),
-                              shape: .circle,
-                            ),
-                            child: NetworkImgLayer(
-                              type: .avatar,
-                              width: 45,
-                              height: 45,
-                              src: item.face,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            item.uname!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, height: 1),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

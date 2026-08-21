@@ -4,6 +4,12 @@ import 'package:material_ui/material_ui.dart'
 abstract final class Style {
   static const cardSpace = 8.0;
   static const safeSpace = 12.0;
+
+  /// 视频竖版卡片网格（主页推荐/直播流）的行列间距
+  static const videoCardSpace = 12.0;
+
+  /// 视频竖版卡片文字区高度（标题/信息行/徽章行）
+  static const videoCardContentHeight = 74.0;
   static const mdRadius = BorderRadius.all(imgRadius);
   static const imgRadius = Radius.circular(10);
   static const aspectRatio = 16 / 10;

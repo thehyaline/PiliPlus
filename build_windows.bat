@@ -102,10 +102,18 @@ if not defined HAVE_FASTFORGE (
 set "INNO_DIR=C:\Program Files (x86)\Inno Setup 6"
 if not defined HAVE_FASTFORGE goto :skip_fastforge
 if not exist "%INNO_DIR%\ISCC.exe" goto :skip_inno
-if not exist "%INNO_DIR%\Languages\ChineseSimplified.isl" copy /y "windows\packaging\exe\ChineseSimplified.isl" "%INNO_DIR%\Languages\" >nul
-fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
+if not exist "%INNO_DIR%\Languages\ChineseSimplified.isl" (
+    copy /y "windows\packaging\exe\ChineseSimplified.isl" "%INNO_DIR%\Languages\" >nul 2>nul
+    if errorlevel 1 echo [信息] Inno Setup 无中文语言文件, 安装包将改用项目内置语言文件
+)
+call fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
 if errorlevel 1 goto :warn_installer
-for /r dist %%f in (*.exe) do move /y "%%f" "dist\windows\PiliPlus_windows_%RELEASE_VERSION%_x64_setup.exe" >nul
+REM 只移动 fastforge 生成的安装包 (dist\<版本>\ 下唯一的 setup exe)
+REM 不能全盘 for /r dist: 便携版目录里的 piliplus.exe 会覆盖安装包
+set "FF_SETUP="
+for /r "dist\%RELEASE_VERSION%" %%f in (*setup.exe) do set "FF_SETUP=%%f"
+if not defined FF_SETUP goto :warn_installer
+move /y "!FF_SETUP!" "dist\windows\PiliPlus_windows_%RELEASE_VERSION%_x64_setup.exe" >nul
 echo [信息] 安装包: dist\windows\PiliPlus_windows_%RELEASE_VERSION%_x64_setup.exe
 goto :build_done
 :skip_fastforge
@@ -115,7 +123,7 @@ goto :build_done
 echo [跳过] 未安装 Inno Setup，跳过安装包，安装: choco install innosetup -y
 goto :build_done
 :warn_installer
-echo [警告] 安装包生成失败，便携版不受影响
+echo [警告] 安装包生成失败, 便携版不受影响
 :build_done
 
 echo.

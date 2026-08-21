@@ -1,40 +1,59 @@
 ## 目标
 
-在"我的"页面（`lib/pages/mine/view.dart`）的"我的收藏"板块上方新增"观看记录"板块：标题行（观看记录 + ">" + 右侧刷新按钮，点击整行进入 `/history`）+ 横向滚动卡片列表（卡片尺寸与收藏夹一致，封面 + 主标题 + "UP主/主播 · 观看时间"副标题）。数据来源与观看记录页"全部"tab 相同（`UserHttp.historyList(type: 'all')`，游标分页），左滑接近末尾自动加载下一页；长按卡片弹出与观看记录页三点菜单完全相同的菜单（访问UP主 / 稍后再看 / 删除记录），删除成功后从横向列表移除（右侧自然左移）。
+每次进入"我的"页时自动**全量**刷新（用户信息 + 收藏 + 观看记录，即 `controller.onRefresh(isManual: false)`），覆盖：从其他 tab 切回、从任意 push 页面（视频页、观看记录页、收藏页、收藏夹详情等）返回。新进入（首次创建）已有 `onInit` 加载，不需额外处理。
 
-## 改动文件
+## 改动（3 个文件）
 
-### 1. 新增 `lib/pages/history/widgets/actions.dart`（从观看记录页提取共享逻辑，保证菜单/跳转行为完全一致）
+### 1. `lib/pages/mine/controller.dart` — tab 切回时全量刷新
 
-- `Future<void> openHistoryItem(HistoryItemModel item)`：把 `history/widgets/item.dart` 的 onTap 跳转逻辑原样搬出（article/live/pgc/cheese/archive 分发，`PageUtils.toVideoPage` / `toLiveRoom` / `viewPgc` / `viewPgcFromUri`，cid 缺失时 `SearchHttp.ab2cWithDimension` 补查）。
-- `List<PopupMenuEntry<void>> buildHistoryItemMenu(HistoryItemModel item, VoidCallback onDelete)`：三项菜单原样搬出 —— "访问：{authorName}"（有 authorMid 时）、"稍后再看"（排除 pgc/番剧/动画/直播/专栏）、"删除记录"。
+`MineController.onInit` 中订阅全局 tab 状态（GetX `ever`，Worker 随 controller `onClose` 自动清理，无泄漏）：
 
-### 2. 修改 `lib/pages/history/widgets/item.dart`
+```dart
+@override
+void onInit() {
+  super.onInit();
+  final mainController = Get.find<MainController>();
+  ever(mainController.selectedIndex, (index) {
+    if (mainController.navigationBars[index] == NavigationBarType.mine) {
+      onRefresh(isManual: false);
+    }
+  });
+  // 原有首次加载逻辑不变
+}
+```
 
-改用上述共享函数（onTap → `openHistoryItem(item)`，itemBuilder → `buildHistoryItemMenu(item, onDelete)`），行为完全不变，只是去重。
+- `selectedIndex` 是 `RxInt`（`lib/pages/main/controller.dart:39`），切 tab 时变化；`ever` 只在变化时触发，首次创建不会重复刷新。
+- `onRefresh(isManual: false)` 全量刷新（queryUserInfo + historyQueryData + 收藏），不跳回顶部，不影响切回时的滚动位置。
+- 不选在 `MainController.setIndex` 加分支：`MineController` 是懒创建的，`setIndex` 里 `Get.find` 会抛错或被迫提前创建 controller。
+- 新增 import：`pages/main/controller.dart`、`models/common/nav_bar_config.dart`。
 
-### 3. 新增 `lib/pages/mine/widgets/history_item.dart` — `MineHistoryItem` 卡片
+### 2. `lib/pages/mine/view.dart` — push 返回时全量刷新
 
-- 尺寸/样式与收藏夹卡片一致：封面 `NetworkImgLayer` 180×110、圆角 12、同款阴影 DecoratedBox；主标题单行 fade；副标题 `labelSmall` + outline 色，格式 `${authorName} · ${DateFormatUtils.chatFormat(viewAt, isHistory: true)}`（authorName 为空时只显示时间）。
-- `onTap` → `openHistoryItem(item)`（直播未开播 toast 等逻辑随之复用）。
-- `onLongPress`（桌面端同时 `onSecondaryTapDown`）→ `Feedback.forLongPress(context)` + `showMenu(position: PageUtils.menuPosition(按压位置), items: buildHistoryItemMenu(item, onDelete))`。
+`_MediaPageState` 混入 `RouteAware, RouteAwareMixin`（`route_aware_mixin.dart` 自动订阅/退订全局 `routeObserver`），实现：
 
-### 4. 修改 `lib/pages/mine/controller.dart` — MineController 增加历史状态机
+```dart
+@override
+void didPopNext() {
+  if (widget.showBackBtn ||
+      _mainController.navigationBars[_mainController.selectedIndex.value] ==
+          NavigationBarType.mine) {
+    controller.onRefresh(isManual: false);
+  }
+  super.didPopNext();
+}
+```
 
-- 新增字段：`Rx<LoadingState<List<HistoryItemModel>?>> historyState = LoadingState.loading().obs`、游标 `historyMax`/`historyViewAt`、`historyIsEnd`/`historyIsLoading`。
-- `historyQueryData([bool isRefresh = true])`：仿 `CommonListController.queryData` —— 请求 `UserHttp.historyList(type: 'all', max: historyMax, viewAt: historyViewAt, account: Accounts.history)`；成功时用末条的 `history.oid`/`viewAt` 更新游标，空列表置 `isEnd`；刷新替换列表、加载更多追加并 `historyState.refresh()`；刷新失败置 Error、加载更多失败 toast。未登录直接返回。
-- `historyDelete(HistoryItemModel item)`：仿观看记录页 `_onDelete` —— `SmartDialog.showLoading` → `UserHttp.delHistory('${item.history.business}_${item.kid}')` → 成功则 `list.remove(item)` + `historyState.refresh()`（列表删空且未到底时自动继续加载下一页补位），toast"已删除"；失败 `res.toast()`。
-- 挂接：`onInit`（有缓存时）和 `onRefresh`（登录后）里调用 `historyQueryData()`，使下拉刷新联动刷新历史板块。
+- `showBackBtn == true`：push 模式（`toMinePage` 中 `Get.to(MinePage(showBackBtn: true))`），返回即本页，直接刷新。
+- tab 模式：仅当前可见 tab 是"我的"时刷新，避免在别的 tab 从视频页返回时误刷（切回 tab 时由 `ever` 补刷）。
+- 新增 import：`common/widgets/route_aware_mixin.dart`（`NavigationBarType` 已导入）。
 
-### 5. 修改 `lib/pages/mine/view.dart`
+### 3. 删除冗余的 `_autoRefresh`（统一由 `didPopNext` 覆盖）
 
-- ListView children 中 `_buildActions` 之后、收藏板块 Obx 之前插入：
-  `Obx(() => controller.historyState.value is Loading ? const SizedBox.shrink() : _buildHistory(theme, secondary))`（未登录时 state 保持 Loading → 整块隐藏，与收藏一致）。
-- `_buildHistory`：仿 `_buildFav` —— Divider + `ListTile(dense)`（title 为 Text.rich："观看记录  " + `Icons.arrow_forward_ios` 小图标，无数字；`onTap: Get.toNamed('/history')?.whenComplete(_autoRefresh)`；trailing 为刷新 IconButton → `controller.historyQueryData()`）+ `_buildHistoryBody`。
-- `_buildHistoryBody`：switch loadingState —— `Success` 且列表为空 → shrink（与收藏一致）；否则外层 `NotificationListener<ScrollEndNotification>`（`metrics.pixels >= metrics.maxScrollExtent - 300` 时 `controller.historyQueryData(false)`，与 dynamics 页同一阈值模式）+ `SizedBox(height: 170)` + 横向 `ListView.separated`（padding left/right 20、top 10，间距 14，item 为 `MineHistoryItem`）；`Error` 显示错误文本。
+`_autoRefresh`（view.dart:461，pop 后延迟 150ms 的 `onRefresh(isManual: false)`）与 `didPopNext` 功能重复，保留会造成从 /history、/fav 返回时双重刷新（userInfo 请求两次）：
 
-## 行为要点
+- `lib/pages/mine/view.dart`：删除 `_autoRefresh` 定义及 3 处 `Get.toNamed(...)?.whenComplete(_autoRefresh)`（/history 标题行、/fav 标题行、查看更多按钮），`FavFolderItem` 不再传 `onPop`。
+- `lib/pages/mine/widgets/item.dart`：`FavFolderItem` 删除 `onPop` 字段/构造参数及 `?.whenComplete(onPop)` 调用（该组件仅 view.dart 一处使用，返回 /favDetail 的刷新由 `didPopNext` 覆盖）。
 
-- 菜单、跳转、删除接口与观看记录页完全一致（共享代码）；删除参数 `business_kid`、账号 `Accounts.history`（自动兼容无痕模式）。
-- 左滑自动翻页受 `isEnd`/`isLoading` 保护，不会重复请求。
-- 卡片为纯封面样式（不含进度条/角标），与收藏夹卡片观感一致。
+## 不改动
+
+`MainController`、观看记录页、已提交的 `actions.dart` / `history_item.dart`。未登录时 `onRefresh` 内部直接返回，不会发请求。

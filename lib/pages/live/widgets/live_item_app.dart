@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/video_card/cover_bottom_info.dart';
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/models_new/live/live_feed_index/card_data_list_item.dart';
 import 'package:PiliPlus/models_new/live/live_feed_index/feedback.dart';
@@ -53,12 +54,7 @@ class LiveCardVApp extends StatelessWidget {
                           height: boxConstraints.maxHeight,
                           borderRadius: const .vertical(top: .circular(12)),
                         ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: videoStat(),
-                        ),
+                        videoStat(),
                       ],
                     ),
                   ),
@@ -186,31 +182,15 @@ class LiveCardVApp extends StatelessWidget {
   }
 
   Widget videoStat() {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.only(top: 26, left: 10, right: 10),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[Colors.transparent, Colors.black54],
-          tileMode: TileMode.mirror,
-        ),
+    final textLarge = item.watchedShow?.textLarge;
+    return CoverBottomInfo(
+      left: Text(
+        item.areaName.toString(),
+        style: CoverBottomInfo.textStyle(),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            item.areaName.toString(),
-            style: const TextStyle(fontSize: 11, color: Colors.white),
-          ),
-          if (item.watchedShow?.textLarge case final textLarge?)
-            Text(
-              textLarge,
-              style: const TextStyle(fontSize: 11, color: Colors.white),
-            ),
-        ],
-      ),
+      right: textLarge != null
+          ? Text(textLarge, style: CoverBottomInfo.textStyle())
+          : null,
     );
   }
 }

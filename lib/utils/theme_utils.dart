@@ -1,5 +1,8 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/font_utils.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
@@ -38,10 +41,15 @@ abstract final class ThemeUtils {
     final fontWeight = appFontWeight == -1
         ? null
         : FontWeight.values[appFontWeight];
+    final fontFamily =
+        PlatformUtils.isWindows && Pref.appFontFamily == AppFontType.harmony
+        ? FontUtils.harmonyFamily
+        : null;
     late final textStyle = TextStyle(fontWeight: fontWeight);
     ThemeData theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      fontFamily: fontFamily,
       textTheme: fontWeight == null
           ? null
           : TextTheme(

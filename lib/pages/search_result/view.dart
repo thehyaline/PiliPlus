@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
@@ -9,6 +10,8 @@ import 'package:PiliPlus/pages/search_panel/pgc/view.dart';
 import 'package:PiliPlus/pages/search_panel/user/view.dart';
 import 'package:PiliPlus/pages/search_panel/video/view.dart';
 import 'package:PiliPlus/pages/search_result/controller.dart';
+import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -40,6 +43,8 @@ class _SearchResultPageState extends State<SearchResultPage>
       initialIndex: Get.arguments?['initIndex'] ?? 0,
       length: SearchType.values.length,
     );
+    // 切换类型时按当前面板的卡片区域重新对齐过滤器
+    _tabController.addListener(_onTabChanged);
 
     if (_isFromSearch) {
       try {
@@ -55,10 +60,15 @@ class _SearchResultPageState extends State<SearchResultPage>
     sSearchController?.initIndex = _tabController.index;
   }
 
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _tabController
       ..removeListener(listener)
+      ..removeListener(_onTabChanged)
       ..dispose();
     super.dispose();
   }
@@ -100,53 +110,72 @@ class _SearchResultPageState extends State<SearchResultPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TabBar(
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              splashFactory: NoSplash.splashFactory,
-              padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-              controller: _tabController,
-              tabs: SearchType.values
-                  .map(
-                    (item) => Obx(
-                      () {
-                        int count = _searchResultController.count[item.index];
-                        return Tab(
-                          text:
-                              '${item.label}${count != -1 ? ' ${count > 99 ? '99+' : count}' : ''}',
-                        );
-                      },
-                    ),
-                  )
-                  .toList(),
-              isScrollable: true,
-              indicatorWeight: 0,
-              indicatorPadding: const EdgeInsets.symmetric(
-                horizontal: 3,
-                vertical: 8,
-              ),
-              indicator: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
-                borderRadius: const BorderRadius.all(Radius.circular(20)),
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelColor: theme.colorScheme.onSecondaryContainer,
-              labelStyle:
-                  TabBarTheme.of(
-                    context,
-                  ).labelStyle?.copyWith(fontSize: 13) ??
-                  const TextStyle(fontSize: 13),
-              dividerColor: Colors.transparent,
-              dividerHeight: 0,
-              unselectedLabelColor: theme.colorScheme.outline,
-              tabAlignment: TabAlignment.start,
-              onTap: (index) {
-                if (!_tabController.indexIsChanging) {
-                  if (_searchResultController.toTopIndex.value == index) {
-                    _searchResultController.toTopIndex.refresh();
-                  } else {
-                    _searchResultController.toTopIndex.value = index;
-                  }
-                }
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // 桌面端视频/直播面板的卡片区域带外边距且可能居中，
+                // 类型过滤器随之对齐；其余类型面板网格铺满全宽保持原样
+                final type = SearchType.values[_tabController.index];
+                final hPad =
+                    PlatformUtils.isDesktop &&
+                        (type == SearchType.video ||
+                            type == SearchType.live_room)
+                    ? Style.safeSpace +
+                          Grid.videoGridPadding(
+                            constraints.maxWidth - 2 * Style.safeSpace,
+                          )
+                    : 8.0;
+                return TabBar(
+                  overlayColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                  splashFactory: NoSplash.splashFactory,
+                  padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 0),
+                  controller: _tabController,
+                  tabs: SearchType.values
+                      .map(
+                        (item) => Obx(
+                          () {
+                            int count =
+                                _searchResultController.count[item.index];
+                            return Tab(
+                              text:
+                                  '${item.label}${count != -1 ? ' ${count > 99 ? '99+' : count}' : ''}',
+                            );
+                          },
+                        ),
+                      )
+                      .toList(),
+                  isScrollable: true,
+                  indicatorWeight: 0,
+                  indicatorPadding: const EdgeInsets.symmetric(
+                    horizontal: 3,
+                    vertical: 8,
+                  ),
+                  indicator: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: const BorderRadius.all(Radius.circular(20)),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: theme.colorScheme.onSecondaryContainer,
+                  labelStyle:
+                      TabBarTheme.of(
+                        context,
+                      ).labelStyle?.copyWith(fontSize: 13) ??
+                      const TextStyle(fontSize: 13),
+                  dividerColor: Colors.transparent,
+                  dividerHeight: 0,
+                  unselectedLabelColor: theme.colorScheme.outline,
+                  tabAlignment: TabAlignment.start,
+                  onTap: (index) {
+                    if (!_tabController.indexIsChanging) {
+                      if (_searchResultController.toTopIndex.value == index) {
+                        _searchResultController.toTopIndex.refresh();
+                      } else {
+                        _searchResultController.toTopIndex.value = index;
+                      }
+                    }
+                  },
+                );
               },
             ),
             Expanded(

@@ -377,31 +377,53 @@ class _MainAppState extends PopScopeState<MainApp>
             context: context,
             removeRight: true,
             child: DrawerTheme(
-              data: DrawerThemeData(width: 130 + _padding.left),
-              child: Obx(
-                () => NavigationDrawer(
-                  /// apply `lib/scripts/navigation_drawer.patch`
-                  flex: 5,
-                  backgroundColor: Colors.transparent,
-                  onDestinationSelected: _mainController.setIndex,
-                  selectedIndex: _mainController.selectedIndex.value,
-                  header: Expanded(flex: 4, child: userAndSearchVertical()),
-                  tilePadding: const .symmetric(vertical: 5, horizontal: 12),
-                  indicatorShape: const RoundedRectangleBorder(
-                    borderRadius: .all(.circular(16)),
-                  ),
-                  children: _mainController.navigationBars
-                      .map(
-                        (e) => NavigationDrawerDestination(
-                          label: Text(e.label),
-                          icon: _buildIcon(type: e),
-                          selectedIcon: _buildIcon(
-                            type: e,
-                            selected: true,
+              data: DrawerThemeData(width: 96 + _padding.left),
+              child: NavigationDrawerTheme(
+                data: NavigationDrawerThemeData(
+                  iconTheme: WidgetStateProperty.resolveWith((states) {
+                    return IconThemeData(
+                      size: 28,
+                      color: states.contains(WidgetState.selected)
+                          ? _colorScheme.onSecondaryContainer
+                          : _colorScheme.onSurfaceVariant,
+                    );
+                  }),
+                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                    return Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: states.contains(WidgetState.selected)
+                              ? _colorScheme.onSecondaryContainer
+                              : _colorScheme.onSurfaceVariant,
+                        );
+                  }),
+                ),
+                child: Obx(
+                  () => NavigationDrawer(
+                    /// apply `lib/scripts/navigation_drawer.patch`
+                    flex: 5,
+                    backgroundColor: Colors.transparent,
+                    onDestinationSelected: _mainController.setIndex,
+                    selectedIndex: _mainController.selectedIndex.value,
+                    header: Expanded(flex: 4, child: userAndSearchVertical()),
+                    tilePadding: const .symmetric(
+                      vertical: 5,
+                      horizontal: 12,
+                    ),
+                    indicatorShape: const RoundedRectangleBorder(
+                      borderRadius: .all(.circular(16)),
+                    ),
+                    children: _mainController.navigationBars
+                        .map(
+                          (e) => NavigationDrawerDestination(
+                            label: Text(e.label),
+                            icon: _buildIcon(type: e),
+                            selectedIcon: _buildIcon(
+                              type: e,
+                              selected: true,
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
+                        )
+                        .toList(),
+                  ),
                 ),
               ),
             ),

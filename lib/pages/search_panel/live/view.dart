@@ -5,6 +5,7 @@ import 'package:PiliPlus/pages/search_panel/controller.dart';
 import 'package:PiliPlus/pages/search_panel/live/widgets/item.dart';
 import 'package:PiliPlus/pages/search_panel/view.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -44,13 +45,20 @@ class _SearchLivePanelState
     );
   }
 
-  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    maxCrossAxisExtent: Grid.smallCardWidth,
-    crossAxisSpacing: Style.cardSpace,
-    mainAxisSpacing: Style.cardSpace,
-    childAspectRatio: Style.aspectRatio,
-    mainAxisExtent: MediaQuery.textScalerOf(context).scale(80),
-  );
+  // 桌面端沿用主页推荐流竖版列表样式，移动端保持原样式
+  late final gridDelegate = PlatformUtils.isDesktop
+      ? Grid.videoCardVDelegate(
+          mainAxisExtent: MediaQuery.textScalerOf(
+            context,
+          ).scale(Style.videoCardContentHeight),
+        )
+      : SliverGridDelegateWithExtentAndRatio(
+          maxCrossAxisExtent: Grid.smallCardWidth,
+          crossAxisSpacing: Style.cardSpace,
+          mainAxisSpacing: Style.cardSpace,
+          childAspectRatio: Style.aspectRatio,
+          mainAxisExtent: MediaQuery.textScalerOf(context).scale(80),
+        );
 
   @override
   Widget buildList(ThemeData theme, List<SearchLiveItemModel> list) {
@@ -65,7 +73,10 @@ class _SearchLivePanelState
           if (index == list.length - 1) {
             controller.onLoadMore();
           }
-          return LiveItem(liveItem: list[index]);
+          return LiveItem(
+            liveItem: list[index],
+            useNewStyle: PlatformUtils.isDesktop,
+          );
         },
         itemCount: list.length,
       ),
@@ -73,9 +84,15 @@ class _SearchLivePanelState
   }
 
   @override
-  Widget get buildLoading => SliverGrid.builder(
-    gridDelegate: gridDelegate,
-    itemBuilder: (context, index) => const VideoCardVSkeleton(),
-    itemCount: 10,
+  Widget get buildLoading => SliverPadding(
+    padding: const EdgeInsets.only(
+      left: Style.safeSpace,
+      right: Style.safeSpace,
+    ),
+    sliver: SliverGrid.builder(
+      gridDelegate: gridDelegate,
+      itemBuilder: (context, index) => const VideoCardVSkeleton(),
+      itemCount: 10,
+    ),
   );
 }

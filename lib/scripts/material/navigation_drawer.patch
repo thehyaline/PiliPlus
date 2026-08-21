@@ -22,6 +22,28 @@ index 396aa11..3ad2ff7 100644
                child: Material(
                  type: MaterialType.transparency,
                  child: ListView(children: wrappedChildren),
+@@ -400,13 +400,13 @@ class _NavigationDestinationBuilder extends StatelessWidget {
+             height: (navigationDrawerTheme.indicatorSize ?? defaults.indicatorSize!).height,
+           ),
+-          Row(
+-            children: <Widget>[
+-              const SizedBox(width: 16),
+-              buildIcon(context),
+-              const SizedBox(width: 12),
+-              buildLabel(context),
+-            ],
+-          ),
++          Column(
++            mainAxisSize: MainAxisSize.min,
++            children: <Widget>[
++              buildIcon(context),
++              const SizedBox(height: 4),
++              buildLabel(context),
++            ],
++          ),
+         ],
+       ),
+     );
 @@ -416,7 +420,7 @@ class _NavigationDestinationBuilder extends StatelessWidget {
        child: _NavigationDestinationSemantics(
          child: SizedBox(

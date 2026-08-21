@@ -21,6 +21,7 @@ import 'package:PiliPlus/utils/calc_window_position.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/core_palettes_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/font_utils.dart';
 import 'package:PiliPlus/utils/ime_controller.dart';
 import 'package:PiliPlus/utils/json_file_handler.dart';
 import 'package:PiliPlus/utils/max_screen_size.dart';
@@ -191,6 +192,8 @@ void main() async {
   if (Pref.dynamicColor) {
     await MyApp.initPlatformState();
   }
+
+  await FontUtils.loadHarmonyOSFonts();
 
   if (Pref.enableLog) {
     // 异常捕获 logo记录

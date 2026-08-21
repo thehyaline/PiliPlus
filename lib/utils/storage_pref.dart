@@ -17,6 +17,7 @@ import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
@@ -188,7 +189,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.smallCardWidth, defaultValue: 240.0);
 
   static double get recommendCardWidth =>
-      _setting.get(SettingBoxKey.recommendCardWidth, defaultValue: 240.0);
+      _setting.get(SettingBoxKey.recommendCardWidth, defaultValue: 220.0);
 
   static UpPanelPosition get upPanelPosition =>
       UpPanelPosition.values[_setting.get(
@@ -599,6 +600,10 @@ abstract final class Pref {
 
   static int get appFontWeight =>
       _setting.get(SettingBoxKey.appFontWeight, defaultValue: -1);
+
+  static AppFontType get appFontFamily => AppFontType.values[
+    _setting.get(SettingBoxKey.appFontFamily, defaultValue: 0)
+  ];
 
   static bool get enableDragSubtitle =>
       _setting.get(SettingBoxKey.enableDragSubtitle, defaultValue: false);

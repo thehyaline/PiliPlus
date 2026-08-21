@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
@@ -38,7 +37,7 @@ class MinePage extends StatefulWidget {
 }
 
 class _MediaPageState extends CommonPageState<MinePage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, RouteAware, RouteAwareMixin {
   final MineController controller = Get.putOrFind(MineController.new);
   late final MainController _mainController = Get.find<MainController>();
   final ScrollController _historyScrollController = ScrollController();
@@ -51,6 +50,17 @@ class _MediaPageState extends CommonPageState<MinePage>
 
   @override
   bool get wantKeepAlive => true;
+
+  // 从 push 页面返回"我的"页时自动刷新页面数据
+  @override
+  void didPopNext() {
+    if (widget.showBackBtn ||
+        _mainController.navigationBars[_mainController.selectedIndex.value] ==
+            NavigationBarType.mine) {
+      controller.onRefresh(isManual: false);
+    }
+    super.didPopNext();
+  }
 
   bool get checkPage =>
       _mainController.navigationBars[0] != NavigationBarType.mine &&
@@ -458,11 +468,6 @@ class _MediaPageState extends CommonPageState<MinePage>
     );
   }
 
-  void _autoRefresh() => Future.delayed(
-    const Duration(milliseconds: 150),
-    () => controller.onRefresh(isManual: false),
-  );
-
   Widget _buildHistory(ThemeData theme, Color secondary) {
     return Column(
       children: [
@@ -471,7 +476,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           color: theme.dividerColor.withValues(alpha: 0.1),
         ),
         ListTile(
-          onTap: () => Get.toNamed('/history')?.whenComplete(_autoRefresh),
+          onTap: () => Get.toNamed('/history'),
           dense: true,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
@@ -570,7 +575,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           color: theme.dividerColor.withValues(alpha: 0.1),
         ),
         ListTile(
-          onTap: () => Get.toNamed('/fav')?.whenComplete(_autoRefresh),
+          onTap: () => Get.toNamed('/fav'),
           dense: true,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
@@ -649,8 +654,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                             ),
                           ),
                         ),
-                        onPressed: () =>
-                            Get.toNamed('/fav')?.whenComplete(_autoRefresh),
+                        onPressed: () => Get.toNamed('/fav'),
                         icon: Icon(
                           Icons.arrow_forward_ios,
                           size: 18,
@@ -663,7 +667,6 @@ class _MediaPageState extends CommonPageState<MinePage>
                   return FavFolderItem(
                     heroTag: Utils.generateRandomString(8),
                     item: response.list[index],
-                    onPop: _autoRefresh,
                   );
                 }
               },
