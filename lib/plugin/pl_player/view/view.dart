@@ -43,7 +43,6 @@ import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/gesture_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
-import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/backward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/bottom_control.dart';
@@ -600,45 +599,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
-      /// 画面比例
-      BottomControlType.fit => Obx(
-        () {
-          final fit = plPlayerController.videoFit.value;
-          return PopupMenuButton<VideoFitType>(
-            tooltip: '画面比例',
-            requestFocus: false,
-            initialValue: fit,
-            color: Colors.black.withValues(alpha: 0.8),
-            itemBuilder: (context) {
-              return VideoFitType.values
-                  .map(
-                    (boxFit) => PopupMenuItem<VideoFitType>(
-                      height: 35,
-                      padding: const EdgeInsets.only(left: 30),
-                      value: boxFit,
-                      onTap: () => plPlayerController.toggleVideoFit(boxFit),
-                      child: Text(
-                        boxFit.desc,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList();
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                fit.desc,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-            ),
-          );
-        },
-      ),
-
       BottomControlType.aiTranslate => Obx(
         () {
           final list = videoDetailController.languages.value;
@@ -912,7 +872,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (plPlayerController.isAnim) .superResolution,
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
       if (isNotFileSource && anySeason) .episode,
-      if (flag) .fit,
       if (isNotFileSource) .aiTranslate,
       .subtitle,
       .speed,

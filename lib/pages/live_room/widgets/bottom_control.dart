@@ -2,7 +2,6 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
 import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -126,39 +125,6 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
               color: Colors.white,
             ),
             onTap: () => showSetDanmaku(isLive: true),
-          ),
-          Obx(
-            () => PopupMenuButton<VideoFitType>(
-              tooltip: '画面比例',
-              initialValue: plPlayerController.videoFit.value,
-              color: Colors.black.withValues(alpha: 0.8),
-              itemBuilder: (context) {
-                return VideoFitType.values
-                    .map(
-                      (boxFit) => PopupMenuItem<VideoFitType>(
-                        height: 35,
-                        padding: const EdgeInsets.only(left: 30),
-                        value: boxFit,
-                        onTap: () => plPlayerController.toggleVideoFit(boxFit),
-                        child: Text(
-                          boxFit.desc,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList();
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  plPlayerController.videoFit.value.desc,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ),
-            ),
           ),
           Obx(
             () => PopupMenuButton<int>(

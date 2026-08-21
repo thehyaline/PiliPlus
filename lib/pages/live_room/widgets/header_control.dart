@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -22,6 +23,7 @@ import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
@@ -262,6 +264,34 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                     ),
                   ),
                   PopupMenuItem(
+                    onTap: showSetVideoFit,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Row(
+                          spacing: 8,
+                          children: [
+                            Icon(Icons.aspect_ratio, size: 17),
+                            Text('画面比例', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                        Obx(
+                          () => Padding(
+                            padding: const EdgeInsets.only(left: 25),
+                            child: Text(
+                              '当前比例 ${plPlayerController.videoFit.value.desc}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
                     height: 35,
                     child: const Row(
                       spacing: 8,
@@ -299,6 +329,65 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
             ),
         ],
       ),
+    );
+  }
+
+  // 选择画面比例
+  void showSetVideoFit() {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxWidth: math.min(640, context.mediaQueryShortestSide),
+      ),
+      builder: (context) {
+        final colorScheme = ColorScheme.of(context);
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Material(
+            clipBehavior: Clip.hardEdge,
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  height: 45,
+                  child: Center(
+                    child: Text('选择画面比例', style: TextStyle(fontSize: 14)),
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: VideoFitType.values.map((item) {
+                      final isCurr = plPlayerController.videoFit.value == item;
+                      return ListTile(
+                        dense: true,
+                        onTap: () {
+                          if (isCurr) return;
+                          Get.back();
+                          plPlayerController.toggleVideoFit(item);
+                          SmartDialog.showToast("画面比例已变为：${item.desc}");
+                        },
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                        ),
+                        title: Text(item.desc),
+                        trailing: isCurr
+                            ? Icon(Icons.done, color: colorScheme.primary)
+                            : null,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -38,6 +38,7 @@ import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliPlus/utils/accounts.dart';
@@ -646,6 +647,21 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ],
+                ListTile(
+                  dense: true,
+                  onTap: () {
+                    Get.back();
+                    showSetVideoFit();
+                  },
+                  leading: const Icon(Icons.aspect_ratio, size: 20),
+                  title: const Text('画面比例', style: titleStyle),
+                  subtitle: Obx(
+                    () => Text(
+                      '当前比例 ${plPlayerController.videoFit.value.desc}',
+                      style: subTitleStyle,
+                    ),
+                  ),
+                ),
                 PopupListTile(
                   dense: true,
                   leading: const Icon(Icons.repeat, size: 20),
@@ -1132,6 +1148,63 @@ class HeaderControlState extends State<HeaderControl>
                             contentPadding: const .symmetric(horizontal: 20),
                             title: Text(format.description),
                             subtitle: Text(item, style: subTitleStyle),
+                            trailing: isCurr
+                                ? Icon(Icons.done, color: colorScheme.primary)
+                                : null,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 选择画面比例
+  void showSetVideoFit() {
+    showBottomSheet(
+      (context, setState) {
+        final colorScheme = ColorScheme.of(context);
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Material(
+            clipBehavior: Clip.hardEdge,
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            child: Column(
+              children: [
+                const SizedBox(
+                  height: 45,
+                  child: Center(
+                    child: Text('选择画面比例', style: titleStyle),
+                  ),
+                ),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverList.builder(
+                        itemCount: VideoFitType.values.length,
+                        itemBuilder: (context, index) {
+                          final item = VideoFitType.values[index];
+                          final isCurr =
+                              plPlayerController.videoFit.value == item;
+                          return ListTile(
+                            dense: true,
+                            onTap: () {
+                              if (isCurr) return;
+                              Get.back();
+                              plPlayerController.toggleVideoFit(item);
+                              SmartDialog.showToast(
+                                "画面比例已变为：${item.desc}",
+                              );
+                            },
+                            contentPadding: const .symmetric(horizontal: 20),
+                            title: Text(item.desc),
                             trailing: isCurr
                                 ? Icon(Icons.done, color: colorScheme.primary)
                                 : null,
