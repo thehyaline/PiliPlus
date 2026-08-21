@@ -5,6 +5,9 @@ abstract final class Style {
   static const cardSpace = 8.0;
   static const safeSpace = 12.0;
 
+  /// 动态瀑布流统一间距：页面左右外边距、卡片上下间距、列间间距均为 16
+  static const waterfallMargin = 16.0;
+
   /// 视频竖版卡片网格（主页推荐/直播流）的行列间距
   static const videoCardSpace = 12.0;
 

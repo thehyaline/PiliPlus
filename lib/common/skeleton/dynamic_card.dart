@@ -17,97 +17,99 @@ class DynamicCardSkeleton extends StatelessWidget {
       ),
     );
     return Skeleton(
-      child: Container(
-        padding: const EdgeInsets.only(left: 12, right: 12, top: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              width: 8,
-              color: theme.dividerColor.withValues(alpha: 0.05),
-            ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          // 底部 12 加上骨架网格 mainAxisSpacing 4，与真实卡片间距 16 一致
+          padding: const EdgeInsets.only(
+            left: 12,
+            right: 12,
+            top: 12,
+            bottom: 12,
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: const BorderRadius.all(Radius.circular(20)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: const BorderRadius.all(Radius.circular(20)),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      color: color,
-                      width: 100,
-                      height: 13,
-                      margin: const EdgeInsets.only(bottom: 5),
-                    ),
-                    Container(
-                      color: color,
-                      width: 50,
-                      height: 11,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              color: color,
-              width: double.infinity,
-              height: 13,
-              margin: const EdgeInsets.only(bottom: 7),
-            ),
-            Container(
-              color: color,
-              width: double.infinity,
-              height: 13,
-              margin: const EdgeInsets.only(bottom: 7),
-            ),
-            Container(
-              color: color,
-              width: 300,
-              height: 13,
-              margin: const EdgeInsets.only(bottom: 7),
-            ),
-            Container(
-              color: color,
-              width: 250,
-              height: 13,
-              margin: const EdgeInsets.only(bottom: 7),
-            ),
-            Container(
-              color: color,
-              width: 100,
-              height: 13,
-              margin: const EdgeInsets.only(bottom: 7),
-            ),
-            if (GlobalData().dynamicsWaterfallFlow) const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const ['转发', '评论', '点赞']
-                  .map(
-                    (e) => TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.radio_button_unchecked_outlined,
-                        size: 20,
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        color: color,
+                        width: 100,
+                        height: 13,
+                        margin: const EdgeInsets.only(bottom: 5),
                       ),
-                      style: buttonStyle,
-                      label: Text(e),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
+                      Container(
+                        color: color,
+                        width: 50,
+                        height: 11,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                color: color,
+                width: double.infinity,
+                height: 13,
+                margin: const EdgeInsets.only(bottom: 7),
+              ),
+              Container(
+                color: color,
+                width: double.infinity,
+                height: 13,
+                margin: const EdgeInsets.only(bottom: 7),
+              ),
+              Container(
+                color: color,
+                width: 300,
+                height: 13,
+                margin: const EdgeInsets.only(bottom: 7),
+              ),
+              Container(
+                color: color,
+                width: 250,
+                height: 13,
+                margin: const EdgeInsets.only(bottom: 7),
+              ),
+              Container(
+                color: color,
+                width: 100,
+                height: 13,
+                margin: const EdgeInsets.only(bottom: 7),
+              ),
+              if (GlobalData().dynamicsWaterfallFlow) const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: const ['转发', '评论', '点赞']
+                    .map(
+                      (e) => TextButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.radio_button_unchecked_outlined,
+                          size: 20,
+                        ),
+                        style: buttonStyle,
+                        label: Text(e),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );

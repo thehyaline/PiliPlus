@@ -271,17 +271,13 @@ class PlayerFocus extends StatelessWidget {
 
           case LogicalKeyboardKey.bracketLeft:
             if (introController case final introController?) {
-              if (!introController.prevPlay()) {
-                SmartDialog.showToast('已经是第一集了');
-              }
+              introController.prevPlay();
             }
             return true;
 
           case LogicalKeyboardKey.bracketRight:
             if (introController case final introController?) {
-              if (!introController.nextPlay()) {
-                SmartDialog.showToast('已经是最后一集了');
-              }
+              introController.nextPlay();
             }
             return true;
         }

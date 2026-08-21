@@ -12,14 +12,14 @@ mixin DynMixin {
   late final dynGridDelegate =
       SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: Grid.smallCardWidth * 2,
-        crossAxisSpacing: 4,
+        crossAxisSpacing: Style.waterfallMargin,
       );
 
   Widget buildPage(Widget child) {
     if (GlobalData().dynamicsWaterfallFlow) {
-      // 瀑布流模式给左右留出外边距，与普通模式对齐
+      // 瀑布流模式给左右留出外边距，与卡片上下/列间间距统一
       return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
+        padding: const EdgeInsets.symmetric(horizontal: Style.waterfallMargin),
         sliver: child,
       );
     }
@@ -30,7 +30,7 @@ mixin DynMixin {
   }
 
   late final skeDelegate = SliverGridDelegateWithExtentAndRatio(
-    crossAxisSpacing: 4,
+    crossAxisSpacing: Style.waterfallMargin,
     mainAxisSpacing: 4,
     maxCrossAxisExtent: Grid.smallCardWidth * 2,
     childAspectRatio: Style.aspectRatio,

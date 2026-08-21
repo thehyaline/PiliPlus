@@ -49,7 +49,7 @@ class _SearchAllPanelState
     return SliverWaterfallFlow(
       gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: Grid.smallCardWidth * 2,
-        crossAxisSpacing: Style.safeSpace,
+        crossAxisSpacing: Style.waterfallMargin,
       ),
       delegate: SliverChildBuilderDelegate(
         (_, index) {

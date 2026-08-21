@@ -65,8 +65,8 @@ class _MemberOpusState extends State<MemberOpus>
               SliverPadding(
                 padding: EdgeInsets.only(
                   top: widget.isSingle ? 12 : 0,
-                  left: Style.safeSpace,
-                  right: Style.safeSpace,
+                  left: Style.waterfallMargin,
+                  right: Style.waterfallMargin,
                   bottom: bottom + 100,
                 ),
                 sliver: Obx(() => _buildBody(_controller.loadingState.value)),
@@ -131,9 +131,9 @@ class _MemberOpusState extends State<MemberOpus>
   }
 
   late final gridDelegate = SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
-    maxCrossAxisExtent: Grid.smallCardWidth,
-    mainAxisSpacing: Style.safeSpace,
-    crossAxisSpacing: Style.safeSpace,
+    maxCrossAxisExtent: Grid.smallCardWidth * 2,
+    mainAxisSpacing: 4,
+    crossAxisSpacing: Style.waterfallMargin,
   );
 
   Widget _buildBody(LoadingState<List<SpaceOpusItemModel>?> loadingState) {

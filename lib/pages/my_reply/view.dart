@@ -79,17 +79,19 @@ class _MyReplyState extends State<MyReply> with DynMixin {
         slivers: [
           _replies.isNotEmpty
               ? ViewSliverSafeArea(
-                  sliver: SliverWaterfallFlow(
-                    gridDelegate: dynGridDelegate,
-                    delegate: SliverChildBuilderDelegate(
-                      childCount: _replies.length,
-                      (context, index) => ReplyItemGrpc(
-                        replyLevel: 0,
-                        needDivider: false,
-                        replyItem: _replies[index],
-                        replyReply: _replyReply,
-                        onDelete: (_, _) => _onDelete(index),
-                        onCheckReply: _onCheckReply,
+                  sliver: buildPage(
+                    SliverWaterfallFlow(
+                      gridDelegate: dynGridDelegate,
+                      delegate: SliverChildBuilderDelegate(
+                        childCount: _replies.length,
+                        (context, index) => ReplyItemGrpc(
+                          replyLevel: 0,
+                          needDivider: false,
+                          replyItem: _replies[index],
+                          replyReply: _replyReply,
+                          onDelete: (_, _) => _onDelete(index),
+                          onCheckReply: _onCheckReply,
+                        ),
                       ),
                     ),
                   ),

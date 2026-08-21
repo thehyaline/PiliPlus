@@ -440,7 +440,6 @@ class _EpisodePanelState extends State<EpisodePanel>
                 SmartDialog.showToast('需要大会员');
                 // return;
               }
-              SmartDialog.showToast('切换到：$title');
               widget.onClose?.call();
 
               widget.onChangeEpisode(episode).then((res) {

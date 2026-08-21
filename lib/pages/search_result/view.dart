@@ -84,24 +84,53 @@ class _SearchResultPageState extends State<SearchResultPage>
             width: 1,
           ),
         ),
-        title: GestureDetector(
-          onTap: () {
-            if (_isFromSearch) {
-              Get.back();
-            } else {
-              Get.offNamed(
-                '/search',
-                parameters: {'text': _searchResultController.keyword},
-              );
-            }
-          },
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: double.infinity,
-            child: Text(
-              _searchResultController.keyword,
-              style: theme.textTheme.titleMedium,
-              maxLines: 1,
+        titleSpacing: 0,
+        // 与返回按钮等宽占位，保持搜索框居中
+        actions: const [SizedBox(width: 56)],
+        title: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 200, maxWidth: 500),
+            child: SizedBox(
+              height: 44,
+              child: Material(
+                borderRadius: const BorderRadius.all(Radius.circular(25)),
+                color: theme.colorScheme.onSecondaryContainer.withValues(
+                  alpha: 0.05,
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    if (_isFromSearch) {
+                      Get.back();
+                    } else {
+                      Get.offNamed(
+                        '/search',
+                        parameters: {'text': _searchResultController.keyword},
+                      );
+                    }
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(
+                        Icons.search_outlined,
+                        size: 20,
+                        color: theme.colorScheme.outline,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _searchResultController.keyword,
+                          style: theme.textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),

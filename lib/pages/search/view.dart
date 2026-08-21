@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/disabled_icon.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -96,6 +97,7 @@ class _SearchPageState extends State<SearchPage> {
         width: 1,
       ),
     ),
+    titleSpacing: 0,
     actions: [
       Obx(
         () => _searchController.showUidBtn.value
@@ -106,32 +108,61 @@ class _SearchPageState extends State<SearchPage> {
                   '/member?mid=${_searchController.controller.text}',
                 ),
               )
-            : const SizedBox.shrink(),
-      ),
-      IconButton(
-        tooltip: '清空',
-        icon: const Icon(Icons.clear, size: 22),
-        onPressed: _searchController.onClear,
-      ),
-      IconButton(
-        tooltip: '搜索',
-        onPressed: _searchController.submit,
-        icon: const Icon(Icons.search, size: 22),
+            // 与 UID 按钮等宽占位，与返回按钮对称，保持搜索框居中
+            : const SizedBox(width: 48),
       ),
       const SizedBox(width: 10),
     ],
-    title: TextField(
-      autofocus: true,
-      focusNode: _searchController.searchFocusNode,
-      controller: _searchController.controller,
-      textInputAction: TextInputAction.search,
-      onChanged: _searchController.onChange,
-      decoration: InputDecoration(
-        visualDensity: .standard,
-        hintText: _searchController.hintText ?? '搜索',
-        border: InputBorder.none,
+    title: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 200, maxWidth: 500),
+        child: SizedBox(
+          height: 44,
+          child: Material(
+            borderRadius: const BorderRadius.all(Radius.circular(25)),
+            color: theme.colorScheme.onSecondaryContainer.withValues(
+              alpha: 0.05,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    autofocus: true,
+                    focusNode: _searchController.searchFocusNode,
+                    controller: _searchController.controller,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _searchController.onChange,
+                    textAlignVertical: TextAlignVertical.center,
+                    decoration: InputDecoration(
+                      visualDensity: .standard,
+                      isDense: true,
+                      hintText: _searchController.hintText ?? '搜索',
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                    ),
+                    onSubmitted: (value) => _searchController.submit(),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '清空',
+                  style: Style.buttonStyle,
+                  icon: const Icon(Icons.clear, size: 22),
+                  onPressed: _searchController.onClear,
+                ),
+                IconButton(
+                  tooltip: '搜索',
+                  style: Style.buttonStyle,
+                  onPressed: _searchController.submit,
+                  icon: const Icon(Icons.search, size: 22),
+                ),
+                const SizedBox(width: 10),
+              ],
+            ),
+          ),
+        ),
       ),
-      onSubmitted: (value) => _searchController.submit(),
     ),
   );
 

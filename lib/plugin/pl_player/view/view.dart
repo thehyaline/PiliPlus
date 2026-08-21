@@ -421,11 +421,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           size: 22,
           color: Colors.white,
         ),
-        onTap: () {
-          if (!introController.prevPlay()) {
-            SmartDialog.showToast('已经是第一集了');
-          }
-        },
+        onTap: () => introController.prevPlay(),
       ),
 
       /// 下一集
@@ -438,11 +434,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           size: 22,
           color: Colors.white,
         ),
-        onTap: () {
-          if (!introController.nextPlay()) {
-            SmartDialog.showToast('已经是最后一集了');
-          }
-        },
+        onTap: () => introController.nextPlay(),
       ),
 
       /// 时间进度
@@ -1293,6 +1285,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
     } else if (controlsUnlock) {
       if (plPlayerController.isLive) {
+        if (event.kind != ui.PointerDeviceKind.mouse) {
+          _tapGestureRecognizer.addPointer(event);
+        }
         _doubleTapGestureRecognizer.addPointer(event);
       } else {
         _tapGestureRecognizer.addPointer(event);

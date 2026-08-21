@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:ui' show ImageFilter;
+
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -16,6 +18,8 @@ const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight / 2));
 const _kNavigationShape = RoundedSuperellipseBorder(
   borderRadius: _kBorderRadius,
 );
+const _kBlurSigma = 15.0;
+const _kBackgroundOpacity = 0.72;
 
 /// ref [NavigationBar]
 class FloatingNavigationBar extends StatelessWidget {
@@ -84,51 +88,63 @@ class FloatingNavigationBar extends StatelessWidget {
       child: SizedBox(
         height: _kNavigationHeight,
         width: destinations.length * _kIndicatorWidth,
-        child: DecoratedBox(
-          decoration: ShapeDecoration(
-            color: ElevationOverlay.applySurfaceTint(
-              backgroundColor ??
-                  navigationBarTheme.backgroundColor ??
-                  defaults.backgroundColor!,
-              surfaceTintColor ??
-                  navigationBarTheme.surfaceTintColor ??
-                  defaults.surfaceTintColor,
-              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
+        child: ClipPath(
+          clipper: const _ShapeBorderClipper(_kNavigationShape),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: _kBlurSigma,
+              sigmaY: _kBlurSigma,
             ),
-            shape: RoundedSuperellipseBorder(
-              side: defaults.borderSide,
-              borderRadius: _kBorderRadius,
-            ),
-          ),
-          child: Padding(
-            padding: _kIndicatorPadding,
-            child: Row(
-              crossAxisAlignment: .stretch,
-              children: <Widget>[
-                for (int i = 0; i < destinations.length; i++)
-                  Expanded(
-                    child: _SelectableAnimatedBuilder(
-                      duration: animationDuration,
-                      isSelected: i == selectedIndex,
-                      builder: (context, animation) {
-                        return _NavigationDestinationInfo(
-                          index: i,
-                          selectedIndex: selectedIndex,
-                          totalNumberOfDestinations: destinations.length,
-                          selectedAnimation: animation,
-                          labelBehavior: effectiveLabelBehavior,
-                          indicatorColor: indicatorColor,
-                          indicatorShape: indicatorShape,
-                          overlayColor: overlayColor,
-                          onTap: _handleTap(i),
-                          labelTextStyle: labelTextStyle,
-                          labelPadding: labelPadding,
-                          child: destinations[i],
-                        );
-                      },
-                    ),
-                  ),
-              ],
+            child: DecoratedBox(
+              decoration: ShapeDecoration(
+                color: ElevationOverlay.applySurfaceTint(
+                  backgroundColor ??
+                      navigationBarTheme.backgroundColor ??
+                      defaults.backgroundColor!,
+                  surfaceTintColor ??
+                      navigationBarTheme.surfaceTintColor ??
+                      defaults.surfaceTintColor,
+                  elevation ??
+                      navigationBarTheme.elevation ??
+                      defaults.elevation!,
+                ),
+                shape: RoundedSuperellipseBorder(
+                  side: defaults.borderSide,
+                  borderRadius: _kBorderRadius,
+                ),
+              ),
+              child: Padding(
+                padding: _kIndicatorPadding,
+                child: Row(
+                  crossAxisAlignment: .stretch,
+                  children: <Widget>[
+                    for (int i = 0; i < destinations.length; i++)
+                      Expanded(
+                        child: _SelectableAnimatedBuilder(
+                          duration: animationDuration,
+                          isSelected: i == selectedIndex,
+                          builder: (context, animation) {
+                            return _NavigationDestinationInfo(
+                              index: i,
+                              selectedIndex: selectedIndex,
+                              totalNumberOfDestinations:
+                                  destinations.length,
+                              selectedAnimation: animation,
+                              labelBehavior: effectiveLabelBehavior,
+                              indicatorColor: indicatorColor,
+                              indicatorShape: indicatorShape,
+                              overlayColor: overlayColor,
+                              onTap: _handleTap(i),
+                              labelTextStyle: labelTextStyle,
+                              labelPadding: labelPadding,
+                              child: destinations[i],
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -725,7 +741,8 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
       : const BorderSide(color: Color(0x08000000));
 
   @override
-  Color? get backgroundColor => _colors.surfaceContainer;
+  Color? get backgroundColor =>
+      _colors.surfaceContainer.withValues(alpha: _kBackgroundOpacity);
 
   @override
   Color? get shadowColor => Colors.transparent;
@@ -770,4 +787,17 @@ class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
 
   @override
   EdgeInsetsGeometry? get labelPadding => const EdgeInsets.only(top: 2);
+}
+
+class _ShapeBorderClipper extends CustomClipper<Path> {
+  const _ShapeBorderClipper(this.shape);
+
+  final ShapeBorder shape;
+
+  @override
+  Path getClip(Size size) => shape.getOuterPath(Offset.zero & size);
+
+  @override
+  bool shouldReclip(_ShapeBorderClipper oldClipper) =>
+      oldClipper.shape != shape;
 }
