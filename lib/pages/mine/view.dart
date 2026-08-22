@@ -480,36 +480,20 @@ class _MediaPageState extends CommonPageState<MinePage>
           dense: true,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '观看记录  ',
-                    style: TextStyle(
-                      fontSize: theme.textTheme.titleMedium!.fontSize,
-                      fontWeight: .bold,
-                    ),
-                  ),
-                  WidgetSpan(
-                    child: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 18,
-                      color: secondary,
-                    ),
-                  ),
-                ],
+            child: Text(
+              '观看记录',
+              style: TextStyle(
+                fontSize: theme.textTheme.titleMedium!.fontSize,
               ),
             ),
           ),
-          trailing: IconButton(
-            tooltip: '刷新',
-            onPressed: () {
-              controller.historyQueryData();
-              if (_historyScrollController.hasClients) {
-                _historyScrollController.jumpTo(0);
-              }
-            },
-            icon: const Icon(Icons.refresh, size: 20),
+          trailing: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: secondary,
+            ),
           ),
         ),
         _buildHistoryBody(theme, secondary, controller.historyState.value),
@@ -570,10 +554,6 @@ class _MediaPageState extends CommonPageState<MinePage>
   Widget _buildFav(ThemeData theme, Color secondary) {
     return Column(
       children: [
-        Divider(
-          height: 20,
-          color: theme.dividerColor.withValues(alpha: 0.1),
-        ),
         ListTile(
           onTap: () => Get.toNamed('/fav'),
           dense: true,
@@ -583,35 +563,30 @@ class _MediaPageState extends CommonPageState<MinePage>
               TextSpan(
                 children: [
                   TextSpan(
-                    text: '我的收藏  ',
+                    text: '我的收藏 ',
                     style: TextStyle(
                       fontSize: theme.textTheme.titleMedium!.fontSize,
-                      fontWeight: .bold,
                     ),
                   ),
                   if (controller.favFolderCount != null)
                     TextSpan(
-                      text: "${controller.favFolderCount}  ",
+                      text: "${controller.favFolderCount} ",
                       style: TextStyle(
                         fontSize: theme.textTheme.titleSmall!.fontSize,
                         color: secondary,
                       ),
                     ),
-                  WidgetSpan(
-                    child: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 18,
-                      color: secondary,
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
-          trailing: IconButton(
-            tooltip: '刷新',
-            onPressed: controller.onRefresh,
-            icon: const Icon(Icons.refresh, size: 20),
+          trailing: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: secondary,
+            ),
           ),
         ),
         _buildFavBody(theme, secondary, controller.loadingState.value),

@@ -37,70 +37,55 @@ class MineHistoryItem extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.onInverseSurface.withValues(
-                      alpha: 0.4,
-                    ),
-                    offset: const Offset(6, -8),
-                    blurRadius: 0.0,
-                    spreadRadius: 0.0,
+            Stack(
+              children: [
+                NetworkImgLayer(
+                  src: item.cover?.isNotEmpty == true
+                      ? item.cover
+                      : item.covers?.firstOrNull ?? '',
+                  width: 180,
+                  height: 110,
+                ),
+                if (hasDuration)
+                  PBadge(
+                    text: item.progress == -1
+                        ? '已看完'
+                        : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
+                    right: 6.0,
+                    bottom: 8.0,
+                    type: PBadgeType.gray,
                   ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  NetworkImgLayer(
-                    src: item.cover?.isNotEmpty == true
-                        ? item.cover
-                        : item.covers?.firstOrNull ?? '',
-                    width: 180,
-                    height: 110,
+                if (item.history.business == 'live' && item.liveStatus == 1)
+                  const PBadge(
+                    text: '直播中',
+                    top: 6.0,
+                    right: 6.0,
+                    type: PBadgeType.primary,
+                  )
+                else if (item.history.business == 'live')
+                  PBadge(
+                    text: item.badge?.isNotEmpty == true
+                        ? item.badge!
+                        : '未开播',
+                    top: 6.0,
+                    right: 6.0,
+                    type: PBadgeType.gray,
+                  )
+                else if (item.isFav == 1)
+                  const PBadge(
+                    text: '已收藏',
+                    top: 6.0,
+                    right: 6.0,
+                    type: PBadgeType.gray,
+                  )
+                else if (item.badge?.isNotEmpty == true)
+                  PBadge(
+                    text: item.badge!,
+                    top: 6.0,
+                    right: 6.0,
+                    type: PBadgeType.primary,
                   ),
-                  if (hasDuration)
-                    PBadge(
-                      text: item.progress == -1
-                          ? '已看完'
-                          : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
-                      right: 6.0,
-                      bottom: 8.0,
-                      type: PBadgeType.gray,
-                    ),
-                  if (item.history.business == 'live' && item.liveStatus == 1)
-                    const PBadge(
-                      text: '直播中',
-                      top: 6.0,
-                      right: 6.0,
-                      type: PBadgeType.primary,
-                    )
-                  else if (item.history.business == 'live')
-                    PBadge(
-                      text: item.badge?.isNotEmpty == true
-                          ? item.badge!
-                          : '未开播',
-                      top: 6.0,
-                      right: 6.0,
-                      type: PBadgeType.gray,
-                    )
-                  else if (item.isFav == 1)
-                    const PBadge(
-                      text: '已收藏',
-                      top: 6.0,
-                      right: 6.0,
-                      type: PBadgeType.gray,
-                    )
-                  else if (item.badge?.isNotEmpty == true)
-                    PBadge(
-                      text: item.badge!,
-                      top: 6.0,
-                      right: 6.0,
-                      type: PBadgeType.primary,
-                    ),
-                ],
-              ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
