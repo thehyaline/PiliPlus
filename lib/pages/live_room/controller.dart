@@ -1,6 +1,7 @@
 import 'dart:async' show Timer, StreamSubscription;
 import 'dart:convert' show jsonDecode;
 import 'dart:math' as math;
+import 'dart:ui' show clampDouble;
 
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
@@ -671,6 +672,17 @@ class LiveRoomController extends GetxController {
       res.toast();
     }
     likeClickTime.value = 0;
+  }
+
+  /// 左右排布时右侧栏宽度（评论区/发送弹幕栏），与 view._buildBodyH 保持同步
+  static double rightPanelWidth(
+    double maxWidth,
+    double maxHeight,
+    EdgeInsets padding,
+  ) {
+    final videoWidth =
+        clampDouble(maxHeight / maxWidth * 1.08, 0.56, 0.7) * maxWidth;
+    return math.min(400.0, maxWidth - videoWidth - padding.horizontal);
   }
 
   void onSendDanmaku([bool fromEmote = false]) {

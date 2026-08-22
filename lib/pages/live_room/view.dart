@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -696,10 +695,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   }
 
   Widget _buildBodyH(bool isFullScreen) {
-    double videoWidth =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.56, 0.7) * maxWidth;
-    final rightWidth = min(400.0, maxWidth - videoWidth - padding.horizontal);
-    videoWidth = maxWidth - rightWidth - padding.horizontal;
+    final rightWidth = LiveRoomController.rightPanelWidth(
+      maxWidth,
+      maxHeight,
+      padding,
+    );
+    final videoWidth = maxWidth - rightWidth - padding.horizontal;
     final videoHeight = maxHeight - padding.top - kToolbarHeight;
     final width = isFullScreen ? maxWidth : videoWidth;
     final height = isFullScreen

@@ -8,6 +8,8 @@ import 'package:PiliPlus/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:PiliPlus/pages/live_emote/controller.dart';
 import 'package:PiliPlus/pages/live_emote/view.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -51,11 +53,29 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final plPlayerController = liveRoomController.plPlayerController;
+    final isFullScreen =
+        plPlayerController.isFullScreen.value ||
+        plPlayerController.isDesktopPip;
+    // 宽屏左右排布且非全屏时，右侧评论区栏可见，弹窗与其同宽右对齐
+    final isLandscapeLayout = !size.isPortrait && !isFullScreen;
+    final panelWidth = LiveRoomController.rightPanelWidth(
+      size.width,
+      // 与 view 相同：可用高度需扣除自绘标题栏
+      size.height - captionBarHeight,
+      MediaQuery.viewPaddingOf(context),
+    );
     return ViewSafeArea(
       child: Align(
-        alignment: Alignment.bottomCenter,
+        alignment: isLandscapeLayout
+            ? Alignment.bottomRight
+            : Alignment.bottomCenter,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 640),
+          width: isLandscapeLayout ? panelWidth : null,
+          constraints: isLandscapeLayout
+              ? null
+              : const BoxConstraints(maxWidth: 640),
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             color: theme.colorScheme.surface,
