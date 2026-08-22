@@ -6,7 +6,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:ffi/ffi.dart' show calloc;
-import 'package:flutter/foundation.dart' show ValueNotifier, debugPrint;
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
 import 'package:window_manager/window_manager.dart' show kWindowCaptionHeight;
@@ -99,7 +99,8 @@ void _hideTaskbarOnCurrentMonitor() {
 void _restoreTaskbars() {
   if (!PlatformUtils.isWindows) return;
   for (final hwnd in _hiddenTaskbars) {
-    win32.ShowWindow(hwnd, win32.SW_SHOW);
+    // SW_SHOWNA：恢复任务栏但不激活它，避免前台窗口被任务栏抢走。
+    win32.ShowWindow(hwnd, win32.SW_SHOWNA);
   }
   _hiddenTaskbars.clear();
 }
@@ -113,62 +114,51 @@ void restoreAllTaskbars() {
 
 /// 进入全屏前窗口是否为最大化状态，退出全屏后恢复。
 ///
-/// 最大化状态由 media_kit fork 的原生全屏自行清除（utils.cc 在剥
-/// WS_OVERLAPPEDWINDOW 的同时清 WS_MAXIMIZE，避免窗口保持 IsZoomed
-/// 被钳制回工作区），这里只记录状态供退出时恢复，不动窗口。
+/// media_kit fork 的原生全屏剥样式时不清除 WS_MAXIMIZE（该位不在
+/// WS_OVERLAPPEDWINDOW 掩码内），最大化状态下进入全屏、退出后窗口仍
+/// 保持 IsZoomed 且停在整屏矩形；这里只记录状态，退出时按
+/// _restoreMaximizedState 的确定性序列恢复。
 bool _wasMaximized = false;
 
-/// 进入全屏前记录的窗口还原矩形（仅在窗口最大化时保存）。
+/// 进入全屏前记录的目标工作区矩形（rcWork，仅在窗口最大化时保存）。
 ///
-/// media_kit fork 的 EnterNativeFullscreen 把还原矩形存进
-/// rect_before_fullscreen_，退出时把窗口放回该矩形（即“最大化前的位置
-/// 和大小”）；若进入前为最大化，这里用 SetWindowPlacement 一步把窗口
-/// 恢复为最大化，并写回还原矩形。
-int _savedNormalLeft = 0;
-int _savedNormalTop = 0;
-int _savedNormalRight = 0;
-int _savedNormalBottom = 0;
-
-/// 全屏状态机的诊断日志：debugPrint 之外追加写入系统临时目录，
-/// 便于用户直接从文件反馈（终端里看不到 Flutter 日志时）。
-final File _fsLogFile = File('${Directory.systemTemp.path}/piliplus_fs.log');
-
-void _log(String message) {
-  final line = '[PiliPlus FS] $message';
-  debugPrint(line);
-  try {
-    _fsLogFile.writeAsStringSync(
-      '${DateTime.now().toIso8601String()} $line\n',
-      mode: FileMode.append,
-    );
-  } catch (_) {
-    // 日志文件写入失败不影响全屏流程。
-  }
-}
+/// 退出全屏恢复最大化时窗口应落在该矩形上。任务栏由 ShowWindow 恢复
+/// 后 Explorer 异步收回工作区——只有等实时 rcWork 重新等于该值时执行
+/// 最大化，落点才是“任务栏之下”的正确工作区，而不是任务栏隐藏期间
+/// 被扩展的整屏工作区。
+int _savedWorkLeft = 0;
+int _savedWorkTop = 0;
+int _savedWorkRight = 0;
+int _savedWorkBottom = 0;
 
 void _recordMaximizedState() {
   final appWindow = _appWindow();
-  if (appWindow == null) {
-    _log('record: appWindow not found');
-    return;
-  }
+  if (appWindow == null) return;
   final placement = calloc<win32.WINDOWPLACEMENT>();
   try {
     placement.ref.length = sizeOf<win32.WINDOWPLACEMENT>();
-    if (!win32.GetWindowPlacement(appWindow, placement).value) {
-      _log('record: GetWindowPlacement failed');
-      return;
-    }
-    final r = placement.ref.rcNormalPosition;
-    _log('record: showCmd=${placement.ref.showCmd} '
-        'IsZoomed=${win32.IsZoomed(appWindow)} '
-        'normal=(${r.left},${r.top},${r.right},${r.bottom})');
+    if (!win32.GetWindowPlacement(appWindow, placement).value) return;
     if (placement.ref.showCmd == win32.SW_MAXIMIZE) {
       _wasMaximized = true;
-      _savedNormalLeft = r.left;
-      _savedNormalTop = r.top;
-      _savedNormalRight = r.right;
-      _savedNormalBottom = r.bottom;
+      // 记录当前工作区矩形：退出全屏恢复最大化时以它为落点
+      // （此时任务栏尚未隐藏，值正确）。
+      final monitorInfo = calloc<win32.MONITORINFO>();
+      try {
+        monitorInfo.ref.cbSize = sizeOf<win32.MONITORINFO>();
+        final monitor = win32.MonitorFromWindow(
+          appWindow,
+          win32.MONITOR_DEFAULTTONEAREST,
+        );
+        if (win32.GetMonitorInfo(monitor, monitorInfo)) {
+          final w = monitorInfo.ref.rcWork;
+          _savedWorkLeft = w.left;
+          _savedWorkTop = w.top;
+          _savedWorkRight = w.right;
+          _savedWorkBottom = w.bottom;
+        }
+      } finally {
+        win32.free(monitorInfo);
+      }
     }
   } finally {
     win32.free(placement);
@@ -207,28 +197,84 @@ void _stripCaptionStyle() {
   }
 }
 
+/// 轮询等待实时工作区与进入前记录的 TARGET 一致（任务栏恢复后
+/// Explorer 异步收回工作区），每 30ms 查一次、上限 1500ms。
+///
+/// 在退出原生全屏之前调用：等待期间窗口仍铺满屏幕、视频仍在全屏
+/// 播放，没有可见的中间态。超时后照常继续（退出时的钳制与
+/// SetWindowPos 落点用的都是确定值，见 _restoreMaximizedState）。
+Future<void> _waitForWorkAreaSettle(win32.HWND appWindow) async {
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsedMilliseconds < 1500) {
+    final monitorInfo = calloc<win32.MONITORINFO>();
+    try {
+      monitorInfo.ref.cbSize = sizeOf<win32.MONITORINFO>();
+      final monitor = win32.MonitorFromWindow(
+        appWindow,
+        win32.MONITOR_DEFAULTTONEAREST,
+      );
+      if (win32.GetMonitorInfo(monitor, monitorInfo)) {
+        final w = monitorInfo.ref.rcWork;
+        if (w.left == _savedWorkLeft &&
+            w.top == _savedWorkTop &&
+            w.right == _savedWorkRight &&
+            w.bottom == _savedWorkBottom) {
+          return;
+        }
+      }
+    } finally {
+      win32.free(monitorInfo);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+  }
+}
+
+/// 退出全屏后恢复进入前为最大化状态的窗口。
+///
+/// 退出全屏时窗口仍 IsZoomed 且停在整屏矩形（media_kit fork 进出全屏
+/// 不清 WS_MAXIMIZE）。不要先还原成普通状态再重新最大化——那会在屏幕
+/// 上产生多次可见的窗口缩放（闪动），且"还原→重新最大化"的落点依赖
+/// 实时工作区。正确做法是保持窗口的最大化状态，只把它移动到进入前
+/// 记录的目标工作区矩形（与 runner 中 WM_STYLECHANGED 的钳制同模式）：
+/// IsZoomed、showCmd、还原矩形全部原样保留，随后补发一条
+/// SIZE_MAXIMIZED 的 WM_SIZE，让 window_manager 插件把内部状态机同步
+/// 为 MAXIMIZED（其状态只在 WM_SIZE 中切换，缺了这条之后"取消最大化"
+/// 的事件会丢失，标题栏按钮与实际状态脱节）。
 void _restoreMaximizedState() {
-  _log('restore: _wasMaximized=$_wasMaximized');
   if (!_wasMaximized) return;
   _wasMaximized = false;
   final appWindow = _appWindow();
-  if (appWindow == null) {
-    _log('restore: appWindow not found');
-    return;
-  }
-  final placement = calloc<win32.WINDOWPLACEMENT>();
+  if (appWindow == null) return;
+  // 防御：若 fork 行为变化导致窗口已不是最大化状态，则不做移动，
+  // 避免把普通状态的窗口摆成"假最大化"。
+  if (!win32.IsZoomed(appWindow)) return;
+  // 保持最大化状态，把窗口移到目标工作区矩形。
+  win32.SetWindowPos(
+    appWindow,
+    null,
+    _savedWorkLeft,
+    _savedWorkTop,
+    _savedWorkRight - _savedWorkLeft,
+    _savedWorkBottom - _savedWorkTop,
+    win32.SWP_NOZORDER | win32.SWP_NOACTIVATE,
+  );
+  // 补发 SIZE_MAXIMIZED，让 window_manager 插件状态机同步为
+  // MAXIMIZED（lParam 填真实客户区尺寸，供读取方使用）。
+  final clientRect = calloc<win32.RECT>();
   try {
-    placement.ref.length = sizeOf<win32.WINDOWPLACEMENT>();
-    placement.ref.showCmd = win32.SW_MAXIMIZE;
-    placement.ref.rcNormalPosition.left = _savedNormalLeft;
-    placement.ref.rcNormalPosition.top = _savedNormalTop;
-    placement.ref.rcNormalPosition.right = _savedNormalRight;
-    placement.ref.rcNormalPosition.bottom = _savedNormalBottom;
-    final ok = win32.SetWindowPlacement(appWindow, placement).value;
-    _log('restore: SetWindowPlacement ok=$ok '
-        'IsZoomed=${win32.IsZoomed(appWindow)}');
+    if (win32.GetClientRect(appWindow, clientRect).value) {
+      final cx = clientRect.ref.right - clientRect.ref.left;
+      final cy = clientRect.ref.bottom - clientRect.ref.top;
+      final lParam = (cy << 16) | (cx & 0xFFFF);
+      win32.PostMessage(
+        appWindow,
+        win32.WM_SIZE,
+        const win32.WPARAM(win32.SIZE_MAXIMIZED),
+        win32.LPARAM(lParam),
+      );
+    }
   } finally {
-    win32.free(placement);
+    win32.free(clientRect);
   }
 }
 
@@ -251,8 +297,8 @@ Future<void> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
     _isDesktopFullScreen = true;
     desktopCaptionHidden.value = true;
     if (PlatformUtils.isWindows) {
-      // 最大化状态由原生全屏自行清除（见 _recordMaximizedState），
-      // 这里隐藏所在显示器的任务栏，然后铺满显示器。
+      // 记录最大化状态与目标工作区（供退出时确定性恢复），并隐藏
+      // 所在显示器的任务栏，然后铺满显示器。
       _recordMaximizedState();
       _hideTaskbarOnCurrentMonitor();
     }
@@ -264,25 +310,58 @@ Future<void> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
   }
 }
 
+/// 退出全屏后把前台与键盘焦点还给应用窗口。
+///
+/// 键盘焦点实际落在 Flutter 视图（主窗口的子窗口）上，显式设置一次；
+/// 主窗口收到 WM_ACTIVATE 后 runner 也会做同样的事。SetForegroundWindow
+/// 在进程前台权限受限制时可能失败，短暂重试。
+Future<void> _focusAppWindow() async {
+  if (!PlatformUtils.isWindows) return;
+  final appWindow = _appWindow();
+  if (appWindow == null) return;
+  final child = win32.GetWindow(appWindow, win32.GW_CHILD).value;
+  final hasChild = child.address != 0;
+  final target = hasChild ? child : appWindow;
+  var foregroundOk = win32.SetForegroundWindow(appWindow);
+  win32.SetFocus(target);
+  for (var i = 0; i < 2 && !foregroundOk; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    foregroundOk = win32.SetForegroundWindow(appWindow);
+  }
+  win32.SetFocus(target);
+}
+
 @pragma('vm:notify-debugger-on-exception')
 Future<void> exitDesktopFullScreen() async {
-  if (_isDesktopFullScreen) {
-    _isDesktopFullScreen = false;
-    desktopCaptionHidden.value = false;
-    try {
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.ExitNativeFullscreen');
-    } catch (_) {}
-    if (PlatformUtils.isWindows) {
-      // 先剥掉 media_kit 退出全屏残留的 WS_CAPTION（避免系统标题栏
-      // 闪现/残留），再恢复任务栏（工作区随之恢复），最后恢复最大化，
-      // 否则最大化会按“任务栏隐藏时的整屏工作区”铺满盖住任务栏。
-      _stripCaptionStyle();
-      _restoreTaskbars();
-      _restoreMaximizedState();
+  if (!_isDesktopFullScreen) return;
+  _isDesktopFullScreen = false;
+  if (PlatformUtils.isWindows) {
+    // 先恢复任务栏并等工作区落定：窗口此时仍铺满屏幕、视频仍在全屏
+    // 播放，任务栏在视频上方滑入（自然的退出观感），不会出现"窗口已
+    // 还原但工作区尚未收回"的中间态。
+    _restoreTaskbars();
+    if (_wasMaximized) {
+      final appWindow = _appWindow();
+      if (appWindow != null) {
+        await _waitForWorkAreaSettle(appWindow);
+      }
     }
   }
+  try {
+    await const MethodChannel(
+      'com.alexmercerind/media_kit_video',
+    ).invokeMethod('Utils.ExitNativeFullscreen');
+  } catch (_) {}
+  if (PlatformUtils.isWindows) {
+    // 剥掉 media_kit 退出全屏残留的 WS_CAPTION（避免系统标题栏
+    // 闪现/残留），把窗口恢复成进入前为最大化时的状态，再恢复焦点。
+    _stripCaptionStyle();
+    _restoreMaximizedState();
+    await _focusAppWindow();
+  }
+  // 窗口状态恢复完成后再显示自绘标题栏：标题栏重建时 initState 会
+  // 读取最终的 isMaximized 状态，按钮图标与窗口实际状态一致。
+  desktopCaptionHidden.value = false;
 }
 
 List<DeviceOrientation>? _lastOrientation;

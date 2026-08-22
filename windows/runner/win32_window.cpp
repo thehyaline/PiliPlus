@@ -382,6 +382,13 @@ void Win32Window::UpdateTheme(HWND const window) {
 
 LRESULT HitTestResizeBorder(HWND hwnd, POINT pt) {
   if (IsZoomed(hwnd)) {
+    // media_kit 原生全屏期间窗口保持“最大化”且铺满整屏（rcMonitor），
+    // 是合法状态：鼠标碰屏幕边缘不应触发下面的钳制，否则全屏会被
+    // 拽回工作区、露出任务栏。全屏的标志是样式不含 WS_OVERLAPPEDWINDOW
+    // （media_kit 进出全屏时剥/还该位）。
+    if (!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW)) {
+      return HTCLIENT;
+    }
     // 最大化时窗口铺满工作区，边缘不应再响应缩放。media_kit 原生全屏
     // 退出后窗口可能停留在“最大化 + 整屏矩形”的卡死状态（盖住任务栏），
     // 这里顺带钳回工作区，让边缘缩放恢复。
