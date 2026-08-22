@@ -35,6 +35,7 @@ import 'package:PiliPlus/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliPlus/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
+import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_control_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
@@ -129,7 +130,7 @@ class PLVideoPlayer extends StatefulWidget {
 }
 
 class _PLVideoPlayerState extends State<PLVideoPlayer>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
+    with WidgetsBindingObserver, TickerProviderStateMixin, HeaderMixin {
   late AnimationController _animationController;
   late VideoController videoController;
   late final CommonIntroController introController = widget.introController!;
@@ -401,6 +402,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final anySeason = isSeason || isPart || isPgc || isPlayAll;
     final isFullScreen = this.isFullScreen;
     final double widgetWidth = isLandscape && isFullScreen ? 42 : 35;
+    final wide = maxWidth >= 500;
 
     Widget progressWidget(
       BottomControlType bottomControl,
@@ -445,6 +447,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           duration: DurationUtils.formatDuration(
             plPlayerController.duration.value,
           ),
+          singleLine: wide,
         ),
       ),
 
@@ -651,6 +654,67 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           }
           return const SizedBox.shrink();
         },
+      ),
+
+      /// 弹幕（发弹幕/开关/设置）
+      BottomControlType.danmaku => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ComBtn(
+            width: widgetWidth,
+            height: 30,
+            tooltip: '发弹幕',
+            icon: const Icon(
+              Icons.comment_outlined,
+              size: 19,
+              color: Colors.white,
+            ),
+            onTap: videoDetailController.showShootDanmakuSheet,
+          ),
+          Obx(
+            () {
+              final enableShowDanmaku =
+                  plPlayerController.enableShowDanmaku.value;
+              return ComBtn(
+                width: widgetWidth,
+                height: 30,
+                tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+                icon: enableShowDanmaku
+                    ? const Icon(
+                        size: 19,
+                        CustomIcons.dm_on,
+                        color: Colors.white,
+                      )
+                    : const Icon(
+                        size: 19,
+                        CustomIcons.dm_off,
+                        color: Colors.white,
+                      ),
+                onTap: () {
+                  final newVal = !enableShowDanmaku;
+                  plPlayerController.enableShowDanmaku.value = newVal;
+                  if (!plPlayerController.tempPlayerConf) {
+                    GStorage.setting.put(
+                      SettingBoxKey.enableShowDanmaku,
+                      newVal,
+                    );
+                  }
+                },
+              );
+            },
+          ),
+          ComBtn(
+            width: widgetWidth,
+            height: 30,
+            tooltip: '弹幕设置',
+            icon: const Icon(
+              size: 19,
+              CustomIcons.dm_settings,
+              color: Colors.white,
+            ),
+            onTap: () => showSetDanmaku(),
+          ),
+        ],
       ),
 
       /// 字幕
@@ -863,6 +927,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .playOrPause,
       .time,
       if (!isNotFileSource || anySeason) ...[.pre, .next],
+      if (wide) .danmaku,
     ];
 
     final flag =

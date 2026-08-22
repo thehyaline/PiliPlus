@@ -10,6 +10,7 @@ enum BottomControlType {
   fullscreen,
   viewPoints,
   superResolution,
+  danmaku,
   dmChart,
   qa,
   aiTranslate,

@@ -1925,70 +1925,86 @@ class HeaderControlState extends State<HeaderControl>
                     : const SizedBox.shrink(),
               ),
             ],
-            if (!isPortrait || isFullScreen || PlatformUtils.isDesktop) ...[
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: '发弹幕',
-                  style: btnStyle,
-                  onPressed: videoDetailCtr.showShootDanmakuSheet,
-                  icon: const Icon(
-                    Icons.comment_outlined,
-                    size: 19,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () {
-                    final enableShowDanmaku =
-                        plPlayerController.enableShowDanmaku.value;
-                    return IconButton(
-                      tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
-                      style: btnStyle,
-                      onPressed: () {
-                        final newVal = !enableShowDanmaku;
-                        plPlayerController.enableShowDanmaku.value = newVal;
-                        if (!plPlayerController.tempPlayerConf) {
-                          setting.put(
-                            SettingBoxKey.enableShowDanmaku,
-                            newVal,
-                          );
-                        }
-                      },
-                      icon: enableShowDanmaku
-                          ? const Icon(
-                              size: 20,
-                              CustomIcons.dm_on,
-                              color: Colors.white,
-                            )
-                          : const Icon(
-                              size: 20,
-                              CustomIcons.dm_off,
-                              color: Colors.white,
-                            ),
-                    );
-                  },
-                ),
-              ),
-            ],
-            SizedBox(
-              width: btnWidth,
-              height: btnHeight,
-              child: IconButton(
-                tooltip: '弹幕设置',
-                style: btnStyle,
-                onPressed: showSetDanmaku,
-                icon: const Icon(
-                  size: 20,
-                  CustomIcons.dm_settings,
-                  color: Colors.white,
-                ),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 500;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if ((!isPortrait ||
+                            isFullScreen ||
+                            PlatformUtils.isDesktop) &&
+                        !wide) ...[
+                      SizedBox(
+                        width: btnWidth,
+                        height: btnHeight,
+                        child: IconButton(
+                          tooltip: '发弹幕',
+                          style: btnStyle,
+                          onPressed: videoDetailCtr.showShootDanmakuSheet,
+                          icon: const Icon(
+                            Icons.comment_outlined,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: btnWidth,
+                        height: btnHeight,
+                        child: Obx(
+                          () {
+                            final enableShowDanmaku =
+                                plPlayerController.enableShowDanmaku.value;
+                            return IconButton(
+                              tooltip:
+                                  "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+                              style: btnStyle,
+                              onPressed: () {
+                                final newVal = !enableShowDanmaku;
+                                plPlayerController.enableShowDanmaku.value =
+                                    newVal;
+                                if (!plPlayerController.tempPlayerConf) {
+                                  setting.put(
+                                    SettingBoxKey.enableShowDanmaku,
+                                    newVal,
+                                  );
+                                }
+                              },
+                              icon: enableShowDanmaku
+                                  ? const Icon(
+                                      size: 20,
+                                      CustomIcons.dm_on,
+                                      color: Colors.white,
+                                    )
+                                  : const Icon(
+                                      size: 20,
+                                      CustomIcons.dm_off,
+                                      color: Colors.white,
+                                    ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    if (!wide)
+                      SizedBox(
+                        width: btnWidth,
+                        height: btnHeight,
+                        child: IconButton(
+                          tooltip: '弹幕设置',
+                          style: btnStyle,
+                          onPressed: showSetDanmaku,
+                          icon: const Icon(
+                            size: 20,
+                            CustomIcons.dm_settings,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
             if (Platform.isAndroid ||
                 (PlatformUtils.isDesktop && !isFullScreen))

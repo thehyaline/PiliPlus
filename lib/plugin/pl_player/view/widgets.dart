@@ -382,15 +382,18 @@ class _VideoTime extends LeafRenderObjectWidget {
   const _VideoTime({
     required this.position,
     required this.duration,
+    this.singleLine = false,
   });
 
   final String position;
   final String duration;
+  final bool singleLine;
 
   @override
   _RenderVideoTime createRenderObject(BuildContext context) => _RenderVideoTime(
     position: position,
     duration: duration,
+    singleLine: singleLine,
   );
 
   @override
@@ -400,7 +403,8 @@ class _VideoTime extends LeafRenderObjectWidget {
   ) {
     renderObject
       ..position = position
-      ..duration = duration;
+      ..duration = duration
+      ..singleLine = singleLine;
   }
 }
 
@@ -408,34 +412,44 @@ class _RenderVideoTime extends RenderBox {
   _RenderVideoTime({
     required this._position,
     required this._duration,
-  });
+    required bool singleLine,
+  }) : _singleLine = singleLine;
 
   String _duration;
   set duration(String value) {
     _duration = value;
-    final paragraph = _buildParagraph(const Color(0xFFD0D0D0), _duration);
-    if (paragraph.maxIntrinsicWidth != _cache?.maxIntrinsicWidth) {
-      markNeedsLayout();
-    }
-    _cache?.dispose();
-    _cache = paragraph;
-    markNeedsSemanticsUpdate();
+    _rebuildCache();
   }
 
   String _position;
   set position(String value) {
     _position = value;
-    markNeedsPaint();
+    if (_singleLine) {
+      _rebuildCache();
+    } else {
+      markNeedsPaint();
+    }
+    markNeedsSemanticsUpdate();
+  }
+
+  bool _singleLine;
+  set singleLine(bool value) {
+    if (_singleLine == value) return;
+    _singleLine = value;
+    _rebuildCache();
     markNeedsSemanticsUpdate();
   }
 
   ui.Paragraph? _cache;
 
+  double get _fontSize => _singleLine ? 13.0 : 10.0;
+
   ui.Paragraph _buildParagraph(Color color, String time) {
+    final fontSize = _fontSize;
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
-              fontSize: 10,
+              fontSize: fontSize,
               height: 1.4,
               fontFamily: 'Monospace',
             ),
@@ -443,7 +457,7 @@ class _RenderVideoTime extends RenderBox {
           ..pushStyle(
             ui.TextStyle(
               color: color,
-              fontSize: 10,
+              fontSize: fontSize,
               height: 1.4,
               fontFamily: 'Monospace',
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -454,13 +468,29 @@ class _RenderVideoTime extends RenderBox {
       ..layout(const ui.ParagraphConstraints(width: .infinity));
   }
 
+  void _rebuildCache() {
+    final paragraph = _buildParagraph(
+      _singleLine ? Colors.white : const Color(0xFFD0D0D0),
+      _singleLine ? ' $_position / $_duration ' : _duration,
+    );
+    if (paragraph.maxIntrinsicWidth != _cache?.maxIntrinsicWidth) {
+      markNeedsLayout();
+    }
+    _cache?.dispose();
+    _cache = paragraph;
+    markNeedsSemanticsUpdate();
+  }
+
   @override
   ui.Size computeDryLayout(covariant BoxConstraints constraints) {
     final paragraph = _cache ??= _buildParagraph(
-      const Color(0xFFD0D0D0),
-      _duration,
+      _singleLine ? Colors.white : const Color(0xFFD0D0D0),
+      _singleLine ? ' $_position / $_duration ' : _duration,
     );
-    return Size(paragraph.maxIntrinsicWidth, paragraph.height * 2);
+    return Size(
+      paragraph.maxIntrinsicWidth,
+      paragraph.height * (_singleLine ? 1 : 2),
+    );
   }
 
   @override
@@ -476,6 +506,18 @@ class _RenderVideoTime extends RenderBox {
 
   @override
   void paint(PaintingContext context, ui.Offset offset) {
+    if (_singleLine) {
+      final para = _cache!;
+      final line = para.computeLineMetrics().first;
+      // 数字主体（无 descender）视觉中心位于 baseline 上方约 capHeight/2 处，
+      // 补偿偏移使其对齐到本组件几何中心，与其他按钮图标保持同一水平线
+      final visualCenter = line.ascent - 0.72 * _fontSize / 2;
+      context.canvas.drawParagraph(
+        para,
+        Offset(offset.dx, offset.dy + size.height / 2 - visualCenter),
+      );
+      return;
+    }
     final para = _buildParagraph(Colors.white, _position);
     context.canvas
       ..drawParagraph(
