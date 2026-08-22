@@ -169,6 +169,8 @@ void main() async {
     ImeController.init();
 
     await windowManager.ensureInitialized();
+    // 兜底恢复任务栏：上次全屏期间异常退出（崩溃/强杀）可能残留隐藏状态。
+    restoreAllTaskbars();
 
     const windowOptions = WindowOptions(
       minimumSize: Size(400, 720),

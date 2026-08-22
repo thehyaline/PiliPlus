@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -173,6 +174,9 @@ class _MainAppState extends PopScopeState<MainApp>
     await GStorage.close();
     await trayManager.destroy();
     if (Platform.isWindows) {
+      // 全屏状态下直接关闭窗口时退出流程不走 exitDesktopFullScreen，
+      // 先恢复任务栏再结束进程。
+      restoreAllTaskbars();
       // flutter_inappwebview
       // 6.2.0-beta.2+ https://github.com/pichillilorenzo/flutter_inappwebview/issues/2482
       // 6.1.5 https://github.com/pichillilorenzo/flutter_inappwebview/issues/2512#issuecomment-3031039587

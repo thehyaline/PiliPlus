@@ -127,7 +127,7 @@ class _SearchPageState extends State<SearchPage> {
               children: [
                 Expanded(
                   child: TextField(
-                    autofocus: true,
+                    autofocus: false,
                     focusNode: _searchController.searchFocusNode,
                     controller: _searchController.controller,
                     textInputAction: TextInputAction.search,
