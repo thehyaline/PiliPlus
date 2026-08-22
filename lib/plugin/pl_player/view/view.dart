@@ -524,8 +524,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               height: 30,
               tooltip: '分段信息',
               icon: DisabledIcon(
-                iconSize: 22,
-                color: Colors.white,
                 disable: !videoDetailController.showVP.value,
                 child: const Icon(
                   CustomIcons.view_headline_rotate_90,
@@ -2132,7 +2130,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
     final success =
         await showDialog<bool>(
-          context: Get.context!,
+          context: context,
           builder: (context) => AlertDialog(
             title: const Text('动态截图'),
             content: Column(
