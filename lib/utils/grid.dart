@@ -20,9 +20,10 @@ abstract final class Grid {
   static final double smallCardWidth = Pref.smallCardWidth;
 
   /// 横向视频卡片（行高 110）的最小可用宽度：
-  /// 16:10 封面约 160 + 左右 padding 24 + 间距 10 + 数据行约 130 + 余量。
-  /// 面板放不下两列该宽度的卡片时保持单列，避免卡片过窄导致信息显示不全。
-  static const double videoCardHMinWidth = 400;
+  /// 16:10 封面约 160 + 左右 padding 24 + 间距 10 + 数据行约 130 ≈ 324。
+  /// 取 320 使平板（面板约 960dp 起）可排 3 列，同时避免两列时
+  /// 卡片窄到数据行放不下的程度。
+  static const double videoCardHMinWidth = 320;
 
   static SliverGridDelegateWithMaxCrossAxisExtent videoCardHDelegate({
     double mainAxisExtent = 110,
