@@ -103,7 +103,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
               : null,
         );
     final subTitleStyle = theme.textTheme.labelMedium!.copyWith(
-      color: theme.colorScheme.outline,
+      color: theme.colorScheme.onSurfaceVariant,
     );
 
     final switchBtn = Transform.scale(

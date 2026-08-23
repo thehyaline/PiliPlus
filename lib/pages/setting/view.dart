@@ -13,6 +13,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
@@ -95,47 +96,78 @@ class _SettingPageState extends State<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SimpleScaffold(
-      appBar: AppBar(
-        title: _isPortrait ? const Text('设置') : Text(_type.title),
-      ),
-      body: ViewSafeArea(
-        child: _isPortrait
-            ? _buildList(theme)
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: _buildList(theme),
-                  ),
-                  VerticalDivider(
-                    width: 1,
-                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
-                  ),
-                  Expanded(
-                    flex: 6,
-                    child: switch (_type) {
-                      .privacySetting ||
-                      .recommendSetting ||
-                      .videoSetting ||
-                      .playSetting ||
-                      .styleSetting ||
-                      .extraSetting => CommonSetting(
-                        settingType: _type,
-                        showAppBar: false,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: theme.brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: SimpleScaffold(
+        appBar: _isPortrait ? AppBar(title: const Text('设置')) : null,
+        body: ViewSafeArea(
+          child: _isPortrait
+              ? _buildList(theme)
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ColoredBox(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.viewPaddingOf(context).top,
+                            ),
+                            _buildWideSearchBar(theme),
+                            Expanded(
+                              child: _buildList(theme, withSearch: false),
+                            ),
+                          ],
+                        ),
                       ),
-                      .webdavSetting => const WebDavSettingPage(
-                        showAppBar: false,
+                    ),
+                    Expanded(
+                      flex: 6,
+                      child: ColoredBox(
+                        color: theme.colorScheme.surface,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              height:
+                                  MediaQuery.viewPaddingOf(context).top + 12,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(
+                                _type.title,
+                                style: theme.textTheme.titleLarge,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Expanded(child: _buildDetail()),
+                          ],
+                        ),
                       ),
-                      .about => const AboutPage(showAppBar: false),
-                    },
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
+
+  Widget _buildDetail() => switch (_type) {
+    .privacySetting ||
+    .recommendSetting ||
+    .videoSetting ||
+    .playSetting ||
+    .styleSetting ||
+    .extraSetting => CommonSetting(settingType: _type, showAppBar: false),
+    .webdavSetting => const WebDavSettingPage(showAppBar: false),
+    .about => const AboutPage(showAppBar: false),
+  };
 
   @override
   void dispose() {
@@ -167,28 +199,34 @@ class _SettingPageState extends State<SettingPage> {
     if (_isPortrait) {
       return null;
     } else {
-      return type == _type ? theme.colorScheme.onInverseSurface : null;
+      return type == _type ? theme.colorScheme.primaryContainer : null;
     }
   }
 
-  Widget _buildList(ThemeData theme) {
+  Widget _buildList(ThemeData theme, {bool withSearch = true}) {
     final padding = MediaQuery.viewPaddingOf(context);
     TextStyle titleStyle = theme.textTheme.titleMedium!;
     TextStyle subTitleStyle = theme.textTheme.labelMedium!.copyWith(
       color: theme.colorScheme.outline,
     );
-    ListTile entryTile(_SettingsModel item) => ListTile(
-      onTap: () => _toPage(item.type),
-      leading: item.icon,
-      title: Text(item.type.title, style: titleStyle),
-      subtitle: item.subtitle == null
-          ? null
-          : Text(item.subtitle!, style: subTitleStyle),
-    );
+    ListTile entryTile(_SettingsModel item) {
+      final selected = !_isPortrait && item.type == _type;
+      return ListTile(
+        onTap: () => _toPage(item.type),
+        selected: selected,
+        selectedColor: selected ? theme.colorScheme.onPrimaryContainer : null,
+        iconColor: selected ? theme.colorScheme.onPrimaryContainer : null,
+        leading: item.icon,
+        title: Text(item.type.title, style: titleStyle),
+        subtitle: item.subtitle == null
+            ? null
+            : Text(item.subtitle!, style: subTitleStyle),
+      );
+    }
     return ListView(
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
-        _buildSearchItem(theme),
+        if (withSearch) _buildSearchItem(theme),
         const SettingsGroupTitle(title: '常规'),
         SettingsGroupColumn(
           children: [for (final item in _settingItems) entryTile(item)],
@@ -293,39 +331,59 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  Widget _buildSearchItem(ThemeData theme) => Padding(
-    padding: const EdgeInsets.only(
-      left: 16,
-      right: 16,
-      bottom: 8,
-    ),
-    child: Material(
-      color: theme.colorScheme.onInverseSurface,
+  /// 搜索胶囊本体(竖屏/宽屏共用)
+  Widget _searchCapsule(ThemeData theme) => Material(
+    color: theme.colorScheme.surfaceContainerHigh,
+    borderRadius: const BorderRadius.all(Radius.circular(50)),
+    child: InkWell(
+      onTap: () => Get.toNamed('/settingsSearch'),
       borderRadius: const BorderRadius.all(Radius.circular(50)),
-      child: InkWell(
-        onTap: () => Get.toNamed('/settingsSearch'),
-        borderRadius: const BorderRadius.all(Radius.circular(50)),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  size: 18,
-                  applyTextScaling: true,
-                  Icons.search,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                size: 18,
+                applyTextScaling: true,
+                Icons.search,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              Text(
+                ' 搜索',
+                style: TextStyle(
+                  height: 1,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                Text(
-                  ' 搜索',
-                  style: TextStyle(height: 1),
-                  strutStyle: StrutStyle(height: 1, leading: 0),
-                ),
-              ],
-            ),
+                strutStyle: const StrutStyle(height: 1, leading: 0),
+              ),
+            ],
           ),
         ),
       ),
+    ),
+  );
+
+  /// 竖屏搜索项
+  Widget _buildSearchItem(ThemeData theme) => Padding(
+    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+    child: _searchCapsule(theme),
+  );
+
+  /// 宽屏左栏顶部:返回按钮 + 搜索框
+  Widget _buildWideSearchBar(ThemeData theme) => Padding(
+    padding: const EdgeInsets.only(left: 8, right: 16, bottom: 8),
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: Get.back,
+          tooltip: '返回',
+          icon: const Icon(Icons.arrow_back),
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        Expanded(child: _searchCapsule(theme)),
+      ],
     ),
   );
 }

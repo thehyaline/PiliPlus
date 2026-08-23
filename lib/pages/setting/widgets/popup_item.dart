@@ -94,7 +94,7 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
       style: TextStyle(
         fontSize: widget.descFontSize,
         color: widget.enabled
-            ? theme.colorScheme.secondary
+            ? theme.colorScheme.onSurfaceVariant
             : theme.disabledColor,
       ),
     );

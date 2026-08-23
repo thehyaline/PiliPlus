@@ -38,7 +38,7 @@ class _NormalItemState extends State<NormalItem> {
       subtitle = Text(
         text,
         style: theme.textTheme.labelMedium!.copyWith(
-          color: theme.colorScheme.outline,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       );
     }

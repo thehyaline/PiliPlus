@@ -214,7 +214,7 @@ Widget userAvatar({
                 child: Material(
                   type: .transparency,
                   child: InkWell(
-                    onTap: mainController.toMinePage,
+                    onTap: mainController.toMemberPage,
                     splashColor: colorScheme.primaryContainer.withValues(
                       alpha: 0.3,
                     ),
@@ -256,7 +256,7 @@ Widget userAvatar({
               padding: .zero,
               backgroundColor: colorScheme.onInverseSurface,
             ),
-            onPressed: mainController.toMinePage,
+            onPressed: mainController.toMemberPage,
             icon: Icon(
               Icons.person_rounded,
               size: 22,
