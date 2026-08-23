@@ -125,6 +125,13 @@ class DynamicPanel extends StatelessWidget {
     if (isSave || (isDetail && !isDetailPortraitW)) {
       return child;
     }
+    if (isDetail) {
+      // 详情页竖屏：去掉卡片背景，仅保留底部间距
+      return Padding(
+        padding: const EdgeInsets.only(bottom: Style.waterfallMargin),
+        child: child,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: Style.waterfallMargin),
       child: Card(

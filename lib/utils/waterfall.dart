@@ -16,22 +16,21 @@ mixin DynMixin {
       );
 
   Widget buildPage(Widget child) {
-    if (GlobalData().dynamicsWaterfallFlow) {
-      // 瀑布流模式给左右留出外边距，与卡片上下/列间间距统一
-      return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: Style.waterfallMargin),
-        sliver: child,
-      );
-    }
-    return CenteredSliverConstrainedCrossAxis(
-      maxExtent: Grid.smallCardWidth * 2,
-      sliver: child,
+    // 无论是否瀑布流，都给左右留出外边距，保持卡片圆角背景样式一致
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: Style.waterfallMargin),
+      sliver: GlobalData().dynamicsWaterfallFlow
+          ? child
+          : CenteredSliverConstrainedCrossAxis(
+              maxExtent: Grid.smallCardWidth * 2,
+              sliver: child,
+            ),
     );
   }
 
   late final skeDelegate = SliverGridDelegateWithExtentAndRatio(
     crossAxisSpacing: Style.waterfallMargin,
-    mainAxisSpacing: 4,
+    mainAxisSpacing: 0,
     maxCrossAxisExtent: Grid.smallCardWidth * 2,
     childAspectRatio: Style.aspectRatio,
     mainAxisExtent: 50,

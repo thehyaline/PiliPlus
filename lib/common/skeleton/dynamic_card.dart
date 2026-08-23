@@ -21,7 +21,7 @@ class DynamicCardSkeleton extends StatelessWidget {
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         child: Container(
-          // 底部 12 加上骨架网格 mainAxisSpacing 4，与真实卡片间距 16 一致
+          // 底部 12 与真实卡片间距 12 一致（骨架网格 mainAxisSpacing 为 0）
           padding: const EdgeInsets.only(
             left: 12,
             right: 12,
