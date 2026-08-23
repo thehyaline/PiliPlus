@@ -18,6 +18,7 @@ import 'package:PiliPlus/pages/mine/widgets/item.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
+import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -26,6 +27,9 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+
+/// 观看记录/收藏板块卡片行高度：110(封面) + 8(间距) + 20(标题行) + 16(副标题行) + 上下 10px 留白
+const double _kCardRowHeight = 174;
 
 class MinePage extends StatefulWidget {
   const MinePage({super.key, this.showBackBtn = false});
@@ -87,6 +91,15 @@ class _MediaPageState extends CommonPageState<MinePage>
     super.build(context);
     final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
+    // 底部避让：导航栏在底部时 152 = 100(原值) + 2×26(两板块 200→_kCardRowHeight 缩减)，保持总滚动长度不变；
+    // 否则仅移动端保留系统手势条高度（底部小横条），桌面端不留多余空白
+    // 用 MediaQuery 而非 useBottomNav：本页是 const 单例，需注册依赖以便窗口缩放时重建
+    final double bottomPad =
+        !_mainController.useSideBar && MediaQuery.sizeOf(context).isPortrait
+        ? 152
+        : PlatformUtils.isMobile
+        ? MediaQuery.viewPaddingOf(context).bottom
+        : 0;
     return Column(
       children: [
         Padding(
@@ -105,7 +118,7 @@ class _MediaPageState extends CommonPageState<MinePage>
               },
               child: onBuild(
                 ListView(
-                  padding: const .only(bottom: 100),
+                  padding: EdgeInsets.only(bottom: bottomPad),
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _buildUserInfo(theme, secondary),
@@ -523,10 +536,10 @@ class _MediaPageState extends CommonPageState<MinePage>
               return false;
             },
             child: SizedBox(
-              height: 200,
+              height: _kCardRowHeight,
               child: ListView.separated(
                 controller: _historyScrollController,
-                padding: const .only(left: 20, top: 10, right: 20),
+                padding: const .only(left: 20, top: 10, right: 20, bottom: 10),
                 itemCount: historyList.length,
                 itemBuilder: (context, index) => MineHistoryItem(
                   item: historyList[index],
@@ -554,6 +567,7 @@ class _MediaPageState extends CommonPageState<MinePage>
   Widget _buildFav(ThemeData theme, Color secondary) {
     return Column(
       children: [
+        const SizedBox(height: 10),
         ListTile(
           onTap: () => Get.toNamed('/fav'),
           dense: true,
@@ -609,10 +623,10 @@ class _MediaPageState extends CommonPageState<MinePage>
           }
           bool flag = (controller.favFolderCount ?? 0) > favFolderList.length;
           return SizedBox(
-            height: 200,
+            height: _kCardRowHeight,
             child: ListView.separated(
               controller: controller.scrollController,
-              padding: const .only(left: 20, top: 10, right: 20),
+              padding: const .only(left: 20, top: 10, right: 20, bottom: 10),
               itemCount: response.list.length + (flag ? 1 : 0),
               itemBuilder: (context, index) {
                 if (flag && index == favFolderList.length) {
