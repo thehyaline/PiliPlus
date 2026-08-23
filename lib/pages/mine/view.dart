@@ -201,7 +201,10 @@ class _MediaPageState extends CommonPageState<MinePage>
             padding: padding,
             style: style,
             tooltip: '搜索',
-            onPressed: () => Get.toNamed('/search'),
+            onPressed: () => Get.toNamed(
+              '/search',
+              parameters: _mainController.homeController.searchParams,
+            ),
             icon: const Icon(Icons.search),
           ),
           msgBadge(_mainController),

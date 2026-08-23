@@ -27,6 +27,12 @@ class HomeController extends GetxController
   late final RxString defaultSearch = ''.obs;
   late int lateCheckSearchAt = 0;
 
+  /// 搜索页路由参数：开启默认词且已取到默认词时传入，否则不传
+  Map<String, String>? get searchParams =>
+      enableSearchWord && defaultSearch.value.isNotEmpty
+          ? {'hintText': defaultSearch.value}
+          : null;
+
   ScrollOrRefreshMixin get controller => tabs[tabController.index].ctr();
 
   @override

@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:PiliPlus/common/widgets/search_bar_width.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:PiliPlus/pages/search/controller.dart';
@@ -10,6 +11,7 @@ import 'package:PiliPlus/pages/search_panel/pgc/view.dart';
 import 'package:PiliPlus/pages/search_panel/user/view.dart';
 import 'package:PiliPlus/pages/search_panel/video/view.dart';
 import 'package:PiliPlus/pages/search_result/controller.dart';
+import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:get/get.dart';
@@ -76,6 +78,7 @@ class _SearchResultPageState extends State<SearchResultPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isPortrait = MediaQuery.sizeOf(context).isPortrait;
     return SimpleScaffold(
       appBar: AppBar(
         shape: Border(
@@ -88,8 +91,8 @@ class _SearchResultPageState extends State<SearchResultPage>
         // 与返回按钮等宽占位，保持搜索框居中
         actions: const [SizedBox(width: 56)],
         title: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 200, maxWidth: 500),
+          child: SearchBarWidth(
+            isPortrait: isPortrait,
             child: SizedBox(
               height: 44,
               child: Material(

@@ -159,9 +159,7 @@ class _HomePageState extends CommonPageState<HomePage>
             ),
             onTap: () => Get.toNamed(
               '/search',
-              parameters: _homeController.enableSearchWord
-                  ? {'hintText': _homeController.defaultSearch.value}
-                  : null,
+              parameters: _homeController.searchParams,
             ),
             child: Row(
               children: [

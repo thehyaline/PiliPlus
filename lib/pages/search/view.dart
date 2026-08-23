@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/disabled_icon.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliPlus/common/widgets/search_bar_width.dart';
 import 'package:PiliPlus/common/widgets/sliver_wrap.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -114,8 +115,8 @@ class _SearchPageState extends State<SearchPage> {
       const SizedBox(width: 10),
     ],
     title: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 200, maxWidth: 500),
+      child: SearchBarWidth(
+        isPortrait: isPortrait,
         child: SizedBox(
           height: 44,
           child: Material(
@@ -145,11 +146,16 @@ class _SearchPageState extends State<SearchPage> {
                     onSubmitted: (value) => _searchController.submit(),
                   ),
                 ),
-                IconButton(
-                  tooltip: '清空',
-                  style: Style.buttonStyle,
-                  icon: const Icon(Icons.clear, size: 22),
-                  onPressed: _searchController.onClear,
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchController.controller,
+                  builder: (context, value, _) => value.text.isNotEmpty
+                      ? IconButton(
+                          tooltip: '清空',
+                          style: Style.buttonStyle,
+                          icon: const Icon(Icons.clear, size: 22),
+                          onPressed: _searchController.onClear,
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 IconButton(
                   tooltip: '搜索',

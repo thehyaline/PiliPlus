@@ -581,7 +581,10 @@ class _MainAppState extends PopScopeState<MainApp>
             Icons.search_outlined,
             semanticLabel: '搜索',
           ),
-          onPressed: () => Get.toNamed('/search'),
+          onPressed: () => Get.toNamed(
+            '/search',
+            parameters: _mainController.homeController.searchParams,
+          ),
         ),
       ],
     );
