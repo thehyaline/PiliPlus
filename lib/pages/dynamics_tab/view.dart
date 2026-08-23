@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -58,10 +57,7 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
         controller: controller.scrollController,
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.only(
-              top: Style.cardSpace,
-              bottom: 100,
-            ),
+            padding: const EdgeInsets.only(bottom: 100),
             sliver: buildPage(
               Obx(() => _buildBody(controller.loadingState.value)),
             ),

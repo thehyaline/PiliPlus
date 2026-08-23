@@ -16,9 +16,13 @@ mixin DynMixin {
       );
 
   Widget buildPage(Widget child) {
-    // 无论是否瀑布流，都给左右留出外边距，保持卡片圆角背景样式一致
+    // 无论是否瀑布流，都给上下左右留出外边距，保持卡片圆角背景样式一致
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: Style.waterfallMargin),
+      padding: const EdgeInsets.only(
+        left: Style.waterfallMargin,
+        top: Style.waterfallMargin,
+        right: Style.waterfallMargin,
+      ),
       sliver: GlobalData().dynamicsWaterfallFlow
           ? child
           : CenteredSliverConstrainedCrossAxis(
