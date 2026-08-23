@@ -7,6 +7,7 @@ import 'package:PiliPlus/pages/about/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/setting/common_setting.dart';
 import 'package:PiliPlus/pages/setting/widgets/multi_select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/setting_group.dart';
 import 'package:PiliPlus/pages/webdav/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
@@ -41,7 +42,7 @@ class _SettingPageState extends State<SettingPage> {
   late bool _isPortrait;
   late ThemeData theme;
 
-  static const List<_SettingsModel> _items = [
+  static const List<_SettingsModel> _settingItems = [
     _SettingsModel(
       type: SettingType.privacySetting,
       subtitle: '黑名单',
@@ -72,15 +73,17 @@ class _SettingPageState extends State<SettingPage> {
       subtitle: '震动、搜索、收藏、ai、评论、动态、代理、更新检查等',
       icon: Icon(Icons.extension_outlined),
     ),
-    _SettingsModel(
-      type: SettingType.webdavSetting,
-      icon: Icon(MdiIcons.databaseCogOutline),
-    ),
-    _SettingsModel(
-      type: SettingType.about,
-      icon: Icon(Icons.info_outline),
-    ),
   ];
+
+  static const _SettingsModel _webdavItem = _SettingsModel(
+    type: SettingType.webdavSetting,
+    icon: Icon(MdiIcons.databaseCogOutline),
+  );
+
+  static const _SettingsModel _aboutItem = _SettingsModel(
+    type: SettingType.about,
+    icon: Icon(Icons.info_outline),
+  );
 
   @override
   void didChangeDependencies() {
@@ -174,42 +177,50 @@ class _SettingPageState extends State<SettingPage> {
     TextStyle subTitleStyle = theme.textTheme.labelMedium!.copyWith(
       color: theme.colorScheme.outline,
     );
+    ListTile entryTile(_SettingsModel item) => ListTile(
+      onTap: () => _toPage(item.type),
+      leading: item.icon,
+      title: Text(item.type.title, style: titleStyle),
+      subtitle: item.subtitle == null
+          ? null
+          : Text(item.subtitle!, style: subTitleStyle),
+    );
     return ListView(
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
         _buildSearchItem(theme),
-        ..._items
-            .take(_items.length - 1)
-            .map(
-              (item) => ListTile(
-                tileColor: _getTileColor(theme, item.type),
-                onTap: () => _toPage(item.type),
-                leading: item.icon,
-                title: Text(item.type.title, style: titleStyle),
-                subtitle: item.subtitle == null
-                    ? null
-                    : Text(item.subtitle!, style: subTitleStyle),
-              ),
-            ),
-        ListTile(
-          onTap: () => LoginPageController.switchAccountDialog(context),
-          leading: const Icon(Icons.switch_account_outlined),
-          title: Text('切换账号', style: titleStyle),
+        const SettingsGroupTitle(title: '常规'),
+        SettingsGroupColumn(
+          children: [for (final item in _settingItems) entryTile(item)],
+          colorFor: (i) => _getTileColor(theme, _settingItems[i].type),
         ),
+        const SettingsGroupTitle(title: '同步'),
+        SettingsGroupColumn(
+          children: [entryTile(_webdavItem)],
+          colorFor: (_) => _getTileColor(theme, _webdavItem.type),
+        ),
+        const SettingsGroupTitle(title: '账号'),
         Obx(
-          () => _noAccount.value
-              ? const SizedBox.shrink()
-              : ListTile(
+          () => SettingsGroupColumn(
+            children: [
+              ListTile(
+                onTap: () => LoginPageController.switchAccountDialog(context),
+                leading: const Icon(Icons.switch_account_outlined),
+                title: Text('切换账号', style: titleStyle),
+              ),
+              if (!_noAccount.value)
+                ListTile(
                   leading: const Icon(Icons.logout_outlined),
                   onTap: () => _logoutDialog(context),
                   title: Text('退出登录', style: titleStyle),
                 ),
+            ],
+          ),
         ),
-        ListTile(
-          tileColor: _getTileColor(theme, _items.last.type),
-          onTap: () => _toPage(_items.last.type),
-          leading: _items.last.icon,
-          title: Text(_items.last.type.title, style: titleStyle),
+        const SettingsGroupTitle(title: '关于'),
+        SettingsGroupColumn(
+          children: [entryTile(_aboutItem)],
+          colorFor: (_) => _getTileColor(theme, _aboutItem.type),
         ),
       ],
     );

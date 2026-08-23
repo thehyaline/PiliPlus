@@ -41,7 +41,7 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
     return SimpleScaffold(
-      appBar: showAppBar ? AppBar(title: const Text('WebDAV 设置')) : null,
+      appBar: showAppBar ? AppBar(title: const Text('WebDAV 同步')) : null,
       body: ViewInsetsSafeArea(
         child: ListView(
           padding: padding.copyWith(
