@@ -7,6 +7,7 @@ import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/follow_order_type.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
@@ -195,6 +196,12 @@ abstract final class Pref {
       UpPanelPosition.values[_setting.get(
         SettingBoxKey.upPanelPosition,
         defaultValue: UpPanelPosition.leftFixed.index,
+      )];
+
+  static LivePanelPosition get livePanelPosition =>
+      LivePanelPosition.values[_setting.get(
+        SettingBoxKey.livePanelPosition,
+        defaultValue: LivePanelPosition.left.index,
       )];
 
   static FullScreenMode get fullScreenMode {

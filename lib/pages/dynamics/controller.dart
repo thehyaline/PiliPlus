@@ -31,6 +31,7 @@ class DynamicsController
   late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
 
   final upPanelPosition = Pref.upPanelPosition;
+  final livePanelPosition = Pref.livePanelPosition.obs;
 
   @override
   final AccountService accountService = Get.find<AccountService>();

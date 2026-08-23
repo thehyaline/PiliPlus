@@ -223,6 +223,7 @@ abstract final class SettingBoxKey {
       recommendCardWidth = 'recommendCardWidth',
       dynamicsWaterfallFlow = 'dynamicsWaterfallFlow',
       upPanelPosition = 'upPanelPosition',
+      livePanelPosition = 'livePanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
       useSideBar = 'useSideBar',
       enableMYBar = 'enableMYBar',

@@ -11,6 +11,7 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart'
 import 'package:PiliPlus/common/widgets/stateful_builder.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
+import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
@@ -18,6 +19,7 @@ import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
+import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
@@ -269,7 +271,7 @@ List<SettingsGroup> get styleSettings => [
     title: '动态页',
     items: [
       SwitchModel(
-        title: '动态页启用瀑布流',
+        title: '启用瀑布流',
         subtitle: '关闭会显示为单列',
         leading: const Icon(Icons.view_array_outlined),
         setKey: SettingBoxKey.dynamicsWaterfallFlow,
@@ -277,27 +279,34 @@ List<SettingsGroup> get styleSettings => [
         needReboot: true,
       ),
       NormalModel(
-        title: '动态页UP主显示位置',
+        title: 'UP主显示位置',
         leading: const Icon(Icons.person_outlined),
         getSubtitle: () => '当前：${Pref.upPanelPosition.label}',
         onTap: _showUpPosDialog,
       ),
       const SwitchModel(
-        title: '动态页显示所有已关注UP主',
+        title: '显示所有已关注UP主',
         leading: Icon(Icons.people_alt_outlined),
         setKey: SettingBoxKey.dynamicsShowAllFollowedUp,
         defaultVal: false,
         needReboot: true,
       ),
       const SwitchModel(
-        title: '动态页展开正在直播UP列表',
+        title: '展开正在直播UP列表',
         leading: Icon(Icons.live_tv),
         setKey: SettingBoxKey.expandDynLivePanel,
         defaultVal: false,
         needReboot: true,
       ),
       NormalModel(
-        title: '动态未读标记',
+        title: '正在直播板块',
+        leading: const Icon(Icons.live_tv),
+        getSubtitle: () =>
+            '当前板块位置：${Pref.livePanelPosition.label}（仅在大屏设备生效）',
+        onTap: _showLivePanelPosDialog,
+      ),
+      NormalModel(
+        title: '未读标记',
         leading: const Icon(Icons.motion_photos_on_outlined),
         getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeType.desc}',
         onTap: _showDynBadgeDialog,
@@ -802,6 +811,28 @@ Future<void> _showUpPosDialog(
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.upPanelPosition, res.index);
     SmartDialog.showToast('重启生效');
+    setState();
+  }
+}
+
+Future<void> _showLivePanelPosDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<LivePanelPosition>(
+    context: context,
+    builder: (context) => SelectDialog<LivePanelPosition>(
+      title: '正在直播板块',
+      value: Pref.livePanelPosition,
+      values: LivePanelPosition.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.livePanelPosition, res.index);
+    if (Get.isRegistered<DynamicsController>()) {
+      Get.find<DynamicsController>().livePanelPosition.value = res;
+    }
+    SmartDialog.showToast('设置成功');
     setState();
   }
 }

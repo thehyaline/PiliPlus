@@ -1,14 +1,17 @@
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/live_panel_section.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/up_panel.dart';
 import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_tab/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
@@ -67,29 +70,51 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
             }
             return false;
           },
-          child: Obx(
-            () => _buildUpPanel(_dynamicsController.loadingState.value),
-          ),
+          child: Obx(() {
+            final showLive =
+                _dynamicsController.livePanelPosition.value !=
+                        LivePanelPosition.hidden &&
+                    context.showNavbar;
+            return _buildUpPanel(
+              _dynamicsController.loadingState.value,
+              showLiveSection: !showLive,
+            );
+          }),
         ),
       ),
     );
   }
 
-  Widget _buildUpPanel(LoadingState<FollowUpModel> upState) {
+  Widget _buildUpPanel(
+    LoadingState<FollowUpModel> upState, {
+    bool showLiveSection = true,
+  }) {
     return switch (upState) {
       Loading() => const SizedBox.shrink(),
       Success(:final response) => UpPanel(
-        upData: response,
-        dynamicsController: _dynamicsController,
-      ),
-      Error() => Center(
-        child: IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _dynamicsController.onReload,
+          upData: response,
+          dynamicsController: _dynamicsController,
+          showLiveSection: showLiveSection,
         ),
-      ),
+      Error() => Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _dynamicsController.onReload,
+          ),
+        ),
     };
   }
+
+  Widget livePanelPart(LivePanelPosition position) => SizedBox(
+        width: 225,
+        child: Obx(
+          () => switch (_dynamicsController.loadingState.value) {
+            Success(:final response) =>
+              LivePanelSection(upData: response, position: position),
+            _ => const SizedBox.shrink(),
+          },
+        ),
+      );
 
   bool get checkPage =>
       _mainController.navigationBars[0] != .dynamics &&
@@ -129,30 +154,19 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
           .toList(),
     );
 
+    Widget? upPanelTop;
+    Widget? upPanelLeft;
+    Widget? upPanelRight;
+
     switch (upPanelPosition) {
       case .top:
-        child = Column(
-          children: [
-            upPanelPart(theme),
-            Expanded(child: child),
-          ],
-        );
+        upPanelTop = upPanelPart(theme);
         actions = _createDynamicBtn(theme);
       case .leftFixed:
-        child = Row(
-          children: [
-            upPanelPart(theme),
-            Expanded(child: child),
-          ],
-        );
+        upPanelLeft = upPanelPart(theme);
         actions = _createDynamicBtn(theme);
       case .rightFixed:
-        child = Row(
-          children: [
-            Expanded(child: child),
-            upPanelPart(theme),
-          ],
-        );
+        upPanelRight = upPanelPart(theme);
         actions = _createDynamicBtn(theme);
       case .leftDrawer:
         drawer = upPanelPart(theme);
@@ -163,6 +177,35 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
         leading = _createDynamicBtn(theme, isRight: false);
         actions = const EndDrawerButton();
     }
+
+    if (upPanelTop case final upPanel?) {
+      child = Column(
+        children: [
+          upPanel,
+          Expanded(child: child),
+        ],
+      );
+    }
+
+    final baseChild = child;
+    child = Obx(() {
+      final livePanelPosition = _dynamicsController.livePanelPosition.value;
+      final showLive =
+          livePanelPosition != LivePanelPosition.hidden && context.showNavbar;
+      final livePanel = showLive ? livePanelPart(livePanelPosition) : null;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ?upPanelLeft,
+          if (showLive && livePanelPosition == LivePanelPosition.left)
+            livePanel!,
+          Expanded(child: baseChild),
+          if (showLive && livePanelPosition == LivePanelPosition.right)
+            livePanel!,
+          ?upPanelRight,
+        ],
+      );
+    });
 
     return Scaffold(
       primary: false,

@@ -17,10 +17,12 @@ class UpPanel extends StatefulWidget {
     super.key,
     required this.upData,
     required this.dynamicsController,
+    this.showLiveSection = true,
   });
 
   final FollowUpModel upData;
   final DynamicsController dynamicsController;
+  final bool showLiveSection;
 
   @override
   State<UpPanel> createState() => _UpPanelState();
@@ -43,58 +45,62 @@ class _UpPanelState extends State<UpPanel> {
       physics: const AlwaysScrollableScrollPhysics(),
       controller: controller.scrollController,
       slivers: [
-        SliverToBoxAdapter(
-          child: InkWell(
-            onTap: () => setState(() {
-              controller.showLiveUp = !controller.showLiveUp;
-            }),
-            onLongPress: toFollowPage,
-            onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,
-            child: Container(
-              alignment: .center,
-              height: isTop ? 76 : 60,
-              padding: isTop ? const .only(left: 12, right: 6) : null,
-              child: Text.rich(
-                textAlign: .center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: theme.colorScheme.primary,
-                ),
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Live(${upData.liveUsers?.count ?? 0})',
-                    ),
-                    if (!isTop) ...[
-                      const TextSpan(text: '\n'),
-                      WidgetSpan(
-                        alignment: .middle,
-                        child: Icon(
-                          controller.showLiveUp
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                          size: 12,
-                          color: theme.colorScheme.primary,
-                        ),
+        if (widget.showLiveSection)
+          SliverToBoxAdapter(
+            child: InkWell(
+              onTap: () => setState(() {
+                controller.showLiveUp = !controller.showLiveUp;
+              }),
+              onLongPress: toFollowPage,
+              onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,
+              child: Container(
+                alignment: .center,
+                height: isTop ? 76 : 60,
+                padding: isTop ? const .only(left: 12, right: 6) : null,
+                child: Text.rich(
+                  textAlign: .center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.primary,
+                  ),
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Live(${upData.liveUsers?.count ?? 0})',
                       ),
-                    ] else
-                      WidgetSpan(
-                        alignment: .middle,
-                        child: Icon(
-                          controller.showLiveUp
-                              ? Icons.keyboard_arrow_right
-                              : Icons.keyboard_arrow_left,
-                          color: theme.colorScheme.primary,
-                          size: 14,
+                      if (!isTop) ...[
+                        const TextSpan(text: '\n'),
+                        WidgetSpan(
+                          alignment: .middle,
+                          child: Icon(
+                            controller.showLiveUp
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 12,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
-                      ),
-                  ],
+                      ] else
+                        WidgetSpan(
+                          alignment: .middle,
+                          child: Icon(
+                            controller.showLiveUp
+                                ? Icons.keyboard_arrow_right
+                                : Icons.keyboard_arrow_left,
+                            color: theme.colorScheme.primary,
+                            size: 14,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        if (controller.showLiveUp && liveList != null && liveList.isNotEmpty)
+        if (widget.showLiveSection &&
+            controller.showLiveUp &&
+            liveList != null &&
+            liveList.isNotEmpty)
           SliverList.builder(
             itemCount: liveList.length,
             itemBuilder: (context, index) {

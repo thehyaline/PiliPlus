@@ -109,8 +109,10 @@ class _SearchPageState extends State<SearchPage> {
                   '/member?mid=${_searchController.controller.text}',
                 ),
               )
-            // 与 UID 按钮等宽占位，与返回按钮对称，保持搜索框居中
-            : const SizedBox(width: 48),
+            // 竖屏时搜索框占满宽度无需占位；宽屏时与 UID 按钮等宽占位、与返回按钮对称保持居中
+            : isPortrait
+                ? const SizedBox.shrink()
+                : const SizedBox(width: 48),
       ),
       const SizedBox(width: 10),
     ],
