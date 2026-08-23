@@ -20,7 +20,7 @@ enum SettingType {
   final String title;
   const SettingType(this.title);
 
-  List<SettingsModel> get settings => switch (this) {
+  List<SettingsGroup> get settings => switch (this) {
     .privacySetting => privacySettings,
     .recommendSetting => recommendSettings,
     .videoSetting => videoSettings,

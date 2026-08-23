@@ -45,348 +45,403 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:path/path.dart' as path;
 
-List<SettingsModel> get styleSettings => [
-  if (PlatformUtils.isDesktop) ...[
-    const SwitchModel(
-      title: '显示窗口标题栏',
-      leading: Icon(Icons.window),
-      setKey: SettingBoxKey.showWindowTitleBar,
-      defaultVal: true,
-      needReboot: true,
-    ),
-    const SwitchModel(
-      title: '显示托盘图标',
-      leading: Icon(Icons.donut_large_rounded),
-      setKey: SettingBoxKey.showTrayIcon,
-      defaultVal: true,
-      needReboot: true,
-    ),
-  ],
-  if (Platform.isLinux) _useSSDModel(),
-  SwitchModel(
-    title: '横屏适配',
-    subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
-    leading: const Icon(Icons.phonelink_outlined),
-    setKey: SettingBoxKey.horizontalScreen,
-    defaultVal: Pref.horizontalScreen,
-    onChanged: (value) {
-      if (value) {
-        fullMode();
-      } else {
-        portraitUpMode();
-      }
-    },
+List<SettingsGroup> get styleSettings => [
+  SettingsGroup(
+    title: '窗口',
+    items: [
+      if (PlatformUtils.isDesktop) ...[
+        const SwitchModel(
+          title: '显示窗口标题栏',
+          leading: Icon(Icons.window),
+          setKey: SettingBoxKey.showWindowTitleBar,
+          defaultVal: true,
+          needReboot: true,
+        ),
+        const SwitchModel(
+          title: '显示托盘图标',
+          leading: Icon(Icons.donut_large_rounded),
+          setKey: SettingBoxKey.showTrayIcon,
+          defaultVal: true,
+          needReboot: true,
+        ),
+      ],
+      if (Platform.isLinux) _useSSDModel(),
+    ],
   ),
-  const SwitchModel(
-    title: '改用侧边栏',
-    subtitle: '开启后底栏与顶栏被替换，且相关设置失效',
-    leading: Icon(Icons.chrome_reader_mode_outlined),
-    setKey: SettingBoxKey.useSideBar,
-    defaultVal: false,
-    needReboot: true,
-  ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: 'App字体字重',
-      subtitle: '点击设置',
-      leading: Icon(Icons.text_fields),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: false,
-      setKey: SettingBoxKey.appFontWeight,
-      onChanged: (_) => Get.updateMyAppTheme(),
-      onTap: _showFontWeightDialog,
-    ),
-  ),
-  if (PlatformUtils.isWindows)
-    NormalModel(
-      title: '应用字体',
-      leading: const Icon(Icons.font_download_outlined),
-      getSubtitle: () => '当前字体：${Pref.appFontFamily.desc}',
-      onTap: _showAppFontDialog,
-    ),
-  NormalModel(
-    title: '界面缩放',
-    getSubtitle: () => '当前缩放比例：${Pref.uiScale.toStringAsFixed(2)}',
-    leading: const Icon(Icons.zoom_in_outlined),
-    onTap: _showUiScaleDialog,
-  ),
-  NormalModel(
-    title: '页面过渡动画',
-    leading: const Icon(Icons.animation),
-    getSubtitle: () => '当前：${Pref.pageTransition.name}',
-    onTap: _showTransitionDialog,
-  ),
-  const SwitchModel(
-    title: '优化平板导航栏',
-    leading: Icon(Icons.auto_fix_high),
-    setKey: SettingBoxKey.optTabletNav,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: 'MD3样式底栏',
-    subtitle: 'Material You设计规范底栏，关闭可变窄',
-    leading: Icon(Icons.design_services_outlined),
-    setKey: SettingBoxKey.enableMYBar,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '悬浮底栏',
-    leading: Icon(MdiIcons.soundbar),
-    setKey: SettingBoxKey.floatingNavBar,
-    defaultVal: false,
-    needReboot: true,
-  ),
-  NormalModel(
-    leading: const Icon(Icons.calendar_view_week_outlined),
-    title: '列表宽度（dp）限制',
-    getSubtitle: () =>
-        '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
-    onTap: _showCardWidthDialog,
-  ),
-  const SwitchModel(
-    title: '播放页移除安全边距',
-    leading: Icon(Icons.fit_screen_outlined),
-    setKey: SettingBoxKey.removeSafeArea,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '视频播放页使用深色主题',
-    leading: Icon(Icons.dark_mode_outlined),
-    setKey: SettingBoxKey.darkVideoPage,
-    defaultVal: false,
-  ),
-  SwitchModel(
-    title: '动态页启用瀑布流',
-    subtitle: '关闭会显示为单列',
-    leading: const Icon(Icons.view_array_outlined),
-    setKey: SettingBoxKey.dynamicsWaterfallFlow,
-    defaultVal: Pref.horizontalScreen,
-    needReboot: true,
-  ),
-  NormalModel(
-    title: '动态页UP主显示位置',
-    leading: const Icon(Icons.person_outlined),
-    getSubtitle: () => '当前：${Pref.upPanelPosition.label}',
-    onTap: _showUpPosDialog,
-  ),
-  const SwitchModel(
-    title: '动态页显示所有已关注UP主',
-    leading: Icon(Icons.people_alt_outlined),
-    setKey: SettingBoxKey.dynamicsShowAllFollowedUp,
-    defaultVal: false,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '动态页展开正在直播UP列表',
-    leading: Icon(Icons.live_tv),
-    setKey: SettingBoxKey.expandDynLivePanel,
-    defaultVal: false,
-    needReboot: true,
-  ),
-  NormalModel(
-    title: '动态未读标记',
-    leading: const Icon(Icons.motion_photos_on_outlined),
-    getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeType.desc}',
-    onTap: _showDynBadgeDialog,
-  ),
-  NormalModel(
-    title: '消息未读标记',
-    leading: const Icon(MdiIcons.bellBadgeOutline),
-    getSubtitle: () => '当前标记样式：${Pref.msgBadgeMode.desc}',
-    onTap: _showMsgBadgeDialog,
-  ),
-  NormalModel(
-    onTap: _showMsgUnReadDialog,
-    title: '消息未读类型',
-    leading: const Icon(MdiIcons.bellCogOutline),
-    getSubtitle: () =>
-        '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
-  ),
-  NormalModel(
-    onTap: _showBarHideTypeDialog,
-    title: '顶/底栏收起类型',
-    leading: const Icon(MdiIcons.arrowExpandVertical),
-    getSubtitle: () => '当前：${Pref.barHideType.label}',
-  ),
-  SwitchModel(
-    title: '首页顶栏收起',
-    subtitle: '首页列表滑动时，收起顶栏',
-    leading: const Icon(Icons.vertical_align_top_outlined),
-    setKey: SettingBoxKey.hideTopBar,
-    defaultVal: PlatformUtils.isMobile,
-    needReboot: true,
-  ),
-  SwitchModel(
-    title: '首页底栏收起',
-    subtitle: '首页列表滑动时，收起底栏',
-    leading: const Icon(Icons.vertical_align_bottom_outlined),
-    setKey: SettingBoxKey.hideBottomBar,
-    defaultVal: PlatformUtils.isMobile,
-    needReboot: true,
-  ),
-  NormalModel(
-    onTap: (context, setState) => _showQualityDialog(
-      context: context,
-      title: const Text('图片质量'),
-      initValue: Pref.picQuality,
-      onChanged: (picQuality) async {
-        GlobalData().imgQuality = picQuality;
-        await GStorage.setting.put(SettingBoxKey.defaultPicQa, picQuality);
-        setState();
-      },
-    ),
-    title: '图片质量',
-    subtitle: '选择合适的图片清晰度，上限100%',
-    leading: const Icon(Icons.image_outlined),
-    getTrailing: (theme) => Text(
-      '${Pref.picQuality}%',
-      style: theme.textTheme.titleSmall,
-    ),
-  ),
-  NormalModel(
-    onTap: (context, setState) => _showQualityDialog(
-      context: context,
-      title: const Text('查看大图质量'),
-      initValue: Pref.previewQ,
-      onChanged: (picQuality) async {
-        await GStorage.setting.put(SettingBoxKey.previewQuality, picQuality);
-        setState();
-      },
-    ),
-    title: '查看大图质量',
-    subtitle: '选择合适的图片清晰度，上限100%',
-    leading: const Icon(Icons.image_outlined),
-    getTrailing: (theme) => Text(
-      '${Pref.previewQ}%',
-      style: theme.textTheme.titleSmall,
-    ),
-  ),
-  NormalModel(
-    onTap: _showReduceColorDialog,
-    title: '深色下图片颜色叠加',
-    subtitle: '显示颜色=图片原色x所选颜色，大图查看不受影响',
-    leading: const Icon(Icons.format_color_fill_outlined),
-    getTrailing: (theme) => Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        color: Pref.reduceLuxColor ?? Colors.white,
-        shape: BoxShape.circle,
+  SettingsGroup(
+    title: '布局',
+    items: [
+      SwitchModel(
+        title: '横屏适配',
+        subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
+        leading: const Icon(Icons.phonelink_outlined),
+        setKey: SettingBoxKey.horizontalScreen,
+        defaultVal: Pref.horizontalScreen,
+        onChanged: (value) {
+          if (value) {
+            fullMode();
+          } else {
+            portraitUpMode();
+          }
+        },
       ),
-    ),
+      const SwitchModel(
+        title: '改用侧边栏',
+        subtitle: '开启后底栏与顶栏被替换，且相关设置失效',
+        leading: Icon(Icons.chrome_reader_mode_outlined),
+        setKey: SettingBoxKey.useSideBar,
+        defaultVal: false,
+        needReboot: true,
+      ),
+      NormalModel(
+        leading: const Icon(Icons.calendar_view_week_outlined),
+        title: '列表宽度（dp）限制',
+        getSubtitle: () =>
+            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+        onTap: _showCardWidthDialog,
+      ),
+    ],
   ),
-  NormalModel(
-    leading: const Icon(Icons.opacity_outlined),
-    title: '气泡提示不透明度',
-    subtitle: '自定义气泡提示(Toast)不透明度',
-    getTrailing: (theme) => Text(
-      CustomToast.toastOpacity.toStringAsFixed(1),
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showToastDialog,
+  SettingsGroup(
+    title: '导航栏',
+    items: [
+      const SwitchModel(
+        title: '优化平板导航栏',
+        leading: Icon(Icons.auto_fix_high),
+        setKey: SettingBoxKey.optTabletNav,
+        defaultVal: true,
+        needReboot: true,
+      ),
+      const SwitchModel(
+        title: 'MD3样式底栏',
+        subtitle: 'Material You设计规范底栏，关闭可变窄',
+        leading: Icon(Icons.design_services_outlined),
+        setKey: SettingBoxKey.enableMYBar,
+        defaultVal: true,
+        needReboot: true,
+      ),
+      const SwitchModel(
+        title: '悬浮底栏',
+        leading: Icon(MdiIcons.soundbar),
+        setKey: SettingBoxKey.floatingNavBar,
+        defaultVal: false,
+        needReboot: true,
+      ),
+      NormalModel(
+        onTap: _showBarHideTypeDialog,
+        title: '顶/底栏收起类型',
+        leading: const Icon(MdiIcons.arrowExpandVertical),
+        getSubtitle: () => '当前：${Pref.barHideType.label}',
+      ),
+      SwitchModel(
+        title: '首页顶栏收起',
+        subtitle: '首页列表滑动时，收起顶栏',
+        leading: const Icon(Icons.vertical_align_top_outlined),
+        setKey: SettingBoxKey.hideTopBar,
+        defaultVal: PlatformUtils.isMobile,
+        needReboot: true,
+      ),
+      SwitchModel(
+        title: '首页底栏收起',
+        subtitle: '首页列表滑动时，收起底栏',
+        leading: const Icon(Icons.vertical_align_bottom_outlined),
+        setKey: SettingBoxKey.hideBottomBar,
+        defaultVal: PlatformUtils.isMobile,
+        needReboot: true,
+      ),
+      NormalModel(
+        onTap: (context, setState) => Get.toNamed(
+          '/barSetting',
+          arguments: {
+            'key': SettingBoxKey.tabBarSort,
+            'defaultBars': HomeTabType.values,
+            'title': '首页标签页',
+          },
+        ),
+        title: '首页标签页',
+        subtitle: '删除或调换首页标签页',
+        leading: const Icon(Icons.toc_outlined),
+      ),
+      NormalModel(
+        onTap: (context, setState) => Get.toNamed(
+          '/barSetting',
+          arguments: {
+            'key': SettingBoxKey.navBarSort,
+            'defaultBars': NavigationBarType.values,
+            'title': 'Navbar',
+          },
+        ),
+        title: 'Navbar编辑',
+        subtitle: '删除或调换Navbar',
+        leading: const Icon(Icons.toc_outlined),
+      ),
+    ],
   ),
-  NormalModel(
-    onTap: _showThemeTypeDialog,
-    leading: const Icon(Icons.flashlight_on_outlined),
-    title: '主题模式',
-    getSubtitle: () => '当前模式：${Pref.themeType.desc}',
+  SettingsGroup(
+    title: '字体',
+    items: [
+      SplitModel(
+        normalModel: const NormalModel.split(
+          title: 'App字体字重',
+          subtitle: '点击设置',
+          leading: Icon(Icons.text_fields),
+        ),
+        switchModel: SwitchModel.split(
+          defaultVal: false,
+          setKey: SettingBoxKey.appFontWeight,
+          onChanged: (_) => Get.updateMyAppTheme(),
+          onTap: _showFontWeightDialog,
+        ),
+      ),
+      if (PlatformUtils.isWindows)
+        NormalModel(
+          title: '应用字体',
+          leading: const Icon(Icons.font_download_outlined),
+          getSubtitle: () => '当前字体：${Pref.appFontFamily.desc}',
+          onTap: _showAppFontDialog,
+        ),
+      NormalModel(
+        onTap: (context, setState) async {
+          final res = await Get.toNamed('/fontSizeSetting');
+          if (res != null) {
+            setState();
+          }
+        },
+        title: '字体大小',
+        leading: const Icon(Icons.format_size_outlined),
+        getSubtitle: () {
+          final scale = Pref.defaultTextScale;
+          return scale == 1.0 ? '默认' : scale.toString();
+        },
+      ),
+    ],
   ),
-  SwitchModel(
-    leading: const Icon(Icons.invert_colors),
-    title: '纯黑主题',
-    setKey: SettingBoxKey.isPureBlackTheme,
-    defaultVal: false,
-    onChanged: (value) {
-      if (ThemeUtils.isDarkMode || Pref.darkVideoPage) {
-        Get.updateMyAppTheme();
-      }
-    },
+  SettingsGroup(
+    title: '界面',
+    items: [
+      NormalModel(
+        title: '界面缩放',
+        getSubtitle: () => '当前缩放比例：${Pref.uiScale.toStringAsFixed(2)}',
+        leading: const Icon(Icons.zoom_in_outlined),
+        onTap: _showUiScaleDialog,
+      ),
+      NormalModel(
+        title: '页面过渡动画',
+        leading: const Icon(Icons.animation),
+        getSubtitle: () => '当前：${Pref.pageTransition.name}',
+        onTap: _showTransitionDialog,
+      ),
+      const NormalModel(
+        title: '滑动动画弹簧参数',
+        leading: Icon(Icons.chrome_reader_mode_outlined),
+        onTap: _showSpringDialog,
+      ),
+      NormalModel(
+        leading: const Icon(Icons.opacity_outlined),
+        title: '气泡提示不透明度',
+        subtitle: '自定义气泡提示(Toast)不透明度',
+        getTrailing: (theme) => Text(
+          CustomToast.toastOpacity.toStringAsFixed(1),
+          style: theme.textTheme.titleSmall,
+        ),
+        onTap: _showToastDialog,
+      ),
+    ],
   ),
-  NormalModel(
-    onTap: (context, setState) => Get.toNamed('/colorSetting'),
-    leading: const Icon(Icons.color_lens_outlined),
-    title: '应用主题',
-    getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
-    getTrailing: (theme) => Pref.dynamicColor
-        ? Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary)
-        : SizedBox.square(
-            dimension: 20,
-            child: ColorPalette(
-              colorScheme: colorThemeTypes[Pref.customColor].color
-                  .asColorSchemeSeed(Pref.schemeVariant, theme.brightness),
-              selected: false,
-              showBgColor: false,
-            ),
+  const SettingsGroup(
+    title: '播放页',
+    items: [
+      SwitchModel(
+        title: '播放页移除安全边距',
+        leading: Icon(Icons.fit_screen_outlined),
+        setKey: SettingBoxKey.removeSafeArea,
+        defaultVal: false,
+      ),
+      SwitchModel(
+        title: '视频播放页使用深色主题',
+        leading: Icon(Icons.dark_mode_outlined),
+        setKey: SettingBoxKey.darkVideoPage,
+        defaultVal: false,
+      ),
+    ],
+  ),
+  SettingsGroup(
+    title: '动态页',
+    items: [
+      SwitchModel(
+        title: '动态页启用瀑布流',
+        subtitle: '关闭会显示为单列',
+        leading: const Icon(Icons.view_array_outlined),
+        setKey: SettingBoxKey.dynamicsWaterfallFlow,
+        defaultVal: Pref.horizontalScreen,
+        needReboot: true,
+      ),
+      NormalModel(
+        title: '动态页UP主显示位置',
+        leading: const Icon(Icons.person_outlined),
+        getSubtitle: () => '当前：${Pref.upPanelPosition.label}',
+        onTap: _showUpPosDialog,
+      ),
+      const SwitchModel(
+        title: '动态页显示所有已关注UP主',
+        leading: Icon(Icons.people_alt_outlined),
+        setKey: SettingBoxKey.dynamicsShowAllFollowedUp,
+        defaultVal: false,
+        needReboot: true,
+      ),
+      const SwitchModel(
+        title: '动态页展开正在直播UP列表',
+        leading: Icon(Icons.live_tv),
+        setKey: SettingBoxKey.expandDynLivePanel,
+        defaultVal: false,
+        needReboot: true,
+      ),
+      NormalModel(
+        title: '动态未读标记',
+        leading: const Icon(Icons.motion_photos_on_outlined),
+        getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeType.desc}',
+        onTap: _showDynBadgeDialog,
+      ),
+    ],
+  ),
+  SettingsGroup(
+    title: '消息',
+    items: [
+      NormalModel(
+        title: '消息未读标记',
+        leading: const Icon(MdiIcons.bellBadgeOutline),
+        getSubtitle: () => '当前标记样式：${Pref.msgBadgeMode.desc}',
+        onTap: _showMsgBadgeDialog,
+      ),
+      NormalModel(
+        onTap: _showMsgUnReadDialog,
+        title: '消息未读类型',
+        leading: const Icon(MdiIcons.bellCogOutline),
+        getSubtitle: () =>
+            '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
+      ),
+    ],
+  ),
+  SettingsGroup(
+    title: '图片',
+    items: [
+      NormalModel(
+        onTap: (context, setState) => _showQualityDialog(
+          context: context,
+          title: const Text('图片质量'),
+          initValue: Pref.picQuality,
+          onChanged: (picQuality) async {
+            GlobalData().imgQuality = picQuality;
+            await GStorage.setting.put(SettingBoxKey.defaultPicQa, picQuality);
+            setState();
+          },
+        ),
+        title: '图片质量',
+        subtitle: '选择合适的图片清晰度，上限100%',
+        leading: const Icon(Icons.image_outlined),
+        getTrailing: (theme) => Text(
+          '${Pref.picQuality}%',
+          style: theme.textTheme.titleSmall,
+        ),
+      ),
+      NormalModel(
+        onTap: (context, setState) => _showQualityDialog(
+          context: context,
+          title: const Text('查看大图质量'),
+          initValue: Pref.previewQ,
+          onChanged: (picQuality) async {
+            await GStorage.setting.put(SettingBoxKey.previewQuality, picQuality);
+            setState();
+          },
+        ),
+        title: '查看大图质量',
+        subtitle: '选择合适的图片清晰度，上限100%',
+        leading: const Icon(Icons.image_outlined),
+        getTrailing: (theme) => Text(
+          '${Pref.previewQ}%',
+          style: theme.textTheme.titleSmall,
+        ),
+      ),
+      NormalModel(
+        onTap: _showReduceColorDialog,
+        title: '深色下图片颜色叠加',
+        subtitle: '显示颜色=图片原色x所选颜色，大图查看不受影响',
+        leading: const Icon(Icons.format_color_fill_outlined),
+        getTrailing: (theme) => Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: Pref.reduceLuxColor ?? Colors.white,
+            shape: BoxShape.circle,
           ),
+        ),
+      ),
+    ],
   ),
-  NormalModel(
-    leading: const Icon(Icons.home_outlined),
-    title: '默认启动页',
-    getSubtitle: () => '当前启动页：${Pref.defaultHomePage.label}',
-    onTap: _showDefHomeDialog,
+  SettingsGroup(
+    title: '主题',
+    items: [
+      NormalModel(
+        onTap: _showThemeTypeDialog,
+        leading: const Icon(Icons.flashlight_on_outlined),
+        title: '主题模式',
+        getSubtitle: () => '当前模式：${Pref.themeType.desc}',
+      ),
+      SwitchModel(
+        leading: const Icon(Icons.invert_colors),
+        title: '纯黑主题',
+        setKey: SettingBoxKey.isPureBlackTheme,
+        defaultVal: false,
+        onChanged: (value) {
+          if (ThemeUtils.isDarkMode || Pref.darkVideoPage) {
+            Get.updateMyAppTheme();
+          }
+        },
+      ),
+      NormalModel(
+        onTap: (context, setState) => Get.toNamed('/colorSetting'),
+        leading: const Icon(Icons.color_lens_outlined),
+        title: '应用主题',
+        getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
+        getTrailing: (theme) => Pref.dynamicColor
+            ? Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary)
+            : SizedBox.square(
+                dimension: 20,
+                child: ColorPalette(
+                  colorScheme: colorThemeTypes[Pref.customColor].color
+                      .asColorSchemeSeed(Pref.schemeVariant, theme.brightness),
+                  selected: false,
+                  showBgColor: false,
+                ),
+              ),
+      ),
+    ],
   ),
-  const NormalModel(
-    title: '滑动动画弹簧参数',
-    leading: Icon(Icons.chrome_reader_mode_outlined),
-    onTap: _showSpringDialog,
+  SettingsGroup(
+    title: '其他',
+    items: [
+      NormalModel(
+        leading: const Icon(Icons.home_outlined),
+        title: '默认启动页',
+        getSubtitle: () => '当前启动页：${Pref.defaultHomePage.label}',
+        onTap: _showDefHomeDialog,
+      ),
+      SwitchModel(
+        title: '返回时直接退出',
+        subtitle: '开启后在主页任意tab按返回键都直接退出，关闭则先回到Navbar的第一个tab',
+        leading: const Icon(Icons.exit_to_app_outlined),
+        setKey: SettingBoxKey.directExitOnBack,
+        defaultVal: false,
+        onChanged: (value) => Get.find<MainController>().directExitOnBack = value,
+      ),
+      if (Platform.isAndroid)
+        NormalModel(
+          onTap: (context, setState) => Get.toNamed('/displayModeSetting'),
+          title: '屏幕帧率',
+          leading: const Icon(Icons.autofps_select_outlined),
+        ),
+    ],
   ),
-  NormalModel(
-    onTap: (context, setState) async {
-      final res = await Get.toNamed('/fontSizeSetting');
-      if (res != null) {
-        setState();
-      }
-    },
-    title: '字体大小',
-    leading: const Icon(Icons.format_size_outlined),
-    getSubtitle: () {
-      final scale = Pref.defaultTextScale;
-      return scale == 1.0 ? '默认' : scale.toString();
-    },
-  ),
-  NormalModel(
-    onTap: (context, setState) => Get.toNamed(
-      '/barSetting',
-      arguments: {
-        'key': SettingBoxKey.tabBarSort,
-        'defaultBars': HomeTabType.values,
-        'title': '首页标签页',
-      },
-    ),
-    title: '首页标签页',
-    subtitle: '删除或调换首页标签页',
-    leading: const Icon(Icons.toc_outlined),
-  ),
-  NormalModel(
-    onTap: (context, setState) => Get.toNamed(
-      '/barSetting',
-      arguments: {
-        'key': SettingBoxKey.navBarSort,
-        'defaultBars': NavigationBarType.values,
-        'title': 'Navbar',
-      },
-    ),
-    title: 'Navbar编辑',
-    subtitle: '删除或调换Navbar',
-    leading: const Icon(Icons.toc_outlined),
-  ),
-  SwitchModel(
-    title: '返回时直接退出',
-    subtitle: '开启后在主页任意tab按返回键都直接退出，关闭则先回到Navbar的第一个tab',
-    leading: const Icon(Icons.exit_to_app_outlined),
-    setKey: SettingBoxKey.directExitOnBack,
-    defaultVal: false,
-    onChanged: (value) => Get.find<MainController>().directExitOnBack = value,
-  ),
-  if (Platform.isAndroid)
-    NormalModel(
-      onTap: (context, setState) => Get.toNamed('/displayModeSetting'),
-      title: '屏幕帧率',
-      leading: const Icon(Icons.autofps_select_outlined),
-    ),
 ];
 
 void _showQualityDialog({

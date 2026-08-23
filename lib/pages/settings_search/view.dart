@@ -35,7 +35,7 @@ class _SettingsSearchPageState
     ...videoSettings,
     ...playSettings,
     ...styleSettings,
-  ];
+  ].expand((group) => group.items).toList();
 
   @override
   void onValueChanged(String value) {

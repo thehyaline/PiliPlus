@@ -67,21 +67,12 @@ class SplitModel extends SettingsModel {
   );
 }
 
-class DividerModel extends SettingsModel {
-  const DividerModel();
+class SettingsGroup {
+  const SettingsGroup({required this.title, required this.items});
 
-  @override
-  String? get effectiveSubtitle => null;
+  final String title;
 
-  @override
-  String get effectiveTitle => '';
-
-  @override
-  String? get title => null;
-
-  @override
-  Widget get widget =>
-      const Divider(height: 16, indent: 16, endIndent: 16);
+  final List<SettingsModel> items;
 }
 
 class PopupModel<T extends EnumWithLabel> extends SettingsModel {
