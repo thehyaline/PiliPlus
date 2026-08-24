@@ -347,10 +347,12 @@ abstract final class Pref {
   static DynamicsTabType get defaultDynamicType =>
       DynamicsTabType.values[defaultDynamicTypeIndex];
 
-  static int get defaultDynamicTypeIndex => _setting.get(
-    SettingBoxKey.defaultDynamicType,
-    defaultValue: DynamicsTabType.all.index,
-  );
+  static int get defaultDynamicTypeIndex => _setting
+      .get(
+        SettingBoxKey.defaultDynamicType,
+        defaultValue: DynamicsTabType.all.index,
+      )
+      .clamp(0, DynamicsTabType.visibleValues.length - 1);
 
   static bool get showDynInteraction =>
       _setting.get(SettingBoxKey.showDynInteraction, defaultValue: true);
@@ -618,9 +620,11 @@ abstract final class Pref {
   static int get appFontWeight =>
       _setting.get(SettingBoxKey.appFontWeight, defaultValue: -1);
 
-  static AppFontType get appFontFamily => AppFontType.values[
-    _setting.get(SettingBoxKey.appFontFamily, defaultValue: 0)
-  ];
+  static AppFontType get appFontFamily =>
+      AppFontType.values[_setting.get(
+        SettingBoxKey.appFontFamily,
+        defaultValue: 0,
+      )];
 
   static bool get enableDragSubtitle =>
       _setting.get(SettingBoxKey.enableDragSubtitle, defaultValue: false);

@@ -226,7 +226,8 @@ List<SettingsGroup> get extraSettings => [
         defaultVal: false,
         onChanged: (val) {
           try {
-            final controller = Get.find<HomeController>()..enableSearchWord = val;
+            final controller = Get.find<HomeController>()
+              ..enableSearchWord = val;
             if (val) {
               controller.querySearchDefault();
             } else {
@@ -1134,7 +1135,7 @@ Future<void> _showDefDynDialog(
     builder: (context) => SelectDialog<DynamicsTabType>(
       title: '动态展示',
       value: Pref.defaultDynamicType,
-      values: DynamicsTabType.values.take(4).map((e) => (e, e.label)).toList(),
+      values: DynamicsTabType.visibleValues.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {

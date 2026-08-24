@@ -39,7 +39,7 @@ class DynamicsController
   DynamicsTabController? get controller {
     try {
       return Get.find<DynamicsTabController>(
-        tag: DynamicsTabType.values[tabController.index].name,
+        tag: DynamicsTabType.visibleValues[tabController.index].name,
       );
     } catch (_) {
       return null;
@@ -51,37 +51,30 @@ class DynamicsController
     super.onInit();
     tabController = TabController(
       vsync: this,
-      length: DynamicsTabType.values.length,
+      length: DynamicsTabType.visibleValues.length,
       initialIndex: Pref.defaultDynamicTypeIndex,
     );
     queryData();
   }
 
-  void _jumpToTab(int mid) {
-    tabController.index = mid == -1 ? 0 : 4;
-  }
-
   void onSelectUp(int mid) {
     if (currentMid == mid) {
-      _jumpToTab(mid);
+      // 已选中：回顶并刷新当前 tab 对应数据（全部动态时顺带刷新 UP 面板）
       if (mid == -1) {
         singleRefresh();
       }
       controller?.onReload();
       return;
     }
-
-    if (mid != -1) {
-      hostMid = mid;
+    // 未选中：当前 tab 列表原地切换为该 UP 的动态/投稿数据，
+    // 同时同步刷新其余可见 tab，保证切 tab 后列表与选中 UP 一致
+    hostMid = mid;
+    currentMid = mid;
+    for (final type in DynamicsTabType.visibleValues) {
       try {
-        Get.find<DynamicsTabController>(
-          tag: DynamicsTabType.up.name,
-        ).onReload();
+        Get.find<DynamicsTabController>(tag: type.name).onReload();
       } catch (_) {}
     }
-
-    currentMid = mid;
-    _jumpToTab(mid);
   }
 
   Future<void> singleRefresh() {

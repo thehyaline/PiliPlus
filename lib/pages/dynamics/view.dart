@@ -77,8 +77,8 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
           child: Obx(() {
             final showLive =
                 _dynamicsController.livePanelPosition.value !=
-                        LivePanelPosition.hidden &&
-                    context.showNavbar;
+                    LivePanelPosition.hidden &&
+                context.showNavbar;
             return _buildUpPanel(
               _dynamicsController.loadingState.value,
               showLiveSection: !showLive,
@@ -96,26 +96,28 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     return switch (upState) {
       Loading() => const SizedBox.shrink(),
       Success(:final response) => UpPanel(
-          upData: response,
-          dynamicsController: _dynamicsController,
-          showLiveSection: showLiveSection,
-        ),
+        upData: response,
+        dynamicsController: _dynamicsController,
+        showLiveSection: showLiveSection,
+      ),
       Error() => Center(
-          child: IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _dynamicsController.onReload,
-          ),
+        child: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _dynamicsController.onReload,
         ),
+      ),
     };
   }
 
   Widget livePanelPart(LivePanelPosition position) => Obx(
-        () => switch (_dynamicsController.loadingState.value) {
-          Success(:final response) =>
-            LivePanelSection(upData: response, position: position),
-          _ => const SizedBox.shrink(),
-        },
-      );
+    () => switch (_dynamicsController.loadingState.value) {
+      Success(:final response) => LivePanelSection(
+        upData: response,
+        position: position,
+      ),
+      _ => const SizedBox.shrink(),
+    },
+  );
 
   bool get checkPage =>
       _mainController.navigationBars[0] != .dynamics &&
@@ -150,7 +152,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
 
     Widget child = tabBarView(
       controller: _dynamicsController.tabController,
-      children: DynamicsTabType.values
+      children: DynamicsTabType.visibleValues
           .map((e) => DynamicsTabPage(dynamicsType: e))
           .toList(),
     );
@@ -241,35 +243,38 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       backgroundColor: Colors.transparent,
       appBar: PreferredSize(
         preferredSize: const .fromHeight(50),
-        child: Row(
+        child: Stack(
           children: [
-            ?leading,
-            Expanded(
-              child: TabBar(
-                dividerHeight: 0,
-                isScrollable: true,
-                tabAlignment: .start,
-                dividerColor: Colors.transparent,
-                labelColor: theme.colorScheme.primary,
-                indicatorColor: theme.colorScheme.primary,
-                controller: _dynamicsController.tabController,
-                unselectedLabelColor: theme.colorScheme.onSurface,
-                labelStyle:
-                    TabBarTheme.of(
-                      context,
-                    ).labelStyle?.copyWith(fontSize: 13) ??
-                    const TextStyle(fontSize: 13),
-                tabs: DynamicsTabType.values
-                    .map((e) => Tab(text: e.label))
-                    .toList(),
-                onTap: (index) {
-                  if (!_dynamicsController.tabController.indexIsChanging) {
-                    _dynamicsController.animateToTop();
-                  }
-                },
+            // TabBar 铺满整个 appBar 宽度，选项卡相对整行居中
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  height: 42,
+                  child: TabBar(
+                    dividerHeight: 0,
+                    isScrollable: true,
+                    tabAlignment: .center,
+                    dividerColor: Colors.transparent,
+                    labelColor: theme.colorScheme.primary,
+                    indicatorColor: theme.colorScheme.primary,
+                    controller: _dynamicsController.tabController,
+                    unselectedLabelColor: theme.colorScheme.onSurface,
+                    tabs: DynamicsTabType.visibleValues
+                        .map((e) => Tab(text: e.label))
+                        .toList(),
+                    onTap: (index) {
+                      if (!_dynamicsController.tabController.indexIsChanging) {
+                        _dynamicsController.animateToTop();
+                      }
+                    },
+                  ),
+                ),
               ),
             ),
-            actions,
+            if (leading != null)
+              Align(alignment: Alignment.centerLeft, child: leading),
+            Align(alignment: Alignment.centerRight, child: actions),
           ],
         ),
       ),
