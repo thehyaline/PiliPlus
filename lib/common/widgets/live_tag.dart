@@ -1,12 +1,14 @@
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 当前程序设置的当前主题色；Android 动态取色生效时取主题方案主色
-Color currentThemeColor() {
+///
+/// 传入 [theme]（通常为 `Theme.of(context)`）时，调用方会随主题变更自动重建
+Color currentThemeColor([ThemeData? theme]) {
   if (ThemeUtils.isDynamicColor) {
-    return ThemeUtils.theme.colorScheme.primary;
+    return (theme ?? ThemeUtils.theme).colorScheme.primary;
   }
   return colorThemeTypes[Pref.customColor].color;
 }
@@ -15,6 +17,12 @@ Color currentThemeColor() {
 bool _isNearGrey(Color color) {
   final channels = [color.r, color.g, color.b]..sort();
   return channels.last - channels.first < 0.07;
+}
+
+/// 背景色过浅或近无彩色时是否应改用深色前景
+bool themeColorNeedsDarkFg(Color bg) {
+  final lum = bg.computeLuminance();
+  return lum > 0.4 || (_isNearGrey(bg) && lum > 0.25);
 }
 
 /// 头像直播中标签：主题色胶囊底 + 信号波动画 + “直播中”文字
@@ -32,10 +40,9 @@ class LiveTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = currentThemeColor();
-    final lum = bg.computeLuminance();
-    final useDark = lum > 0.4 || (_isNearGrey(bg) && lum > 0.25);
-    final fg = useDark ? Colors.black87 : Colors.white;
+    // Theme.of 使本组件依赖主题，程序设置修改主题色后已显示的标签自动重建
+    final bg = currentThemeColor(Theme.of(context));
+    final fg = themeColorNeedsDarkFg(bg) ? Colors.black87 : Colors.white;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Container(
@@ -67,31 +74,39 @@ class LiveTag extends StatelessWidget {
 }
 
 /// 直播头像标准描边：与直播标签同主题色的圆形边框
-Widget liveAvatarBorder({
-  required Color color,
-  required Widget child,
-  double width = 2,
-}) {
-  return Stack(
-    clipBehavior: Clip.none,
-    children: [
-      child,
-      Positioned(
-        left: -width,
-        top: -width,
-        right: -width,
-        bottom: -width,
-        child: IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: width),
+///
+/// 颜色在自身 build 中取当前主题色并依赖 Theme，
+/// 程序设置修改主题色后已显示的边框自动重建
+class LiveAvatarBorder extends StatelessWidget {
+  const LiveAvatarBorder({super.key, required this.child, this.width = 2});
+
+  final Widget child;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = currentThemeColor(Theme.of(context));
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          left: -width,
+          top: -width,
+          right: -width,
+          bottom: -width,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: width),
+              ),
             ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _LiveSignalIcon extends StatefulWidget {

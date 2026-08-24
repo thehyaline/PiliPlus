@@ -115,8 +115,7 @@ class LivePanelSection extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                liveAvatarBorder(
-                  color: currentThemeColor(),
+                LiveAvatarBorder(
                   child: NetworkImgLayer(
                     width: 38,
                     height: 38,

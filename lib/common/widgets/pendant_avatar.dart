@@ -83,7 +83,7 @@ class PendantAvatar extends StatelessWidget {
     }
     // 直播中且没有个性头像框时，加一圈与直播标签同主题色的边框
     if (roomId != null && !showPendant) {
-      avatar = liveAvatarBorder(color: currentThemeColor(), child: avatar);
+      avatar = LiveAvatarBorder(child: avatar);
     }
     Widget child = ExtraHitTestStack(
       clipBehavior: .none,

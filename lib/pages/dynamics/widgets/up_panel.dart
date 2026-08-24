@@ -7,6 +7,7 @@ import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/live_follow/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -151,17 +152,19 @@ class _UpPanelState extends State<UpPanel> {
 
     Widget avatar;
     if (isAll) {
+      final bg = currentThemeColor();
       avatar = DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: .circle,
-          color: Color(0xFF5CB67B),
+          color: bg,
         ),
         child: Image.asset(
           width: 38,
           height: 38,
           cacheWidth: 38.cacheSize(context),
           Assets.logo2,
-          color: Colors.white,
+          // 主题色过浅/近灰时，前景改用加深的主题色保证可读
+          color: themeColorNeedsDarkFg(bg) ? bg.darken(0.5) : Colors.white,
         ),
       );
     } else {
@@ -178,10 +181,7 @@ class _UpPanelState extends State<UpPanel> {
         avatar = Stack(
           clipBehavior: .none,
           children: [
-            liveAvatarBorder(
-              color: currentThemeColor(),
-              child: avatar,
-            ),
+            LiveAvatarBorder(child: avatar),
             const Positioned(
               left: 0,
               right: 0,
