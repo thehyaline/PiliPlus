@@ -29,15 +29,28 @@ class _EmotePanelState extends State<EmotePanel>
     EmotePanelController(),
   );
 
+  /// 表情预览分组：同一面板同时只显示一个预览浮层，点按面板任意位置收起。
+  final ValueNotifier<Object?> _previewGroup = ValueNotifier<Object?>(null);
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _previewGroup.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final ThemeData theme = Theme.of(context);
-    return Obx(
-      () => _buildBody(theme, _emotePanelController.loadingState.value),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _previewGroup.value = null,
+      child: Obx(
+        () => _buildBody(theme, _emotePanelController.loadingState.value),
+      ),
     );
   }
 
@@ -105,6 +118,8 @@ class _EmotePanelState extends State<EmotePanel>
                               );
                               if (!isTextEmote) {
                                 child = CustomTooltip(
+                                  groupNotifier: _previewGroup,
+                                  groupKey: item.url,
                                   indicator: () => Triangle(
                                     color: color,
                                     size: const Size(14, 8),

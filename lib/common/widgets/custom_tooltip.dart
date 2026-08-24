@@ -13,11 +13,19 @@ class CustomTooltip extends StatefulWidget {
     required this.overlayWidget,
     required this.child,
     required this.indicator,
+    this.groupNotifier,
+    this.groupKey,
   });
 
   final Widget child;
   final ValueGetter<Widget> overlayWidget;
   final ValueGetter<Widget> indicator;
+
+  /// 面板级预览分组：同一分组同时只显示一个浮层，新的显示时旧的自动收起。
+  ///
+  /// 主要用于移动端长按预览无法通过点击浮层以外区域收起的问题。
+  final ValueNotifier<Object?>? groupNotifier;
+  final Object? groupKey;
 
   @override
   State<CustomTooltip> createState() => _CustomTooltipState();
@@ -31,12 +39,32 @@ class _CustomTooltipState extends State<CustomTooltip> {
       _longPressRecognizer ??= LongPressGestureRecognizer()
         ..onLongPress = _scheduleShowTooltip;
 
+  @override
+  void initState() {
+    super.initState();
+    widget.groupNotifier?.addListener(_handleGroupChanged);
+  }
+
+  void _handleGroupChanged() {
+    if (widget.groupNotifier!.value != widget.groupKey) {
+      _overlayController.hide();
+    }
+  }
+
   void _scheduleShowTooltip() {
     _overlayController.show();
+    final group = widget.groupNotifier;
+    if (group != null) {
+      group.value = widget.groupKey;
+    }
   }
 
   void _scheduleDismissTooltip() {
     _overlayController.hide();
+    final group = widget.groupNotifier;
+    if (group != null && group.value == widget.groupKey) {
+      group.value = null;
+    }
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -66,6 +94,7 @@ class _CustomTooltipState extends State<CustomTooltip> {
   @protected
   @override
   void dispose() {
+    widget.groupNotifier?.removeListener(_handleGroupChanged);
     _longPressRecognizer
       ?..onLongPress = null
       ..dispose();

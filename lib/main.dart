@@ -4,6 +4,7 @@ import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/back_detector.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
+import 'package:PiliPlus/common/widgets/hover_reset.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
@@ -94,6 +95,8 @@ Future<void> _initAppPath() async {
 
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
+  // 窗口/应用可见性变化时复位悬停状态，消除"幽灵悬浮"高亮
+  HoverReset.ensureRegistered();
   MediaKit.ensureInitialized();
   await _initAppPath();
   try {
@@ -341,9 +344,14 @@ class MyApp extends StatelessWidget {
       );
     }
     if (PlatformUtils.isDesktop) {
-      return BackDetector(
-        onBack: _onBack,
-        child: child,
+      return MouseRegion(
+        // 鼠标移出窗口时复位悬停高亮，兜底 MouseTracker 未收到
+        // 离开事件导致的"幽灵悬浮"（配合 hover_reset.dart）
+        onExit: (_) => HoverReset.reset(),
+        child: BackDetector(
+          onBack: _onBack,
+          child: child,
+        ),
       );
     }
     return child;
