@@ -111,6 +111,13 @@ echo [信息] 产物: dist\android\PiliPlus_android_%RELEASE_VERSION%_%~1.apk
 goto :eof
 :build_done
 
+REM ---------- 8. 清理过期构建缓存 ----------
+REM 在构建完成后执行, 不影响构建速度: 仅删除 7 天前的 flutter_build 缓存
+REM 和 dist 下遗留的版本号目录
+echo.
+echo [清理] 清理过期构建缓存 ...
+powershell -NoProfile -Command "$cutoff=(Get-Date).AddDays(-7); Get-ChildItem '.dart_tool\flutter_build' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cutoff } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; Get-ChildItem 'dist' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^\d+\.\d+\.\d+[+-]' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
+
 echo.
 echo ============================================
 echo   打包完成，产物位于 dist\android\ 目录

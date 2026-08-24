@@ -126,6 +126,16 @@ goto :build_done
 echo [警告] 安装包生成失败, 便携版不受影响
 :build_done
 
+REM 清理 fastforge 生成的临时版本目录 (安装包已移走, 防止残留空目录)
+if exist "dist\%RELEASE_VERSION%" rmdir /s /q "dist\%RELEASE_VERSION%"
+
+REM ---------- 8. 清理过期构建缓存 ----------
+REM 在构建完成后执行, 不影响构建速度: 仅删除 7 天前的 flutter_build 缓存
+REM 和 dist 下遗留的版本号目录
+echo.
+echo [清理] 清理过期构建缓存 ...
+powershell -NoProfile -Command "$cutoff=(Get-Date).AddDays(-7); Get-ChildItem '.dart_tool\flutter_build' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cutoff } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; Get-ChildItem 'dist' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^\d+\.\d+\.\d+[+-]' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
+
 echo.
 echo ============================================
 echo   打包完成，产物位于 dist\windows\ 目录
