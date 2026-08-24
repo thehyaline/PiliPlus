@@ -8,6 +8,9 @@ abstract final class Style {
   /// 动态瀑布流统一间距：页面左右外边距、卡片上下间距、列间间距均为 12（与首页视频卡片一致）
   static const waterfallMargin = 12.0;
 
+  /// 动态页"正在直播"板块固定宽度，窗口变窄时优先压缩动态列表宽度，不收缩板块
+  static const livePanelWidth = 225.0;
+
   /// 视频竖版卡片网格（主页推荐/直播流）的行列间距
   static const videoCardSpace = 12.0;
 

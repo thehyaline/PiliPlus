@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
@@ -13,6 +16,7 @@ import 'package:PiliPlus/pages/dynamics_tab/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
+import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 
@@ -105,15 +109,12 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     };
   }
 
-  Widget livePanelPart(LivePanelPosition position) => SizedBox(
-        width: 225,
-        child: Obx(
-          () => switch (_dynamicsController.loadingState.value) {
-            Success(:final response) =>
-              LivePanelSection(upData: response, position: position),
-            _ => const SizedBox.shrink(),
-          },
-        ),
+  Widget livePanelPart(LivePanelPosition position) => Obx(
+        () => switch (_dynamicsController.loadingState.value) {
+          Success(:final response) =>
+            LivePanelSection(upData: response, position: position),
+          _ => const SizedBox.shrink(),
+        },
       );
 
   bool get checkPage =>
@@ -193,15 +194,42 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       final showLive =
           livePanelPosition != LivePanelPosition.hidden && context.showNavbar;
       final livePanel = showLive ? livePanelPart(livePanelPosition) : null;
+      // 板块优先：列表可用宽度先减去板块宽度+间距（让位，见 dynamics_tab）。
+      // 列数受限且空间充足时卡片保持最大宽度居中留白，板块叠放于留白内贴卡片；
+      // 空间不足时卡片收缩铺满，板块贴列表区域边缘。板块高度随内容自适应（顶部对齐）
+      final content = showLive
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                const gap = Style.waterfallMargin;
+                final extent = width - Style.livePanelWidth - 3 * gap;
+                final metrics = dynGridMetrics(extent);
+                final offset = max(0.0, (extent - metrics.gridWidth) / 2);
+                final panel = SizedBox(
+                  width: Style.livePanelWidth,
+                  child: livePanel,
+                );
+                return Stack(
+                  children: [
+                    baseChild,
+                    if (livePanelPosition == LivePanelPosition.left)
+                      Positioned(left: gap + offset, top: 0, child: panel),
+                    if (livePanelPosition == LivePanelPosition.right)
+                      Positioned(
+                        left: width - gap - offset - Style.livePanelWidth,
+                        top: 0,
+                        child: panel,
+                      ),
+                  ],
+                );
+              },
+            )
+          : baseChild;
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ?upPanelLeft,
-          if (showLive && livePanelPosition == LivePanelPosition.left)
-            livePanel!,
-          Expanded(child: baseChild),
-          if (showLive && livePanelPosition == LivePanelPosition.right)
-            livePanel!,
+          Expanded(child: content),
           ?upPanelRight,
         ],
       );

@@ -1,13 +1,16 @@
 import 'dart:async';
 
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliPlus/pages/dynamics_tab/controller.dart';
+import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
@@ -55,12 +58,34 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
         physics: const AlwaysScrollableScrollPhysics(),
         controller: controller.scrollController,
         slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.only(bottom: 100),
-            sliver: buildPage(
-              Obx(() => _buildBody(controller.loadingState.value)),
-            ),
-          ),
+          Obx(() {
+            final livePanelPosition =
+                dynamicsController.livePanelPosition.value;
+            final showLive =
+                livePanelPosition != LivePanelPosition.hidden &&
+                context.showNavbar;
+            // 板块优先：列表让出板块宽度+间距；列数受限且空间充足时
+            // 卡片居中留白，板块叠放于留白内，空间不足时卡片收缩铺满
+            final panelSpace =
+                showLive
+                ? Style.waterfallMargin + Style.livePanelWidth
+                : 0.0;
+            return SliverPadding(
+              padding: EdgeInsets.only(
+                left: Style.waterfallMargin +
+                    (livePanelPosition == LivePanelPosition.left
+                        ? panelSpace
+                        : 0),
+                top: Style.waterfallMargin,
+                right: Style.waterfallMargin +
+                    (livePanelPosition == LivePanelPosition.right
+                        ? panelSpace
+                        : 0),
+                bottom: 100,
+              ),
+              sliver: _buildBody(controller.loadingState.value),
+            );
+          }),
         ],
       ),
     );

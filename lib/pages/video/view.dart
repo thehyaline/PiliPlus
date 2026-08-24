@@ -1257,7 +1257,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     Widget child;
     if (videoDetailController.plPlayerController.isPipMode) {
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
-    } else if (!videoDetailController.horizontalScreen) {
+    } else if (!videoDetailController.horizontalScreen && isPortrait) {
       child = childWhenDisabled;
     } else if (maxWidth / maxHeight >= kScreenRatio) {
       child = childWhenDisabledLandscape;

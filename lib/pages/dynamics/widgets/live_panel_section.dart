@@ -35,6 +35,8 @@ class LivePanelSection extends StatelessWidget {
         right: position == LivePanelPosition.left
             ? 0
             : Style.waterfallMargin,
+        // 底部留空隙，避免内容贴底/被底部导航栏遮挡
+        bottom: 20,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) => ConstrainedBox(

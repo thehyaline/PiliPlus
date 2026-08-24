@@ -9,6 +9,24 @@ import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     show SliverWaterfallFlowDelegate;
 
+/// 计算瀑布流网格在给定可用宽度下的列数与网格宽度，
+/// 供网格 delegate 与外部布局（动态页侧边直播板块定位）共用
+({int count, double gridWidth, bool isLimited}) dynGridMetrics(
+  double gridExtent,
+) {
+  final cardW = Pref.dynamicCardWidth;
+  final limit = Pref.dynamicsColumnLimit;
+  final naturalCount = max(1, (gridExtent / (cardW + Style.waterfallMargin)).ceil());
+  if (limit == 0 || naturalCount <= limit) {
+    return (count: naturalCount, gridWidth: gridExtent, isLimited: false);
+  }
+  return (
+    count: limit,
+    gridWidth: limit * cardW + (limit - 1) * Style.waterfallMargin,
+    isLimited: true,
+  );
+}
+
 mixin DynMixin {
   SliverWaterfallFlowDelegateWithMaxCrossAxisExtent get dynGridDelegate =>
       SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
@@ -85,23 +103,16 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
   final double maxCrossAxisExtent;
 
   /// 最大列数限制；为 null 时按 [maxCrossAxisExtent] 自适应。
-  /// 超出限制时卡片保持 [maxCrossAxisExtent] 宽度，剩余空间平分居中。
+  /// 超出限制时优先保证侧边板块：空间足够则卡片保持 [maxCrossAxisExtent]
+  /// 宽度并水平居中，空间不足则卡片收缩铺满。
   final int? maxCrossAxisCount;
 
   int? crossAxisCount;
   double? crossAxisExtent;
 
   /// 当前约束下是否触发了列数上限（自然列数超出 [maxCrossAxisCount]）
-  bool _isLimited(SliverConstraints constraints) {
-    final maxCount = maxCrossAxisCount;
-    if (maxCount == null) {
-      return false;
-    }
-    final naturalCount = (constraints.crossAxisExtent /
-            (maxCrossAxisExtent + crossAxisSpacing))
-        .ceil();
-    return naturalCount > maxCount;
-  }
+  bool _isLimited(SliverConstraints constraints) =>
+      dynGridMetrics(constraints.crossAxisExtent).isLimited;
 
   @override
   int getCrossAxisCount(SliverConstraints constraints) {
@@ -110,19 +121,16 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
       return crossAxisCount!;
     }
     this.crossAxisExtent = crossAxisExtent;
-    var count =
-        (crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing)).ceil();
-    count = max(1, count);
-    if (maxCrossAxisCount case final maxCount?) {
-      count = min(count, maxCount);
-    }
-    return crossAxisCount = count;
+    return crossAxisCount = dynGridMetrics(crossAxisExtent).count;
   }
 
   @override
   double getChildUsableCrossAxisExtent(SliverConstraints constraints) {
-    // 列数受限时卡片保持最大宽度，不再拉伸铺满
-    if (_isLimited(constraints)) {
+    // 列数受限时优先保证侧边"正在直播"板块：空间足以容纳满宽网格（limit 列 × 最大卡片宽）
+    // 时卡片保持最大宽度居中留白；空间不足时退化为铺满（卡片收缩），不再挤压板块
+    final metrics = dynGridMetrics(constraints.crossAxisExtent);
+    if (metrics.isLimited &&
+        constraints.crossAxisExtent >= metrics.gridWidth) {
       return maxCrossAxisExtent;
     }
     return super.getChildUsableCrossAxisExtent(constraints);
@@ -134,12 +142,10 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
     if (!_isLimited(constraints)) {
       return offset;
     }
-    // 受限后网格整体水平居中：剩余空间平分到两侧
-    final count = getCrossAxisCount(constraints);
-    final gridWidth = maxCrossAxisExtent * count +
-        crossAxisSpacing * (count - 1);
-    return offset +
-        max(0.0, (constraints.crossAxisExtent - gridWidth) / 2);
+    // 受限且空间充足时网格整体水平居中：剩余空间平分到两侧；
+    // 空间不足时卡片铺满（收缩），无居中偏移
+    final gridWidth = dynGridMetrics(constraints.crossAxisExtent).gridWidth;
+    return offset + max(0.0, (constraints.crossAxisExtent - gridWidth) / 2);
   }
 
   @override
