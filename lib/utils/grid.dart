@@ -7,7 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 mixin GridMixin {
-  late final gridDelegate = Grid.videoCardHDelegate();
+  SliverGridDelegateWithMaxCrossAxisExtent get gridDelegate =>
+      Grid.videoCardHDelegate();
 
   Widget get gridSkeleton => SliverGrid.builder(
     gridDelegate: gridDelegate,
@@ -17,7 +18,8 @@ mixin GridMixin {
 }
 
 abstract final class Grid {
-  static final double smallCardWidth = Pref.smallCardWidth;
+  /// 实时读取设置，保证"列表宽度"修改后无需重启即可生效
+  static double get smallCardWidth => Pref.smallCardWidth;
 
   /// 横向视频卡片（行高 110）的最小可用宽度：
   /// 16:10 封面约 160 + 左右 padding 24 + 间距 10 + 数据行约 130 ≈ 324。

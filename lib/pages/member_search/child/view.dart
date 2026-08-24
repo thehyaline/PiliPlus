@@ -5,7 +5,6 @@ import 'package:PiliPlus/models/common/member/search_type.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliPlus/pages/member_search/child/controller.dart';
 import 'package:PiliPlus/pages/member_search/child/widgets/search_archive_grpc.dart';
-import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
@@ -82,20 +81,13 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
                   },
                   itemCount: response.length,
                 ),
-                MemberSearchType.dynamic =>
-                  GlobalData().dynamicsWaterfallFlow
-                      ? SliverWaterfallFlow(
-                          gridDelegate: dynGridDelegate,
-                          delegate: SliverChildBuilderDelegate(
-                            (_, index) => _itemBuilder(response, index),
-                            childCount: response.length,
-                          ),
-                        )
-                      : SliverList.builder(
-                          itemBuilder: (context, index) =>
-                              _itemBuilder(response, index),
-                          itemCount: response.length,
-                        ),
+                MemberSearchType.dynamic => SliverWaterfallFlow(
+                  gridDelegate: dynGridDelegate,
+                  delegate: SliverChildBuilderDelegate(
+                    (_, index) => _itemBuilder(response, index),
+                    childCount: response.length,
+                  ),
+                ),
               }
             : HttpError(onReload: _controller.onReload),
       Error(:final errMsg) => HttpError(

@@ -199,9 +199,10 @@ class _LivePageState extends State<LivePage>
     );
   }
 
-  late final gridDelegate = Grid.videoCardVDelegate(
-    mainAxisExtent: textScaler.scale(Style.videoCardContentHeight),
-  );
+  SliverGridDelegateWithExtentAndRatio get gridDelegate =>
+      Grid.videoCardVDelegate(
+        mainAxisExtent: textScaler.scale(Style.videoCardContentHeight),
+      );
 
   Widget _buildBody(
     ThemeData theme,

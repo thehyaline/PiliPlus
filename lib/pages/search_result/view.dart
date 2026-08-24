@@ -88,8 +88,10 @@ class _SearchResultPageState extends State<SearchResultPage>
           ),
         ),
         titleSpacing: 0,
-        // 竖屏时搜索框占满宽度无需占位；宽屏时与返回按钮等宽占位、保持搜索框居中
-        actions: isPortrait ? null : const [SizedBox(width: 56)],
+        // 竖屏时保留 10px 边缘间距与搜索输入页一致；宽屏时与返回按钮等宽占位、保持搜索框居中
+        actions: isPortrait
+            ? const [SizedBox(width: 10)]
+            : const [SizedBox(width: 56)],
         title: Center(
           child: SearchBarWidth(
             isPortrait: isPortrait,

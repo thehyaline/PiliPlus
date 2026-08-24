@@ -99,8 +99,15 @@ List<SettingsGroup> get styleSettings => [
         leading: const Icon(Icons.calendar_view_week_outlined),
         title: '列表宽度（dp）限制',
         getSubtitle: () =>
-            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp 动态${Pref.dynamicCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
         onTap: _showCardWidthDialog,
+      ),
+      NormalModel(
+        leading: const Icon(Icons.view_column_outlined),
+        title: '列表列数限制',
+        getSubtitle: () =>
+            '当前：${Pref.dynamicsColumnLimit == 0 ? '自适应' : '最多${Pref.dynamicsColumnLimit}列'}',
+        onTap: _showColumnLimitDialog,
       ),
     ],
   ),
@@ -270,14 +277,6 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '动态页',
     items: [
-      SwitchModel(
-        title: '启用瀑布流',
-        subtitle: '关闭会显示为单列',
-        leading: const Icon(Icons.view_array_outlined),
-        setKey: SettingBoxKey.dynamicsWaterfallFlow,
-        defaultVal: Pref.horizontalScreen,
-        needReboot: true,
-      ),
       NormalModel(
         title: 'UP主显示位置',
         leading: const Icon(Icons.person_outlined),
@@ -772,14 +771,24 @@ Future<void> _showCardWidthDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {
-  final res = await showDialog<(double, double)>(
+  final res = await showDialog<List<double>>(
     context: context,
     builder: (context) => DualSliderDialog(
-      title: const Text('列表最大列宽度（默认220dp）'),
-      value1: Pref.recommendCardWidth,
-      value2: Pref.smallCardWidth,
-      description1: const Text('主页推荐流'),
-      description2: const Text('其他'),
+      title: const Text('列表最大列宽度'),
+      sliders: [
+        SliderConfig(
+          description: const Text('主页推荐流'),
+          value: Pref.recommendCardWidth,
+        ),
+        SliderConfig(
+          description: const Text('其他'),
+          value: Pref.smallCardWidth,
+        ),
+        SliderConfig(
+          description: const Text('动态列表'),
+          value: Pref.dynamicCardWidth,
+        ),
+      ],
       min: 150.0,
       max: 500.0,
       divisions: 35,
@@ -788,11 +797,49 @@ Future<void> _showCardWidthDialog(
   );
   if (res != null) {
     await GStorage.setting.putAll({
-      SettingBoxKey.recommendCardWidth: res.$1,
-      SettingBoxKey.smallCardWidth: res.$2,
+      SettingBoxKey.recommendCardWidth: res[0],
+      SettingBoxKey.smallCardWidth: res[1],
+      SettingBoxKey.dynamicCardWidth: res[2],
     });
-    SmartDialog.showToast('重启生效');
+    // 等弹窗关闭动画（约 200ms）结束后再重建：Get.appUpdate() 会重建整个
+    // GetMaterialApp（含 Navigator），动画进行中重建会掐断 dialog 路由的
+    // 关闭动画，造成弹窗残影卡住、路由栈损坏（点确认没反应、取消却退回
+    // 上一页、后续界面黑屏）。
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     setState();
+    // 布局类设置：强制全 App 重建使新宽度立即生效（与界面缩放设置同款机制）
+    Get.appUpdate();
+  }
+}
+
+Future<void> _showColumnLimitDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  // 选项列表可扩展，后续新增其他列表的列数限制时在此追加条目
+  const options = <(int, String)>[
+    (0, '自适应'),
+    (1, '1列'),
+    (2, '2列'),
+    (3, '3列'),
+    (4, '4列'),
+    (5, '5列'),
+    (6, '6列'),
+  ];
+  final res = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: '动态列表列数限制',
+      value: Pref.dynamicsColumnLimit,
+      values: options,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.dynamicsColumnLimit, res);
+    // 同 _showCardWidthDialog：等弹窗关闭动画结束再全局重建
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    setState();
+    Get.appUpdate();
   }
 }
 

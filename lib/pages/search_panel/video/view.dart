@@ -50,7 +50,7 @@ class _SearchVideoPanelState
   }
 
   // 桌面端沿用主页推荐流竖版列表样式，移动端保持原横向列表
-  late final gridDelegate = PlatformUtils.isDesktop
+  SliverGridDelegate get gridDelegate => PlatformUtils.isDesktop
       ? Grid.videoCardVDelegate(
           mainAxisExtent: MediaQuery.textScalerOf(
             context,

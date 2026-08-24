@@ -216,11 +216,14 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   /// https://github.com/leanflutter/window_manager/issues/571
+  ///
+  /// 先隐藏再置透明：若任一步失败，都不会留下"可见但透明"的窗口
+  /// （失败时要么窗口仍可见不透明，要么已隐藏）。
   Future<void> _hide() async {
+    await windowManager.hide();
     if (Platform.isWindows) {
       await windowManager.setOpacity(0.0);
     }
-    await windowManager.hide();
   }
 
   Future<void> _show() async {

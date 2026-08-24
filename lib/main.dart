@@ -178,9 +178,8 @@ void main() async {
       title: Constants.appName,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.setBounds(
-        await calcWindowBounds(Pref.windowSize),
-      );
+      final bounds = await calcWindowBounds(Pref.windowSize);
+      await windowManager.setBounds(bounds);
       if (Pref.isWindowMaximized) await windowManager.maximize();
       await windowManager.show();
       await windowManager.focus();

@@ -49,11 +49,12 @@ class _RcmdPageState extends State<RcmdPage>
     );
   }
 
-  late final gridDelegate = Grid.videoCardVDelegate(
-    mainAxisExtent: MediaQuery.textScalerOf(
-      context,
-    ).scale(Style.videoCardContentHeight),
-  );
+  SliverGridDelegateWithExtentAndRatio get gridDelegate =>
+      Grid.videoCardVDelegate(
+        mainAxisExtent: MediaQuery.textScalerOf(
+          context,
+        ).scale(Style.videoCardContentHeight),
+      );
 
   Widget _buildBody(
     ColorScheme colorScheme,

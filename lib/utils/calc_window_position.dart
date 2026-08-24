@@ -26,12 +26,19 @@ Future<Rect> calcWindowBounds(Size windowSize) async {
     try {
       final dx = saved[0];
       final dy = saved[1];
+      // 整个窗口矩形必须落在单个显示器的可见区域内，否则拒绝使用。
+      // 记录的位置来自 getBounds（虚拟化坐标），而 setBounds 按物理
+      // 坐标解释；跨 DPI 显示器（如 200% 副屏）上两者差一倍，直接使用
+      // 会让窗口横跨不同 DPI 的显示器，连锁触发 WM_DPICHANGED 缩放，
+      // 窗口大半落在屏外（表现为“窗口不见了、任务栏还有任务”）。
+      final rect =
+          Rect.fromLTWH(dx, dy, windowSize.width, windowSize.height);
       if (displays.any((display) {
         final bounds = _visibleBoundsOf(display);
-        return dx >= bounds.left &&
-            dy >= bounds.top &&
-            dx < bounds.right - 30 &&
-            dy < bounds.bottom - 30;
+        return rect.left >= bounds.left &&
+            rect.top >= bounds.top &&
+            rect.right <= bounds.right &&
+            rect.bottom <= bounds.bottom;
       })) {
         position = Offset(dx, dy);
       }
@@ -53,15 +60,18 @@ Future<Rect> calcWindowBounds(Size windowSize) async {
   final width = math.min(windowSize.width, targetBounds.width);
   final height = math.min(windowSize.height, targetBounds.height);
 
+  final Rect result;
   if (position case final pos?) {
-    return Rect.fromLTWH(pos.dx, pos.dy, width, height);
+    result = Rect.fromLTWH(pos.dx, pos.dy, width, height);
+  } else {
+    result = Rect.fromLTWH(
+      currentBounds.left + (currentBounds.width - width) / 2,
+      currentBounds.top + (currentBounds.height - height) / 2,
+      width,
+      height,
+    );
   }
-  return Rect.fromLTWH(
-    currentBounds.left + (currentBounds.width - width) / 2,
-    currentBounds.top + (currentBounds.height - height) / 2,
-    width,
-    height,
-  );
+  return result;
 }
 
 Rect _visibleBoundsOf(Display display) {

@@ -192,6 +192,16 @@ abstract final class Pref {
   static double get recommendCardWidth =>
       _setting.get(SettingBoxKey.recommendCardWidth, defaultValue: 220.0);
 
+  /// 动态列表卡片最大宽度（与 [smallCardWidth] 解耦，独立调节）
+  static double get dynamicCardWidth =>
+      _setting.get(SettingBoxKey.dynamicCardWidth, defaultValue: 480.0);
+
+  /// 动态列表最大列数，0 表示自适应
+  static int get dynamicsColumnLimit => _setting.get(
+    SettingBoxKey.dynamicsColumnLimit,
+    defaultValue: 0,
+  );
+
   static UpPanelPosition get upPanelPosition =>
       UpPanelPosition.values[_setting.get(
         SettingBoxKey.upPanelPosition,
@@ -705,11 +715,6 @@ abstract final class Pref {
   static double get uiScale =>
       _setting.get(SettingBoxKey.uiScale, defaultValue: 1.0);
 
-  static bool get dynamicsWaterfallFlow => _setting.get(
-    SettingBoxKey.dynamicsWaterfallFlow,
-    defaultValue: horizontalScreen,
-  );
-
   static bool get hideTopBar => _setting.get(
     SettingBoxKey.hideTopBar,
     defaultValue: PlatformUtils.isMobile,
@@ -968,7 +973,12 @@ abstract final class Pref {
   static Size get windowSize {
     final List<double>? size = (_setting.get(SettingBoxKey.windowSize) as List?)
         ?.fromCast<double>();
-    return size == null ? const Size(1280.0, 720.0) : Size(size[0], size[1]);
+    // 校验长度与正值：损坏的持久化值会导致 calcWindowBounds 算出
+    // 0 尺寸窗口或抛 RangeError，使启动流程中断、窗口永不显示。
+    if (size != null && size.length == 2 && size[0] > 0 && size[1] > 0) {
+      return Size(size[0], size[1]);
+    }
+    return const Size(1280.0, 720.0);
   }
 
   static List<double>? get windowPosition =>

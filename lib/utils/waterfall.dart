@@ -1,55 +1,52 @@
+import 'dart:math';
+
 import 'package:PiliPlus/common/skeleton/dynamic_card.dart';
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/sliver/sliver_constrained_cross_axis.dart';
-import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     show SliverWaterfallFlowDelegate;
 
 mixin DynMixin {
-  late final dynGridDelegate =
+  SliverWaterfallFlowDelegateWithMaxCrossAxisExtent get dynGridDelegate =>
       SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: Grid.smallCardWidth * 2,
+        maxCrossAxisExtent: Pref.dynamicCardWidth,
         crossAxisSpacing: Style.waterfallMargin,
+        maxCrossAxisCount: Pref.dynamicsColumnLimit == 0
+            ? null
+            : Pref.dynamicsColumnLimit,
       );
 
   Widget buildPage(Widget child) {
-    // 无论是否瀑布流，都给上下左右留出外边距，保持卡片圆角背景样式一致
+    // 给上下左右留出外边距，保持卡片圆角背景样式一致；
+    // 列数受限时的居中留空由 dynGridDelegate 处理
     return SliverPadding(
       padding: const EdgeInsets.only(
         left: Style.waterfallMargin,
         top: Style.waterfallMargin,
         right: Style.waterfallMargin,
       ),
-      sliver: GlobalData().dynamicsWaterfallFlow
-          ? child
-          : CenteredSliverConstrainedCrossAxis(
-              maxExtent: Grid.smallCardWidth * 2,
-              sliver: child,
-            ),
+      sliver: child,
     );
   }
 
-  late final skeDelegate = SliverGridDelegateWithExtentAndRatio(
-    crossAxisSpacing: Style.waterfallMargin,
-    mainAxisSpacing: 0,
-    maxCrossAxisExtent: Grid.smallCardWidth * 2,
-    childAspectRatio: Style.aspectRatio,
-    mainAxisExtent: 50,
-  );
+  SliverGridDelegateWithExtentAndRatio get skeDelegate =>
+      SliverGridDelegateWithExtentAndRatio(
+        crossAxisSpacing: Style.waterfallMargin,
+        mainAxisSpacing: 0,
+        maxCrossAxisExtent: Pref.dynamicCardWidth,
+        childAspectRatio: Style.aspectRatio,
+        mainAxisExtent: 50,
+        maxCrossAxisCount: Pref.dynamicsColumnLimit == 0
+            ? null
+            : Pref.dynamicsColumnLimit,
+      );
 
   Widget get dynSkeleton {
-    if (GlobalData().dynamicsWaterfallFlow) {
-      return SliverGrid.builder(
-        gridDelegate: skeDelegate,
-        itemBuilder: (_, _) => const DynamicCardSkeleton(),
-        itemCount: 10,
-      );
-    }
-    return SliverPrototypeExtentList.builder(
-      prototypeItem: const DynamicCardSkeleton(),
+    return SliverGrid.builder(
+      gridDelegate: skeDelegate,
       itemBuilder: (_, _) => const DynamicCardSkeleton(),
       itemCount: 10,
     );
@@ -65,6 +62,7 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
   /// [mainAxisSpacing], and [crossAxisSpacing] arguments must not be negative.
   SliverWaterfallFlowDelegateWithMaxCrossAxisExtent({
     required this.maxCrossAxisExtent,
+    this.maxCrossAxisCount,
     super.mainAxisSpacing,
     super.crossAxisSpacing,
     super.lastChildLayoutTypeBuilder,
@@ -86,8 +84,24 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
   /// columns that are 125.0 pixels wide.
   final double maxCrossAxisExtent;
 
+  /// 最大列数限制；为 null 时按 [maxCrossAxisExtent] 自适应。
+  /// 超出限制时卡片保持 [maxCrossAxisExtent] 宽度，剩余空间平分居中。
+  final int? maxCrossAxisCount;
+
   int? crossAxisCount;
   double? crossAxisExtent;
+
+  /// 当前约束下是否触发了列数上限（自然列数超出 [maxCrossAxisCount]）
+  bool _isLimited(SliverConstraints constraints) {
+    final maxCount = maxCrossAxisCount;
+    if (maxCount == null) {
+      return false;
+    }
+    final naturalCount = (constraints.crossAxisExtent /
+            (maxCrossAxisExtent + crossAxisSpacing))
+        .ceil();
+    return naturalCount > maxCount;
+  }
 
   @override
   int getCrossAxisCount(SliverConstraints constraints) {
@@ -96,9 +110,36 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
       return crossAxisCount!;
     }
     this.crossAxisExtent = crossAxisExtent;
-    crossAxisCount = (crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing))
-        .ceil();
-    return crossAxisCount!;
+    var count =
+        (crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing)).ceil();
+    count = max(1, count);
+    if (maxCrossAxisCount case final maxCount?) {
+      count = min(count, maxCount);
+    }
+    return crossAxisCount = count;
+  }
+
+  @override
+  double getChildUsableCrossAxisExtent(SliverConstraints constraints) {
+    // 列数受限时卡片保持最大宽度，不再拉伸铺满
+    if (_isLimited(constraints)) {
+      return maxCrossAxisExtent;
+    }
+    return super.getChildUsableCrossAxisExtent(constraints);
+  }
+
+  @override
+  double getCrossAxisOffset(SliverConstraints constraints, int? crossAxisIndex) {
+    final offset = super.getCrossAxisOffset(constraints, crossAxisIndex);
+    if (!_isLimited(constraints)) {
+      return offset;
+    }
+    // 受限后网格整体水平居中：剩余空间平分到两侧
+    final count = getCrossAxisCount(constraints);
+    final gridWidth = maxCrossAxisExtent * count +
+        crossAxisSpacing * (count - 1);
+    return offset +
+        max(0.0, (constraints.crossAxisExtent - gridWidth) / 2);
   }
 
   @override
@@ -107,6 +148,7 @@ class SliverWaterfallFlowDelegateWithMaxCrossAxisExtent
         (oldDelegate.runtimeType != runtimeType) ||
         (oldDelegate is SliverWaterfallFlowDelegateWithMaxCrossAxisExtent &&
             (oldDelegate.maxCrossAxisExtent != maxCrossAxisExtent ||
+                oldDelegate.maxCrossAxisCount != maxCrossAxisCount ||
                 super.shouldRelayout(oldDelegate)));
     if (flag) {
       crossAxisCount = null;

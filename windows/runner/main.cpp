@@ -9,6 +9,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   HWND hwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", L"piliplus");
   if (hwnd != NULL) {
+    // 关闭到托盘时窗口被置为透明（setOpacity(0)+hide），ShowWindow(SW_NORMAL)
+    // 只恢复可见性不会复位透明度，这里移除 WS_EX_LAYERED 使窗口恢复不透明。
+    LONG_PTR ex_style = ::GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (ex_style & WS_EX_LAYERED) {
+      ::SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex_style & ~WS_EX_LAYERED);
+    }
     ::ShowWindow(hwnd, SW_NORMAL);
     ::SetForegroundWindow(hwnd);
     return EXIT_FAILURE;

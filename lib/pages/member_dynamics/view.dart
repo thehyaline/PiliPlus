@@ -5,7 +5,6 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliPlus/pages/member_dynamics/controller.dart';
-import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:material_ui/material_ui.dart';
@@ -81,19 +80,13 @@ class _MemberDynamicsPageState extends State<MemberDynamicsPage>
       Loading() => dynSkeleton,
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? GlobalData().dynamicsWaterfallFlow
-                  ? SliverWaterfallFlow(
-                      gridDelegate: dynGridDelegate,
-                      delegate: SliverChildBuilderDelegate(
-                        (_, index) => _itemBuilder(response, index),
-                        childCount: response.length,
-                      ),
-                    )
-                  : SliverList.builder(
-                      itemBuilder: (context, index) =>
-                          _itemBuilder(response, index),
-                      itemCount: response.length,
-                    )
+            ? SliverWaterfallFlow(
+                gridDelegate: dynGridDelegate,
+                delegate: SliverChildBuilderDelegate(
+                  (_, index) => _itemBuilder(response, index),
+                  childCount: response.length,
+                ),
+              )
             : HttpError(onReload: _memberDynamicController.onReload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,

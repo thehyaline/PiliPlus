@@ -65,6 +65,29 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   FreeLibrary(user32_module);
 }
 
+// Returns the effective DPI of |monitor| via shcore.dll (Win8.1+),
+// dynamically loaded so old systems fall back to 0 (guard disabled).
+UINT DpiForMonitor(HMONITOR monitor) {
+  using GetDpiForMonitorFn = HRESULT(WINAPI*)(HMONITOR, int, UINT*, UINT*);
+  static GetDpiForMonitorFn fn = []() -> GetDpiForMonitorFn {
+    HMODULE shcore = LoadLibraryA("Shcore.dll");
+    if (!shcore) {
+      return nullptr;
+    }
+    return reinterpret_cast<GetDpiForMonitorFn>(
+        GetProcAddress(shcore, "GetDpiForMonitor"));
+  }();
+  if (fn == nullptr) {
+    return 0;
+  }
+  UINT dpi_x = 0;
+  UINT dpi_y = 0;
+  if (FAILED(fn(monitor, 0 /*MDT_EFFECTIVE_DPI*/, &dpi_x, &dpi_y))) {
+    return 0;
+  }
+  return dpi_x;
+}
+
 }  // namespace
 
 // Manages the Win32Window's window class registration.
@@ -136,6 +159,7 @@ bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
   Destroy();
+  creation_time_ = GetTickCount64();
 
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
@@ -212,6 +236,47 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_WINDOWPOSCHANGING: {
+      // 启动初期，外部窗口管理工具可能通过 SetWindowPlacement 把窗口跨
+      // 显示器搬到不同 DPI 的副屏（其 WINDOWPOSCHANGING 特征：带
+      // NOACTIVATE|NOZORDER 的完整尺寸移动；DPI-unaware 调用者传的坐标
+      // 会被系统换算成物理像素）。窗口一旦跨 DPI 迁移就会连锁触发
+      // WM_DPICHANGED 缩放，最终大半落在屏外，表现为“窗口不见了、
+      // 任务栏还有任务”。用户手动拖动（拖动期间不拦截）、最大化/还原
+      // （同一显示器内）和本进程 setBounds（flags 不含 NOACTIVATE）都
+      // 不受影响。30 秒后完全放行，避免影响显示器拔插时的窗口重排。
+      auto* wp = reinterpret_cast<WINDOWPOS*>(lparam);
+      if (wp != nullptr && !in_drag_move_ &&
+          (wp->flags & (SWP_NOACTIVATE | SWP_NOZORDER)) ==
+              (SWP_NOACTIVATE | SWP_NOZORDER) &&
+          !(wp->flags & (SWP_NOSIZE | SWP_NOMOVE)) &&
+          GetTickCount64() - creation_time_ < 30000) {
+        RECT current{};
+        if (GetWindowRect(hwnd, &current)) {
+          HMONITOR cur_monitor =
+              MonitorFromRect(&current, MONITOR_DEFAULTTONEAREST);
+          RECT proposed{wp->x, wp->y, wp->x + wp->cx, wp->y + wp->cy};
+          HMONITOR dst_monitor =
+              MonitorFromRect(&proposed, MONITOR_DEFAULTTONEAREST);
+          if (cur_monitor != dst_monitor &&
+              DpiForMonitor(dst_monitor) != GetDpiForWindow(hwnd)) {
+            // 恢复到当前矩形，阻止这次跨 DPI 显示器迁移。
+            wp->x = current.left;
+            wp->y = current.top;
+            wp->cx = current.right - current.left;
+            wp->cy = current.bottom - current.top;
+          }
+        }
+      }
+      break;
+    }
+    case WM_ENTERSIZEMOVE:
+      in_drag_move_ = true;
+      break;
+
+    case WM_EXITSIZEMOVE:
+      in_drag_move_ = false;
+      break;
     case WM_SYSCOMMAND:
       if (wparam == SC_KEYMENU && (lparam >> 16) <= 0) {
         return 0;

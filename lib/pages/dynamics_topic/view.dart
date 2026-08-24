@@ -20,7 +20,6 @@ import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_topic/controller.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
@@ -360,19 +359,13 @@ class _DynTopicPageState extends State<DynTopicPage>
       Loading() => dynSkeleton,
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? GlobalData().dynamicsWaterfallFlow
-                  ? SliverWaterfallFlow(
-                      gridDelegate: dynGridDelegate,
-                      delegate: SliverChildBuilderDelegate(
-                        (_, index) => _itemBuilder(response, index),
-                        childCount: response.length,
-                      ),
-                    )
-                  : SliverList.builder(
-                      itemBuilder: (context, index) =>
-                          _itemBuilder(response, index),
-                      itemCount: response.length,
-                    )
+            ? SliverWaterfallFlow(
+                gridDelegate: dynGridDelegate,
+                delegate: SliverChildBuilderDelegate(
+                  (_, index) => _itemBuilder(response, index),
+                  childCount: response.length,
+                ),
+              )
             : HttpError(onReload: _controller.onReload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,

@@ -104,6 +104,13 @@ class Win32Window {
 
   // window handle for hosted content.
   HWND child_content_ = nullptr;
+
+  // Tick count at window creation; used to guard the startup-only guard
+  // against external cross-DPI window moves (see MessageHandler).
+  uint64_t creation_time_ = 0;
+
+  // True between WM_ENTERSIZEMOVE and WM_EXITSIZEMOVE (user dragging).
+  bool in_drag_move_ = false;
 };
 
 #endif  // RUNNER_WIN32_WINDOW_H_
