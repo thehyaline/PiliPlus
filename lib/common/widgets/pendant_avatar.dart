@@ -1,7 +1,7 @@
 import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/live_tag.dart';
 import 'package:PiliPlus/models/common/avatar_badge_type.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -20,7 +20,6 @@ class PendantAvatar extends StatelessWidget {
     this.pendantImage,
     this.pendentOffset = 6,
     this.roomId,
-    this.liveBottom,
     this.liveFontSize,
     this.onTap,
   }) : preferredSize = size,
@@ -44,7 +43,6 @@ class PendantAvatar extends StatelessWidget {
   final String? pendantImage;
   final double pendentOffset;
   final int? roomId;
-  final double? liveBottom;
   final double? liveFontSize;
   final VoidCallback? onTap;
 
@@ -83,6 +81,10 @@ class PendantAvatar extends StatelessWidget {
         child: avatar,
       );
     }
+    // 直播中且没有个性头像框时，加一圈与直播标签同主题色的边框
+    if (roomId != null && !showPendant) {
+      avatar = liveAvatarBorder(color: currentThemeColor(), child: avatar);
+    }
     Widget child = ExtraHitTestStack(
       clipBehavior: .none,
       alignment: .center,
@@ -90,7 +92,7 @@ class PendantAvatar extends StatelessWidget {
         avatar,
         ?pendant,
         if (roomId != null)
-          _buildLive(colorScheme)
+          _buildLive(showPendant)
         else if (badgeType != .none)
           _buildBadge(context, colorScheme),
       ],
@@ -104,36 +106,19 @@ class PendantAvatar extends StatelessWidget {
     return child;
   }
 
-  Widget _buildLive(ColorScheme colorScheme) {
-    final fontSize = liveFontSize ?? 13.0;
+  Widget _buildLive(bool showPendant) {
     return Positioned(
-      bottom: liveBottom ?? 0.0,
-      child: GestureDetector(
-        onTap: () => PageUtils.toLiveRoom(roomId),
-        child: Container(
-          padding: const .symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer,
-            borderRadius: Style.mdRadius,
-          ),
-          child: Row(
-            mainAxisSize: .min,
-            children: [
-              Icon(
-                size: fontSize + 3,
-                applyTextScaling: true,
-                Icons.equalizer_rounded,
-                color: colorScheme.onSecondaryContainer,
-              ),
-              Text(
-                '直播中',
-                style: TextStyle(
-                  height: 1,
-                  fontSize: fontSize,
-                  color: colorScheme.onSecondaryContainer,
-                ),
-              ),
-            ],
+      left: 0,
+      right: 0,
+      // 头像底部的中心点与标签中心点重叠；
+      // 有头像框时头像相对容器整体上移了 pendentOffset/2，需同步抬高
+      bottom: showPendant ? pendentOffset / 2 : 0,
+      child: Center(
+        child: FractionalTranslation(
+          translation: const Offset(0, 0.5),
+          child: GestureDetector(
+            onTap: () => PageUtils.toLiveRoom(roomId),
+            child: LiveTag(fontSize: liveFontSize ?? 13),
           ),
         ),
       ),

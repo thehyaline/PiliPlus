@@ -15,6 +15,9 @@ abstract final class ThemeUtils {
 
   static late ThemeMode themeMode;
 
+  /// Android 动态取色是否生效（由 main.dart 在构建主题时同步）
+  static bool isDynamicColor = false;
+
   static ThemeData get theme {
     if (themeMode == .dark ||
         (themeMode == .system &&

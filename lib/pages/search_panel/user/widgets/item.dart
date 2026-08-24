@@ -32,7 +32,6 @@ class SearchUserItem extends StatelessWidget {
               item.upic,
               size: 42,
               officialType: item.officialVerify?.type,
-              liveBottom: -5,
               liveFontSize: 11,
               roomId: item.isLive == 1 ? item.roomId : null,
             ),

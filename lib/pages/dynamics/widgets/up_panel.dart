@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/live_tag.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
@@ -177,15 +178,19 @@ class _UpPanelState extends State<UpPanel> {
         avatar = Stack(
           clipBehavior: .none,
           children: [
-            avatar,
-            Positioned(
-              top: isLive && !isTop ? -5 : 0,
-              right: -6,
-              child: Badge(
-                label: const Text(' Live '),
-                textColor: theme.colorScheme.onSecondaryContainer,
-                backgroundColor: theme.colorScheme.secondaryContainer
-                    .withValues(alpha: 0.75),
+            liveAvatarBorder(
+              color: currentThemeColor(),
+              child: avatar,
+            ),
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Center(
+                child: FractionalTranslation(
+                  translation: Offset(0, 0.5),
+                  child: LiveTag(fontSize: 10),
+                ),
               ),
             ),
           ],

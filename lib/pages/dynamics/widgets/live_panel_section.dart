@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/live_tag.dart';
 import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/live_follow/view.dart';
@@ -114,20 +115,24 @@ class LivePanelSection extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                NetworkImgLayer(
-                  width: 38,
-                  height: 38,
-                  src: item.face,
-                  type: .avatar,
+                liveAvatarBorder(
+                  color: currentThemeColor(),
+                  child: NetworkImgLayer(
+                    width: 38,
+                    height: 38,
+                    src: item.face,
+                    type: .avatar,
+                  ),
                 ),
-                Positioned(
-                  top: -5,
-                  right: -6,
-                  child: Badge(
-                    label: const Text(' Live '),
-                    textColor: theme.colorScheme.onSecondaryContainer,
-                    backgroundColor: theme.colorScheme.secondaryContainer
-                        .withValues(alpha: 0.75),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: FractionalTranslation(
+                      translation: Offset(0, 0.5),
+                      child: LiveTag(fontSize: 10),
+                    ),
                   ),
                 ),
               ],

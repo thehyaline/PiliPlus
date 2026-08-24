@@ -532,7 +532,8 @@ class UserInfoCard extends StatelessWidget {
         imgList: [SourceModel(url: card.face.http2https)],
       ),
     );
-    if (pendant == null || pendant.isEmpty) {
+    // 直播中时主题色描边由 PendantAvatar 统一绘制，此处仅处理非直播状态
+    if ((pendant == null || pendant.isEmpty) && live?.liveStatus != 1) {
       child = DecoratedBox(
         decoration: BoxDecoration(
           border: .all(width: 2, color: scheme.surface),
