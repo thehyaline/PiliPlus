@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/common/assets.dart';
@@ -46,6 +47,7 @@ class _MainAppState extends PopScopeState<MainApp>
         TrayListener {
   final _mainController = Get.put(MainController());
   late final _setting = GStorage.setting;
+  Timer? _windowBoundsDebounce;
   late EdgeInsets _padding;
   late ColorScheme _colorScheme;
   Brightness? _brightness;
@@ -118,6 +120,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void dispose() {
+    _windowBoundsDebounce?.cancel();
     if (PlatformUtils.isDesktop) {
       trayManager.removeListener(this);
       windowManager.removeListener(this);
@@ -138,25 +141,29 @@ class _MainAppState extends PopScopeState<MainApp>
     _setting.put(SettingBoxKey.isWindowMaximized, false);
   }
 
-  @override
-  Future<void> onWindowMoved() async {
-    if (PlPlayerController.instance?.isDesktopPip ?? false) {
-      return;
-    }
-    final Offset offset = await windowManager.getPosition();
-    _setting.put(SettingBoxKey.windowPosition, [offset.dx, offset.dy]);
+  void _saveWindowBoundsDebounced() {
+    _windowBoundsDebounce?.cancel();
+    _windowBoundsDebounce = Timer(const Duration(milliseconds: 300), () async {
+      _windowBoundsDebounce = null;
+      if (PlPlayerController.instance?.isDesktopPip ?? false) {
+        return;
+      }
+      final Rect bounds = await windowManager.getBounds();
+      _setting.putAll({
+        SettingBoxKey.windowSize: [bounds.width, bounds.height],
+        SettingBoxKey.windowPosition: [bounds.left, bounds.top],
+      });
+    });
   }
 
   @override
-  Future<void> onWindowResized() async {
-    if (PlPlayerController.instance?.isDesktopPip ?? false) {
-      return;
-    }
-    final Rect bounds = await windowManager.getBounds();
-    _setting.putAll({
-      SettingBoxKey.windowSize: [bounds.width, bounds.height],
-      SettingBoxKey.windowPosition: [bounds.left, bounds.top],
-    });
+  void onWindowMoved() {
+    _saveWindowBoundsDebounced();
+  }
+
+  @override
+  void onWindowResized() {
+    _saveWindowBoundsDebounced();
   }
 
   @override

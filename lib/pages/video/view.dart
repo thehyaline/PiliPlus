@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math';
 
@@ -76,6 +77,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
+/// 视频播放页的布局模式
+enum _LayoutMode { pip, portrait, landscape, almostSquare }
+
 class VideoDetailPageV extends StatefulWidget {
   const VideoDetailPageV({super.key});
 
@@ -115,6 +119,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoDetailController.plPlayerController.pipNoDanmaku;
 
   bool isShowing = true;
+
+  /// 当前生效的布局模式,窗口尺寸变化时延迟切换,避免拖动窗口期间反复换树
+  _LayoutMode? _currentLayoutMode;
+  _LayoutMode? _pendingLayoutMode;
+  Timer? _layoutSwitchTimer;
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
@@ -359,6 +368,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
     removeObserverMobile(this);
+    _layoutSwitchTimer?.cancel();
 
     super.dispose();
   }
@@ -1252,19 +1262,52 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   bool isWindowMode = false;
   late EdgeInsets padding;
 
+  _LayoutMode _computeLayoutMode() {
+    if (videoDetailController.plPlayerController.isPipMode) {
+      return _LayoutMode.pip;
+    } else if (!videoDetailController.horizontalScreen && isPortrait) {
+      return _LayoutMode.portrait;
+    } else if (maxWidth / maxHeight >= kScreenRatio) {
+      return _LayoutMode.landscape;
+    } else if (maxWidth / Style.aspectRatio16x9 < 0.4 * maxHeight) {
+      return _LayoutMode.portrait;
+    }
+    return _LayoutMode.almostSquare;
+  }
+
   @override
   Widget build(BuildContext context) {
-    Widget child;
-    if (videoDetailController.plPlayerController.isPipMode) {
-      child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
-    } else if (!videoDetailController.horizontalScreen && isPortrait) {
-      child = childWhenDisabled;
-    } else if (maxWidth / maxHeight >= kScreenRatio) {
-      child = childWhenDisabledLandscape;
-    } else if (maxWidth / Style.aspectRatio16x9 < 0.4 * maxHeight) {
-      child = childWhenDisabled;
+    final targetMode = _computeLayoutMode();
+    if (_currentLayoutMode == null) {
+      // 首次布局直接采用当前尺寸对应的模式
+      _currentLayoutMode = targetMode;
+    } else if (targetMode != _currentLayoutMode) {
+      // 拖动窗口跨宽高比阈值时防抖:尺寸稳定 150ms 后再切换布局,
+      // 避免拖动期间每帧在完全不同的布局子树间整体切换
+      _pendingLayoutMode = targetMode;
+      _layoutSwitchTimer?.cancel();
+      _layoutSwitchTimer = Timer(const Duration(milliseconds: 150), () {
+        _layoutSwitchTimer = null;
+        if (!mounted || _pendingLayoutMode == null) return;
+        setState(() {
+          _currentLayoutMode = _pendingLayoutMode;
+          _pendingLayoutMode = null;
+        });
+      });
     } else {
-      child = childWhenDisabledAlmostSquare;
+      _pendingLayoutMode = null;
+    }
+
+    Widget child;
+    switch (_currentLayoutMode!) {
+      case _LayoutMode.pip:
+        child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
+      case _LayoutMode.portrait:
+        child = childWhenDisabled;
+      case _LayoutMode.landscape:
+        child = childWhenDisabledLandscape;
+      case _LayoutMode.almostSquare:
+        child = childWhenDisabledAlmostSquare;
     }
     if (videoDetailController.plPlayerController.keyboardControl) {
       child = PlayerFocus(
