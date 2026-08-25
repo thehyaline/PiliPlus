@@ -18,7 +18,6 @@ import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
-import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
@@ -302,6 +301,14 @@ abstract final class Pref {
       return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
     }
     return const <VideoDecodeFormatType>[.AVC, .AV1];
+  }
+
+  static List<VideoDecodeFormatType> get preferCodecsCellular {
+    final codecs = _setting.get(SettingBoxKey.preferCodecsCellular);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return preferCodecs;
   }
 
   static String get hardwareDecoding => _setting.get(
@@ -620,12 +627,6 @@ abstract final class Pref {
   static int get appFontWeight =>
       _setting.get(SettingBoxKey.appFontWeight, defaultValue: -1);
 
-  static AppFontType get appFontFamily =>
-      AppFontType.values[_setting.get(
-        SettingBoxKey.appFontFamily,
-        defaultValue: 0,
-      )];
-
   static bool get enableDragSubtitle =>
       _setting.get(SettingBoxKey.enableDragSubtitle, defaultValue: false);
 
@@ -775,6 +776,12 @@ abstract final class Pref {
       ReplySortType.values[_setting.get(
         SettingBoxKey.replySortType,
         defaultValue: ReplySortType.hot.index,
+      )];
+
+  static ReplySortType get reply2SortType =>
+      ReplySortType.values[_setting.get(
+        SettingBoxKey.reply2SortType,
+        defaultValue: ReplySortType.time.index,
       )];
 
   static DynamicBadgeMode get dynamicBadgeMode =>
@@ -1068,4 +1075,6 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
+
+  static String? get appFont => _setting.get(SettingBoxKey.appFont);
 }

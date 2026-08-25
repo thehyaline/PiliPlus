@@ -1,8 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/font_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
@@ -44,16 +41,13 @@ abstract final class ThemeUtils {
     final fontWeight = appFontWeight == -1
         ? null
         : FontWeight.values[appFontWeight];
-    final fontFamily =
-        PlatformUtils.isWindows && Pref.appFontFamily == AppFontType.harmony
-        ? FontUtils.harmonyFamily
-        : null;
-    late final textStyle = TextStyle(fontWeight: fontWeight);
+    final font = Pref.appFont;
+    final changeStyle = font == null && fontWeight == null;
+    late final textStyle = TextStyle(fontWeight: fontWeight, fontFamily: font);
     ThemeData theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      fontFamily: fontFamily,
-      textTheme: fontWeight == null
+      textTheme: changeStyle
           ? null
           : TextTheme(
               displayLarge: textStyle,
@@ -72,9 +66,7 @@ abstract final class ThemeUtils {
               labelMedium: textStyle,
               labelSmall: textStyle,
             ),
-      tabBarTheme: fontWeight == null
-          ? null
-          : TabBarThemeData(labelStyle: textStyle),
+      tabBarTheme: changeStyle ? null : TabBarThemeData(labelStyle: textStyle),
       appBarTheme: AppBarTheme(
         elevation: 0,
         titleSpacing: 0,
@@ -84,6 +76,7 @@ abstract final class ThemeUtils {
         titleTextStyle: TextStyle(
           fontSize: 16,
           color: colorScheme.onSurface,
+          fontFamily: font,
           fontWeight: fontWeight,
         ),
       ),
@@ -117,6 +110,7 @@ abstract final class ThemeUtils {
       dialogTheme: DialogThemeData(
         titleTextStyle: TextStyle(
           fontSize: 18,
+          fontFamily: font,
           fontWeight: fontWeight,
           color: colorScheme.onSurface,
         ),

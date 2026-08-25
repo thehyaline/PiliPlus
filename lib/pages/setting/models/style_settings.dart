@@ -16,7 +16,6 @@ import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
-import 'package:PiliPlus/models/common/theme/app_font_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
@@ -189,39 +188,11 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '字体',
     items: [
-      SplitModel(
-        normalModel: const NormalModel.split(
-          title: 'App字体字重',
-          subtitle: '点击设置',
-          leading: Icon(Icons.text_fields),
-        ),
-        switchModel: SwitchModel.split(
-          defaultVal: false,
-          setKey: SettingBoxKey.appFontWeight,
-          onChanged: (_) => Get.updateMyAppTheme(),
-          onTap: _showFontWeightDialog,
-        ),
-      ),
-      if (PlatformUtils.isWindows)
-        NormalModel(
-          title: '应用字体',
-          leading: const Icon(Icons.font_download_outlined),
-          getSubtitle: () => '当前字体：${Pref.appFontFamily.desc}',
-          onTap: _showAppFontDialog,
-        ),
       NormalModel(
-        onTap: (context, setState) async {
-          final res = await Get.toNamed('/fontSizeSetting');
-          if (res != null) {
-            setState();
-          }
-        },
-        title: '字体大小',
-        leading: const Icon(Icons.format_size_outlined),
-        getSubtitle: () {
-          final scale = Pref.defaultTextScale;
-          return scale == 1.0 ? '默认' : scale.toString();
-        },
+        title: 'App字体设置',
+        subtitle: '点击设置',
+        leading: const Icon(Icons.text_fields),
+        onTap: (context, setState) => Get.toNamed('/fontSetting'),
       ),
     ],
   ),
@@ -707,45 +678,6 @@ void _showSpringDialog(BuildContext context, _) {
       ],
     ),
   );
-}
-
-Future<void> _showFontWeightDialog(BuildContext context) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('App字体字重'),
-      value: Pref.appFontWeight.toDouble() + 1,
-      min: 1,
-      max: FontWeight.values.length.toDouble(),
-      divisions: FontWeight.values.length - 1,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.appFontWeight, res.toInt() - 1);
-    Get.updateMyAppTheme();
-  }
-}
-
-Future<void> _showAppFontDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<AppFontType>(
-    context: context,
-    builder: (context) => SelectDialog<AppFontType>(
-      title: '应用字体',
-      value: Pref.appFontFamily,
-      values: [
-        (AppFontType.harmony, 'HarmonyOS Sans（默认）'),
-        (AppFontType.system, AppFontType.system.desc),
-      ],
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.appFontFamily, res.index);
-    Get.updateMyAppTheme();
-    setState();
-  }
 }
 
 Future<void> _showTransitionDialog(
