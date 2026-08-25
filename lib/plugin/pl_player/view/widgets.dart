@@ -431,9 +431,8 @@ class _RenderVideoTime extends RenderBox {
     _position = value;
     if (_singleLine) {
       _rebuildCache();
-    } else {
-      markNeedsPaint();
     }
+    markNeedsPaint();
     markNeedsSemanticsUpdate();
   }
 
