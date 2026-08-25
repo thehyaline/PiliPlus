@@ -35,9 +35,9 @@ class LivePanelSection extends StatelessWidget {
         right: position == LivePanelPosition.left
             ? 0
             : Style.waterfallMargin,
-        // 底部留空隙，避免内容贴底/被底部导航栏遮挡
-        bottom: 20,
       ),
+      // 板块最大高度由调用方约束（底部留出 livePanelBottomGap 空隙），
+      // 内容超高时内部列表滚动
       child: LayoutBuilder(
         builder: (context, constraints) => ConstrainedBox(
           constraints: BoxConstraints(maxHeight: constraints.maxHeight),

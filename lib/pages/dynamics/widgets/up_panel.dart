@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/assets.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/live_tag.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
@@ -56,7 +57,7 @@ class _UpPanelState extends State<UpPanel> {
               onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,
               child: Container(
                 alignment: .center,
-                height: isTop ? 76 : 60,
+                height: isTop ? Style.upPanelTopHeight : 60,
                 padding: isTop ? const .only(left: 12, right: 6) : null,
                 child: Text.rich(
                   textAlign: .center,
@@ -201,7 +202,7 @@ class _UpPanelState extends State<UpPanel> {
     }
 
     return SizedBox(
-      height: 76,
+      height: Style.upPanelTopHeight,
       width: isTop ? 70 : null,
       child: InkWell(
         onTap: () {

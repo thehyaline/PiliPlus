@@ -65,7 +65,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       color: needBg ? theme.colorScheme.surface : null,
       child: SizedBox(
         width: isTop ? null : 64,
-        height: isTop ? 76 : null,
+        height: isTop ? Style.upPanelTopHeight : null,
         child: NotificationListener<ScrollEndNotification>(
           onNotification: (notification) {
             final metrics = notification.metrics;
@@ -207,19 +207,32 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                 final extent = width - Style.livePanelWidth - 3 * gap;
                 final metrics = dynGridMetrics(extent);
                 final offset = max(0.0, (extent - metrics.gridWidth) / 2);
-                final panel = SizedBox(
-                  width: Style.livePanelWidth,
-                  child: livePanel,
+                // UP主列表位于顶部时，板块需下移避让其高度
+                final top =
+                    upPanelPosition == .top ? Style.upPanelTopHeight : 0.0;
+                // Positioned 仅指定 top 时子组件高度约束无上界，需手动限制：
+                // 板块高度随内容自适应，内容超高时最多到"底部留出空隙"处
+                final panel = ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: max(
+                      0.0,
+                      constraints.maxHeight - top - Style.livePanelBottomGap,
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: Style.livePanelWidth,
+                    child: livePanel,
+                  ),
                 );
                 return Stack(
                   children: [
                     baseChild,
                     if (livePanelPosition == LivePanelPosition.left)
-                      Positioned(left: gap + offset, top: 0, child: panel),
+                      Positioned(left: gap + offset, top: top, child: panel),
                     if (livePanelPosition == LivePanelPosition.right)
                       Positioned(
                         left: width - gap - offset - Style.livePanelWidth,
-                        top: 0,
+                        top: top,
                         child: panel,
                       ),
                   ],
