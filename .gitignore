@@ -150,3 +150,6 @@ pili_release.json
 dist
 
 test*
+
+# ZCode 会话计划（个人工作记录，不同步）
+.zcode/
