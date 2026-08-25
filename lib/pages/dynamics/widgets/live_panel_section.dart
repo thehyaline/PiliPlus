@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/live_follow/view.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -111,34 +112,49 @@ class LivePanelSection extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
         child: Row(
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
                 LiveAvatarBorder(
-                  child: NetworkImgLayer(
-                    width: 38,
-                    height: 38,
-                    src: item.face,
-                    type: .avatar,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: NetworkImgLayer(
+                      width: 38,
+                      height: 38,
+                      src: item.face,
+                      type: .avatar,
+                    ),
                   ),
                 ),
+                // 与 UP 列表标签一致：解除宽度约束以自然宽度渲染并居中溢出，
+                // deferToChild 避免无界高度约束下尺寸为无限大
                 const Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: Center(
+                  child: OverflowBox(
+                    fit: OverflowBoxFit.deferToChild,
+                    alignment: .topCenter,
+                    maxWidth: double.infinity,
                     child: FractionalTranslation(
                       translation: Offset(0, 0.5),
-                      child: LiveTag(fontSize: 10),
+                      child: LiveTag(
+                        fontSize: 9,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 10),
+            // 预留标签向右溢出的宽度，避免盖住 UP 名称
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

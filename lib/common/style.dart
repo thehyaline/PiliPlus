@@ -14,8 +14,9 @@ abstract final class Style {
   /// "正在直播"板块底部留出的空隙，内容超高时作为板块最大高度限制
   static const livePanelBottomGap = 20.0;
 
-  /// 顶部 UP主列表高度（"正在直播"板块叠放时需向下避让该高度）
-  static const upPanelTopHeight = 76.0;
+  /// 顶部 UP主列表 cell 高度（"正在直播"板块叠放时需向下避让该高度）。
+  /// 内容贴顶（留出 4px 容纳头像圆环），剩余高度容纳直播标签溢出与两行名称
+  static const upPanelTopHeight = 80.0;
 
   /// 视频竖版卡片网格（主页推荐/直播流）的行列间距
   static const videoCardSpace = 12.0;

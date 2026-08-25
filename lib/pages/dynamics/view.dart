@@ -6,16 +6,16 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
-import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/live_panel_section.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/up_panel.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/up_panel_section.dart';
 import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_tab/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
@@ -56,58 +56,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       ),
     ),
   );
-
-  Widget upPanelPart(ThemeData theme) {
-    final isTop = upPanelPosition == .top;
-    final needBg = upPanelPosition.index > 2;
-    return Material(
-      type: needBg ? .canvas : .transparency,
-      color: needBg ? theme.colorScheme.surface : null,
-      child: SizedBox(
-        width: isTop ? null : 64,
-        height: isTop ? Style.upPanelTopHeight : null,
-        child: NotificationListener<ScrollEndNotification>(
-          onNotification: (notification) {
-            final metrics = notification.metrics;
-            if (metrics.pixels >= metrics.maxScrollExtent - 300) {
-              _dynamicsController.onLoadMore();
-            }
-            return false;
-          },
-          child: Obx(() {
-            final showLive =
-                _dynamicsController.livePanelPosition.value !=
-                    LivePanelPosition.hidden &&
-                context.showNavbar;
-            return _buildUpPanel(
-              _dynamicsController.loadingState.value,
-              showLiveSection: !showLive,
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUpPanel(
-    LoadingState<FollowUpModel> upState, {
-    bool showLiveSection = true,
-  }) {
-    return switch (upState) {
-      Loading() => const SizedBox.shrink(),
-      Success(:final response) => UpPanel(
-        upData: response,
-        dynamicsController: _dynamicsController,
-        showLiveSection: showLiveSection,
-      ),
-      Error() => Center(
-        child: IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _dynamicsController.onReload,
-        ),
-      ),
-    };
-  }
 
   Widget livePanelPart(LivePanelPosition position) => Obx(
     () => switch (_dynamicsController.loadingState.value) {
@@ -163,20 +111,26 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
 
     switch (upPanelPosition) {
       case .top:
-        upPanelTop = upPanelPart(theme);
+        // 随页面滚动开启时，栏位作为列表内容由各动态 tab 渲染，此处不再固定
+        if (!Pref.upPanelFollowPage) {
+          upPanelTop = Padding(
+            padding: const EdgeInsets.symmetric(vertical: Style.waterfallMargin),
+            child: UpPanelSection(dynamicsController: _dynamicsController),
+          );
+        }
         actions = _createDynamicBtn(theme);
       case .leftFixed:
-        upPanelLeft = upPanelPart(theme);
+        upPanelLeft = UpPanelSection(dynamicsController: _dynamicsController);
         actions = _createDynamicBtn(theme);
       case .rightFixed:
-        upPanelRight = upPanelPart(theme);
+        upPanelRight = UpPanelSection(dynamicsController: _dynamicsController);
         actions = _createDynamicBtn(theme);
       case .leftDrawer:
-        drawer = upPanelPart(theme);
+        drawer = UpPanelSection(dynamicsController: _dynamicsController);
         actions = _createDynamicBtn(theme);
         leading = const DrawerButton();
       case .rightDrawer:
-        endDrawer = upPanelPart(theme);
+        endDrawer = UpPanelSection(dynamicsController: _dynamicsController);
         leading = _createDynamicBtn(theme, isRight: false);
         actions = const EndDrawerButton();
     }
@@ -207,9 +161,11 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                 final extent = width - Style.livePanelWidth - 3 * gap;
                 final metrics = dynGridMetrics(extent);
                 final offset = max(0.0, (extent - metrics.gridWidth) / 2);
-                // UP主列表位于顶部时，板块需下移避让其高度
+                // UP主列表固定位于顶部时，板块需下移避让其高度（含上下外边距）
                 final top =
-                    upPanelPosition == .top ? Style.upPanelTopHeight : 0.0;
+                    upPanelTop != null
+                    ? Style.upPanelTopHeight + Style.waterfallMargin * 2
+                    : 0.0;
                 // Positioned 仅指定 top 时子组件高度约束无上界，需手动限制：
                 // 板块高度随内容自适应，内容超高时最多到"底部留出空隙"处
                 final panel = ConstrainedBox(
@@ -240,16 +196,24 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
               },
             )
           : baseChild;
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ?upPanelLeft,
-          Expanded(child: content),
-          ?upPanelRight,
-        ],
+      // UP主列表位于左/右侧时，对应侧预留与动态列表一致的左右边距
+      return Padding(
+        padding: EdgeInsets.only(
+          left: upPanelLeft != null ? Style.waterfallMargin : 0,
+          right: upPanelRight != null ? Style.waterfallMargin : 0,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ?upPanelLeft,
+            Expanded(child: content),
+            ?upPanelRight,
+          ],
+        ),
       );
     });
 
+    final page = child;
     return Scaffold(
       primary: false,
       resizeToAvoidBottomInset: false,
@@ -293,7 +257,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       ),
       drawer: drawer,
       endDrawer: endDrawer,
-      body: onBuild(child),
+      body: onBuild(page),
     );
   }
 }

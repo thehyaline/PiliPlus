@@ -227,6 +227,8 @@ abstract final class SettingBoxKey {
       upPanelPosition = 'upPanelPosition',
       livePanelPosition = 'livePanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
+      separateTopLiveBar = 'separateTopLiveBar',
+      upPanelFollowPage = 'upPanelFollowPage',
       useSideBar = 'useSideBar',
       enableMYBar = 'enableMYBar',
       hideTopBar = 'hideSearchBar',

@@ -11,6 +11,7 @@ import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -170,14 +171,22 @@ class _UpPanelState extends State<UpPanel> {
           clipBehavior: .none,
           children: [
             LiveAvatarBorder(child: avatar),
+            // OverflowBox 解除头像宽度约束，让标签以自然宽度渲染并居中溢出；
+            // deferToChild 使自身尺寸跟随子项，避免无界高度约束下尺寸为无限大
             const Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: Center(
+              child: OverflowBox(
+                fit: OverflowBoxFit.deferToChild,
+                alignment: .topCenter,
+                maxWidth: double.infinity,
                 child: FractionalTranslation(
                   translation: Offset(0, 0.5),
-                  child: LiveTag(fontSize: 10),
+                  child: LiveTag(
+                    fontSize: 9,
+                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  ),
                 ),
               ),
             ),
@@ -202,8 +211,9 @@ class _UpPanelState extends State<UpPanel> {
     }
 
     return SizedBox(
-      height: Style.upPanelTopHeight,
-      width: isTop ? 70 : null,
+      // 顶部模式 cell 宽高固定；左右模式高度随文字行数变化
+      height: isTop ? Style.upPanelTopHeight : null,
+      width: isTop ? 72 : null,
       child: InkWell(
         onTap: () {
           feedBack();
@@ -216,30 +226,40 @@ class _UpPanelState extends State<UpPanel> {
         // onDoubleTap: isLive ? () => _onSelect(data) : null,
         onLongPress: !isAll ? toMemberPage : null,
         onSecondaryTap: !isAll && !PlatformUtils.isMobile ? toMemberPage : null,
-        child: Opacity(
-          opacity: isCurrent ? 1 : 0.6,
-          child: Column(
-            spacing: 4,
-            mainAxisSize: .min,
-            mainAxisAlignment: .center,
-            children: [
-              avatar,
-              Padding(
-                padding: const .symmetric(horizontal: 4),
-                child: Text(
-                  isTop ? '${item.uname}\n' : item.uname!,
-                  maxLines: 2,
-                  textAlign: .center,
-                  style: TextStyle(
-                    color: currentMid == item.mid
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
-                    height: 1.1,
-                    fontSize: 12.5,
+        child: Padding(
+          // 顶部模式内容贴顶并留出圆环（向外扩展 2px）的余量；
+          // 左右模式上下间距固定一致，cell 高度随内容动态变化
+          padding: isTop
+              ? const EdgeInsets.only(top: 4)
+              : const EdgeInsets.symmetric(vertical: 4),
+          child: Opacity(
+            opacity: isCurrent ? 1 : 0.6,
+            child: Column(
+              // 顶部模式：所有 cell 间距统一为 12，文字上沿对齐直播项在同一高度；
+              // 左右模式：直播项间距 12 使标签下沿到文字为 4px，
+              // 非直播项（含全部动态）头像下沿到文字保持同样的 4px
+              spacing: isTop || isLive ? 12 : 4,
+              mainAxisSize: .min,
+              children: [
+                avatar,
+                Padding(
+                  padding: const .symmetric(horizontal: 4),
+                  // 文字顶部对齐：单行/双行时距头像的距离一致
+                  child: Text(
+                    item.uname ?? '',
+                    maxLines: 2,
+                    textAlign: .center,
+                    style: TextStyle(
+                      color: currentMid == item.mid
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
+                      height: 1.1,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

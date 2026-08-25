@@ -268,6 +268,22 @@ List<SettingsGroup> get styleSettings => [
         defaultVal: false,
         needReboot: true,
       ),
+      SwitchModel(
+        title: '位于顶部时分离直播栏',
+        subtitle: 'UP主栏位于顶部时，将正在直播列表分离为UP主栏下方的独立直播栏',
+        leading: const Icon(Icons.live_tv_outlined),
+        setKey: SettingBoxKey.separateTopLiveBar,
+        defaultVal: true,
+        onChanged: (_) => Get.appUpdate(),
+      ),
+      SwitchModel(
+        title: 'UP主栏随页面滚动',
+        subtitle: 'UP主栏位于顶部时，将UP主栏与直播栏作为动态列表的一部分，随列表一起滚动',
+        leading: const Icon(Icons.view_agenda_outlined),
+        setKey: SettingBoxKey.upPanelFollowPage,
+        defaultVal: true,
+        onChanged: (_) => Get.appUpdate(),
+      ),
       NormalModel(
         title: '正在直播板块',
         leading: const Icon(Icons.live_tv),

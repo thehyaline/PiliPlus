@@ -6,12 +6,17 @@ import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/live_panel_position.dart';
+import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
+import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dynamic_panel.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/top_live_bar.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/up_panel_section.dart';
 import 'package:PiliPlus/pages/dynamics_tab/controller.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -54,40 +59,84 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
     super.build(context);
     return refreshIndicator(
       onRefresh: onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: controller.scrollController,
-        slivers: [
-          Obx(() {
-            final livePanelPosition =
-                dynamicsController.livePanelPosition.value;
-            final showLive =
-                livePanelPosition != LivePanelPosition.hidden &&
-                context.showNavbar;
-            // 板块优先：列表让出板块宽度+间距；列数受限且空间充足时
-            // 卡片居中留白，板块叠放于留白内，空间不足时卡片收缩铺满
-            final panelSpace =
-                showLive
-                ? Style.waterfallMargin + Style.livePanelWidth
-                : 0.0;
-            return SliverPadding(
+      child: Obx(() {
+        final livePanelPosition = dynamicsController.livePanelPosition.value;
+        final showLive =
+            livePanelPosition != LivePanelPosition.hidden &&
+            context.showNavbar;
+        // 板块优先：列表让出板块宽度+间距；列数受限且空间充足时
+        // 卡片居中留白，板块叠放于留白内，空间不足时卡片收缩铺满
+        final panelSpace =
+            showLive
+            ? Style.waterfallMargin + Style.livePanelWidth
+            : 0.0;
+        final leftPadding =
+            Style.waterfallMargin +
+            (livePanelPosition == LivePanelPosition.left
+                ? panelSpace
+                : 0);
+        final rightPadding =
+            Style.waterfallMargin +
+            (livePanelPosition == LivePanelPosition.right
+                ? panelSpace
+                : 0);
+        // UP主栏随页面滚动开启且位于顶部时，
+        // UP主栏与直播栏作为列表顶部内容，与列表同宽并一起滚动
+        final showTopBars =
+            dynamicsController.upPanelPosition == UpPanelPosition.top &&
+            Pref.upPanelFollowPage;
+        final state = dynamicsController.loadingState.value;
+        final response = state is Success<FollowUpModel> ? state.response : null;
+        final showLiveBar =
+            showTopBars &&
+            !showLive &&
+            response?.liveUsers?.items?.isNotEmpty == true;
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: controller.scrollController,
+          slivers: [
+            SliverPadding(
               padding: EdgeInsets.only(
-                left: Style.waterfallMargin +
-                    (livePanelPosition == LivePanelPosition.left
-                        ? panelSpace
-                        : 0),
+                left: leftPadding,
+                right: rightPadding,
+              ),
+              sliver: showTopBars
+                  ? SliverToBoxAdapter(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Style.waterfallMargin,
+                            ),
+                            child: UpPanelSection(
+                              dynamicsController: dynamicsController,
+                            ),
+                          ),
+                          if (showLiveBar)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: Style.waterfallMargin,
+                              ),
+                              child: TopLiveBar(upData: response!),
+                            ),
+                        ],
+                      ),
+                    )
+                  : const SliverToBoxAdapter(child: SizedBox.shrink()),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: leftPadding,
                 top: Style.waterfallMargin,
-                right: Style.waterfallMargin +
-                    (livePanelPosition == LivePanelPosition.right
-                        ? panelSpace
-                        : 0),
+                right: rightPadding,
                 bottom: 100,
               ),
               sliver: _buildBody(controller.loadingState.value),
-            );
-          }),
-        ],
-      ),
+            ),
+          ],
+        );
+      }),
     );
   }
 

@@ -34,9 +34,14 @@ bool themeColorNeedsDarkFg(Color bg) {
 /// 三个圆按 0.4s 间隔错开，1.2s 周期，半径 0→11/24 视口、透明度 1→0，
 /// 缓动曲线 .52,.6,.25,.99
 class LiveTag extends StatelessWidget {
-  const LiveTag({super.key, this.fontSize = 10});
+  const LiveTag({
+    super.key,
+    this.fontSize = 10,
+    this.padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  });
 
   final double fontSize;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +51,7 @@ class LiveTag extends StatelessWidget {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: padding,
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(99),

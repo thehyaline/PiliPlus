@@ -747,6 +747,12 @@ abstract final class Pref {
     defaultValue: false,
   );
 
+  static bool get separateTopLiveBar =>
+      _setting.get(SettingBoxKey.separateTopLiveBar, defaultValue: true);
+
+  static bool get upPanelFollowPage =>
+      _setting.get(SettingBoxKey.upPanelFollowPage, defaultValue: true);
+
   static bool get enableShowDanmaku =>
       _setting.get(SettingBoxKey.enableShowDanmaku, defaultValue: true);
 
