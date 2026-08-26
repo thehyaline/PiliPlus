@@ -169,6 +169,7 @@ class PlayerFocus extends StatelessWidget {
           }
           return true;
 
+        case LogicalKeyboardKey.keyX:
         case LogicalKeyboardKey.keyF:
           final isFullScreen = this.isFullScreen;
           if (isFullScreen && plPlayerController.controlsLock.value) {
@@ -178,7 +179,7 @@ class PlayerFocus extends StatelessWidget {
           }
           plPlayerController.triggerFullScreen(
             status: !isFullScreen,
-            inAppFullScreen: HardwareKeyboard.instance.isShiftPressed,
+            inAppFullScreen: key == LogicalKeyboardKey.keyX,
           );
           return true;
 
