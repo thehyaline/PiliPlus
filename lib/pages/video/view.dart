@@ -894,6 +894,50 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     return _childWhenDisabledLandscapeInner(isFullScreen);
   }
 
+  /// 分P弹窗对齐的面板宽度,与各布局的布局公式保持一致:
+  /// - landscape:右侧面板(MiniScaffold),见 [_childWhenDisabledLandscapeInner]
+  /// - almostSquare:上下布局下方 Row 均分的最后一块(分P列表),见
+  ///   [_childWhenDisabledAlmostSquareInner]
+  /// 无可见面板(非上述模式或全屏)时返回 null
+  double? get rightPanelWidth {
+    if (isFullScreen) {
+      return null;
+    }
+    switch (_computeLayoutMode()) {
+      case _LayoutMode.almostSquare:
+        if (enableVerticalExpand && videoDetailController.isVertical.value) {
+          // 竖屏视频:childSplit(9/16) 右侧面板
+          final videoHeight = maxHeight - padding.vertical;
+          return maxWidth - videoHeight * 9 / 16 - padding.horizontal;
+        }
+        // 下方 Row 按块数均分,分P列表位于最后一块
+        double flex = 1;
+        if (videoDetailController.showReply) flex++;
+        if (_shouldShowSeasonPanel) flex++;
+        return (maxWidth - padding.horizontal) / flex;
+      case _LayoutMode.landscape:
+        if (enableVerticalExpand && videoDetailController.isVertical.value) {
+          final videoHeight = maxHeight - padding.vertical;
+          final width = videoHeight / Style.aspectRatio16x9;
+          return (maxWidth - padding.horizontal - width) / 2;
+        }
+        double width =
+            clampDouble(maxHeight / maxWidth * 1.08, 0.5, 0.7) * maxWidth;
+        if (maxWidth >= 560) {
+          width = maxWidth - clampDouble(maxWidth - width, 280, 425);
+        }
+        if (width / Style.aspectRatio16x9 > maxHeight) {
+          final videoHeight = maxHeight - padding.vertical;
+          return maxWidth - videoHeight * Style.aspectRatio16x9 -
+              padding.horizontal;
+        }
+        return maxWidth - width - padding.horizontal;
+      case _LayoutMode.portrait:
+      case _LayoutMode.pip:
+        return null;
+    }
+  }
+
   Widget _childWhenDisabledLandscapeInner(bool isFullScreen) {
     double width =
         clampDouble(maxHeight / maxWidth * 1.08, 0.5, 0.7) * maxWidth;
@@ -1739,7 +1783,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           child: Material(
             type: .transparency,
             child: InkWell(
-              onTap: () => videoDetailController.showMediaListPanel(context),
+              onTap: () =>
+                  videoDetailController.showMediaListPanel(context,
+                      width: rightPanelWidth),
               borderRadius: const .all(.circular(14)),
               child: Container(
                 height: 54,
@@ -1911,7 +1957,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     assert((cid == null) == (bvid == null));
     final isFullScreen = this.isFullScreen;
     if (cid == null) {
-      videoDetailController.showMediaListPanel(context);
+      videoDetailController.showMediaListPanel(
+        context,
+        width: isFullScreen ? null : rightPanelWidth,
+      );
       return;
     }
     Widget listSheetContent({bool enableSlide = true}) => EpisodePanel(
@@ -1959,6 +2008,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         child: videoDetailController.plPlayerController.darkVideoPage
             ? Theme(data: theme, child: child)
             : child,
+        // 全屏时无右侧面板,保持默认宽度;横屏窗口模式下对齐右侧面板宽度
+        width: isFullScreen ? null : rightPanelWidth,
       );
     } else {
       videoDetailController.childKey.currentState?.showBottomSheet(

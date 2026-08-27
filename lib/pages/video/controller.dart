@@ -450,7 +450,7 @@ class VideoDetailController extends GetxController
     }
   }
 
-  void showMediaListPanel(BuildContext context) {
+  void showMediaListPanel(BuildContext context, {double? width}) {
     if (mediaList.isNotEmpty) {
       Widget panel() => MediaListPanel(
         mediaList: mediaList,
@@ -503,6 +503,7 @@ class VideoDetailController extends GetxController
           child: plPlayerController.darkVideoPage
               ? Theme(data: ThemeUtils.darkTheme, child: panel())
               : panel(),
+          width: width,
         );
       } else {
         childKey.currentState?.showBottomSheet(

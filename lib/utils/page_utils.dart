@@ -469,6 +469,7 @@ abstract final class PageUtils {
     required Widget child,
     ValueGetter<EdgeInsets>? padding,
     double maxWidth = 500,
+    double? width,
   }) {
     if (!context.mounted) {
       return null;
@@ -477,10 +478,15 @@ abstract final class PageUtils {
       PublishRoute(
         pageBuilder: (context, animation, secondaryAnimation) {
           final isPortrait = context.isPortrait;
+          final sheetWidth = width ?? maxWidth;
           return SafeArea(
             child: CustomFractionallySizedBox(
-              maxWidth: maxWidth,
-              widthFactor: isPortrait ? 1.0 : 0.5,
+              maxWidth: sheetWidth,
+              widthFactor: isPortrait
+                  ? 1.0
+                  : (width != null
+                      ? width / MediaQuery.sizeOf(context).width
+                      : 0.5),
               heightFactor: isPortrait ? 0.7 : 1.0,
               alignment: isPortrait ? .bottomCenter : .centerRight,
               child: Padding(
