@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/init.dart';
+import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/pages/common/common_controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
@@ -46,13 +47,7 @@ class HomeController extends GetxController
 
     hideTopBar = !Pref.useSideBar && Pref.hideTopBar;
     if (hideTopBar) {
-      final mainCtr = Get.find<MainController>();
-      switch (mainCtr.barHideType) {
-        case .instant:
-          showTopBar = RxBool(true);
-        case .sync:
-          mainCtr.barOffset ??= RxDouble(0.0);
-      }
+      updateBarHideType(Get.find<MainController>().barHideType.value);
     }
 
     if (enableSearchWord) {
@@ -61,6 +56,20 @@ class HomeController extends GetxController
     }
 
     setTabConfig();
+  }
+
+  void updateBarHideType(BarHideType value) {
+    if (hideTopBar) {
+      switch (value) {
+        case .instant:
+          showTopBar ??= RxBool(true);
+          showTopBar?.value = true;
+        case .sync:
+          Get.find<MainController>()
+            ..barOffset ??= RxDouble(0.0)
+            ..barOffset?.value = 0.0;
+      }
+    }
   }
 
   @override

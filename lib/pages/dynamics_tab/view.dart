@@ -83,7 +83,7 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
         // UP主栏随页面滚动开启且位于顶部时，
         // UP主栏与直播栏作为列表顶部内容，与列表同宽并一起滚动
         final showTopBars =
-            dynamicsController.upPanelPosition == UpPanelPosition.top &&
+            dynamicsController.upPanelPosition.value == UpPanelPosition.top &&
             Pref.upPanelFollowPage;
         final state = dynamicsController.loadingState.value;
         final response = state is Success<FollowUpModel> ? state.response : null;

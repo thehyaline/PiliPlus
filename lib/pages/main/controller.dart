@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:PiliPlus/grpc/dyn.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/msg.dart';
+import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
@@ -34,7 +35,7 @@ class MainController extends GetxController
   RxDouble? barOffset;
   RxBool? showBottomBar;
   late final bool hideBottomBar;
-  late final barHideType = Pref.barHideType;
+  final barHideType = Pref.barHideType.obs;
   bool useBottomNav = false;
   late dynamic controller;
   final RxInt selectedIndex = 0.obs;
@@ -90,12 +91,7 @@ class MainController extends GetxController
     hideBottomBar =
         !useSideBar && navigationBars.length > 1 && Pref.hideBottomBar;
     if (hideBottomBar) {
-      switch (barHideType) {
-        case .instant:
-          showBottomBar = RxBool(true);
-        case .sync:
-          barOffset ??= RxDouble(0.0);
-      }
+      updateBarHideType(barHideType.value);
     }
 
     dynamicBadgeMode = Pref.dynamicBadgeMode;
@@ -322,6 +318,29 @@ class MainController extends GetxController
   void setSearchBar() {
     if (hasHome) {
       homeController.showTopBar?.value = true;
+    }
+  }
+
+  void updateBarHideType(BarHideType value) {
+    // 先建好目标模式的 Rx 再通知 barHideType，保证各处 Obx 重建时即读到新状态
+    if (hideBottomBar) {
+      switch (value) {
+        case .instant:
+          showBottomBar ??= RxBool(true);
+          showBottomBar?.value = true;
+        case .sync:
+          barOffset ??= RxDouble(0.0);
+          barOffset?.value = 0.0;
+      }
+    }
+    homeController.updateBarHideType(value);
+    barHideType.value = value;
+  }
+
+  void setDefaultHomePage(NavigationBarType value) {
+    final index = math.max(0, navigationBars.indexOf(value));
+    if (index != selectedIndex.value) {
+      setIndex(index);
     }
   }
 

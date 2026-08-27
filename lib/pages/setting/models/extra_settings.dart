@@ -543,23 +543,17 @@ List<SettingsGroup> get extraSettings => [
         defaultVal: false,
         onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
       ),
-      PopupModel<ReplySortType>(
+      NormalModel(
         title: '评论展示',
         leading: const Icon(Icons.whatshot_outlined),
-        value: () => Pref.replySortType,
-        items: ReplySortType.values.take(2),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.replySortType, value.index)
-            .whenComplete(setState),
+        getSubtitle: () => '当前优先展示「${Pref.replySortType.desc}」',
+        onTap: _showReplySortDialog,
       ),
-      PopupModel<ReplySortType>(
-        title: '楼中楼评论展示',
+      NormalModel(
+        title: '二级评论展示',
         leading: const Icon(Icons.subdirectory_arrow_right_outlined),
-        value: () => Pref.reply2SortType,
-        items: ReplySortType.values.take(2),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.reply2SortType, value.index)
-            .whenComplete(setState),
+        getSubtitle: () => '当前优先展示「${Pref.reply2SortType.desc}」',
+        onTap: _showReply2SortDialog,
       ),
     ],
   ),
@@ -601,14 +595,11 @@ List<SettingsGroup> get extraSettings => [
         defaultVal: false,
         onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
       ),
-      PopupModel<DynamicsTabType>(
+      NormalModel(
         title: '动态展示',
         leading: const Icon(Icons.dynamic_feed_rounded),
-        value: () => Pref.defaultDynamicType,
-        items: DynamicsTabType.values.take(4),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.defaultDynamicType, value.index)
-            .whenComplete(setState),
+        getSubtitle: () => '当前优先展示「${Pref.defaultDynamicType.label}」',
+        onTap: _showDefDynDialog,
       ),
       SwitchModel(
         title: '显示动态互动内容',
@@ -1130,6 +1121,63 @@ Future<void> _showReplyDelayDialog(
     await GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt());
     setState();
     SmartDialog.showToast('重启生效');
+  }
+}
+
+Future<void> _showReplySortDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<ReplySortType>(
+    context: context,
+    builder: (context) => SelectDialog<ReplySortType>(
+      title: '评论展示',
+      value: Pref.replySortType,
+      values: ReplySortType.values.take(2).map((e) => (e, e.desc)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
+    setState();
+  }
+}
+
+Future<void> _showReply2SortDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<ReplySortType>(
+    context: context,
+    builder: (context) => SelectDialog<ReplySortType>(
+      title: '二级评论展示',
+      value: Pref.reply2SortType,
+      values: ReplySortType.values.take(2).map((e) => (e, e.desc)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.reply2SortType, res.index);
+    setState();
+  }
+}
+
+Future<void> _showDefDynDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<DynamicsTabType>(
+    context: context,
+    builder: (context) => SelectDialog<DynamicsTabType>(
+      title: '动态展示',
+      value: Pref.defaultDynamicType,
+      values: DynamicsTabType.visibleValues.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.defaultDynamicType,
+      res.index,
+    );
+    setState();
   }
 }
 

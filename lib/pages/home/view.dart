@@ -65,11 +65,15 @@ class _HomePageState extends CommonPageState<HomePage>
           ),
         ),
       );
-      if (_homeController.hideTopBar &&
-          _mainController.barHideType == .instant) {
-        tabBar = Material(
-          color: _colorScheme.surface,
-          child: tabBar,
+      if (_homeController.hideTopBar) {
+        final baseTabBar = tabBar;
+        tabBar = Obx(
+          () => _mainController.barHideType.value == .instant
+              ? Material(
+                  color: _colorScheme.surface,
+                  child: baseTabBar,
+                )
+              : baseTabBar,
         );
       }
     } else {
@@ -105,10 +109,23 @@ class _HomePageState extends CommonPageState<HomePage>
       ],
     );
     if (_homeController.hideTopBar) {
-      if (_mainController.barOffset case final barOffset?) {
-        return Obx(
-          () {
-            final offset = barOffset.value;
+      return Obx(() {
+        switch (_mainController.barHideType.value) {
+          case .instant:
+            final showTopBar = _homeController.showTopBar?.value ?? true;
+            return AnimatedOpacity(
+              opacity: showTopBar ? 1 : 0,
+              duration: const Duration(milliseconds: 300),
+              child: AnimatedContainer(
+                curve: Curves.easeInOutCubicEmphasized,
+                duration: const Duration(milliseconds: 500),
+                height: showTopBar ? Style.topBarHeight : 0,
+                padding: padding,
+                child: child,
+              ),
+            );
+          case .sync:
+            final offset = _mainController.barOffset?.value ?? 0.0;
             return CustomHeightWidget(
               offset: Offset(0, -offset),
               height: Style.topBarHeight - offset,
@@ -117,25 +134,8 @@ class _HomePageState extends CommonPageState<HomePage>
                 child: child,
               ),
             );
-          },
-        );
-      }
-      if (_homeController.showTopBar case final showTopBar?) {
-        return Obx(() {
-          final showSearchBar = showTopBar.value;
-          return AnimatedOpacity(
-            opacity: showSearchBar ? 1 : 0,
-            duration: const Duration(milliseconds: 300),
-            child: AnimatedContainer(
-              curve: Curves.easeInOutCubicEmphasized,
-              duration: const Duration(milliseconds: 500),
-              height: showSearchBar ? Style.topBarHeight : 0,
-              padding: padding,
-              child: child,
-            ),
-          );
-        });
-      }
+        }
+      });
     }
     return Container(
       height: Style.topBarHeight,

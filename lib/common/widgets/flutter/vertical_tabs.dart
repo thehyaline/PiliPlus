@@ -1655,7 +1655,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
           paddingTop -
           viewportWidth / 2.0 +
           (_mainCtr.useBottomNav &&
-                  switch (_mainCtr.barHideType) {
+                  switch (_mainCtr.barHideType.value) {
                     .instant => _mainCtr.showBottomBar?.value ?? true,
                     .sync => (_mainCtr.barOffset?.value ?? 0) == 0,
                   }

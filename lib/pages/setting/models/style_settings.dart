@@ -135,17 +135,11 @@ List<SettingsGroup> get styleSettings => [
         defaultVal: false,
         needReboot: true,
       ),
-      PopupModel<BarHideType>(
+      NormalModel(
+        onTap: _showBarHideTypeDialog,
         title: '顶/底栏收起类型',
         leading: const Icon(MdiIcons.arrowExpandVertical),
-        value: () => Pref.barHideType,
-        items: BarHideType.values,
-        onSelected: (value, setState) {
-          GStorage.setting
-              .put(SettingBoxKey.barHideType, value.index)
-              .whenComplete(setState);
-          SmartDialog.showToast('重启生效');
-        },
+        getSubtitle: () => '当前：${Pref.barHideType.label}',
       ),
       SwitchModel(
         title: '首页顶栏收起',
@@ -254,17 +248,11 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '动态页',
     items: [
-      PopupModel<UpPanelPosition>(
+      NormalModel(
         title: 'UP主显示位置',
         leading: const Icon(Icons.person_outlined),
-        value: () => Pref.upPanelPosition,
-        items: UpPanelPosition.values,
-        onSelected: (value, setState) {
-          GStorage.setting
-              .put(SettingBoxKey.upPanelPosition, value.index)
-              .whenComplete(setState);
-          SmartDialog.showToast('重启生效');
-        },
+        getSubtitle: () => '当前：${Pref.upPanelPosition.label}',
+        onTap: _showUpPosDialog,
       ),
       const SwitchModel(
         title: '显示所有已关注UP主',
@@ -303,24 +291,22 @@ List<SettingsGroup> get styleSettings => [
             '当前板块位置：${Pref.livePanelPosition.label}（仅在大屏设备生效）',
         onTap: _showLivePanelPosDialog,
       ),
-      PopupModel<DynamicBadgeMode>(
+      NormalModel(
         title: '未读标记',
         leading: const Icon(Icons.motion_photos_on_outlined),
-        value: () => Pref.dynamicBadgeType,
-        items: DynamicBadgeMode.values,
-        onSelected: _setDynBadge,
+        getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeType.label}',
+        onTap: _showDynBadgeDialog,
       ),
     ],
   ),
   SettingsGroup(
     title: '消息',
     items: [
-      PopupModel<DynamicBadgeMode>(
+      NormalModel(
         title: '消息未读标记',
         leading: const Icon(MdiIcons.bellBadgeOutline),
-        value: () => Pref.msgBadgeMode,
-        items: DynamicBadgeMode.values,
-        onSelected: _setMsgBadge,
+        getSubtitle: () => '当前标记样式：${Pref.msgBadgeMode.label}',
+        onTap: _showMsgBadgeDialog,
       ),
       NormalModel(
         onTap: _showMsgUnReadDialog,
@@ -390,12 +376,11 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '主题',
     items: [
-      PopupModel<ThemeType>(
+      NormalModel(
+        onTap: _showThemeTypeDialog,
         leading: const Icon(Icons.flashlight_on_outlined),
         title: '主题模式',
-        value: () => Pref.themeType,
-        items: ThemeType.values,
-        onSelected: _setThemeType,
+        getSubtitle: () => '当前模式：${Pref.themeType.label}',
       ),
       SwitchModel(
         leading: const Icon(Icons.invert_colors),
@@ -430,17 +415,11 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '其他',
     items: [
-      PopupModel<NavigationBarType>(
+      NormalModel(
         leading: const Icon(Icons.home_outlined),
         title: '默认启动页',
-        value: () => Pref.defaultHomePage,
-        items: NavigationBarType.values,
-        onSelected: (value, setState) {
-          GStorage.setting
-              .put(SettingBoxKey.defaultHomePage, value.index)
-              .whenComplete(setState);
-          SmartDialog.showToast('重启生效');
-        },
+        getSubtitle: () => '当前启动页：${Pref.defaultHomePage.label}',
+        onTap: _showDefHomeDialog,
       ),
       SwitchModel(
         title: '返回时直接退出',
@@ -812,6 +791,28 @@ Future<void> _showColumnLimitDialog(
   }
 }
 
+Future<void> _showUpPosDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<UpPanelPosition>(
+    context: context,
+    builder: (context) => SelectDialog<UpPanelPosition>(
+      title: '动态页UP主显示位置',
+      value: Pref.upPanelPosition,
+      values: UpPanelPosition.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.upPanelPosition, res.index);
+    if (Get.isRegistered<DynamicsController>()) {
+      Get.find<DynamicsController>().upPanelPosition.value = res;
+    }
+    SmartDialog.showToast('设置成功');
+    setState();
+  }
+}
+
 Future<void> _showLivePanelPosDialog(
   BuildContext context,
   VoidCallback setState,
@@ -834,24 +835,57 @@ Future<void> _showLivePanelPosDialog(
   }
 }
 
-void _setDynBadge(DynamicBadgeMode value, VoidCallback setState) {
-  final mainController = Get.find<MainController>()..dynamicBadgeMode = value;
-  if (value != DynamicBadgeMode.hidden) mainController.getUnreadDynamic();
-  GStorage.setting
-      .put(SettingBoxKey.dynamicBadgeMode, value.index)
-      .whenComplete(setState);
+Future<void> _showDynBadgeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<DynamicBadgeMode>(
+    context: context,
+    builder: (context) => SelectDialog<DynamicBadgeMode>(
+      title: '动态未读标记',
+      value: Pref.dynamicBadgeType,
+      values: DynamicBadgeMode.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    final mainController = Get.find<MainController>()
+      ..dynamicBadgeMode = DynamicBadgeMode.values[res.index];
+    if (mainController.dynamicBadgeMode != DynamicBadgeMode.hidden) {
+      mainController.getUnreadDynamic();
+    }
+    await GStorage.setting.put(
+      SettingBoxKey.dynamicBadgeMode,
+      res.index,
+    );
+    SmartDialog.showToast('设置成功');
+    setState();
+  }
 }
 
-Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
-  final mainController = Get.find<MainController>()..msgBadgeMode = value;
-  if (value != DynamicBadgeMode.hidden) {
-    mainController.queryUnreadMsg(true);
-  } else {
-    mainController.msgUnReadCount.value = '';
+Future<void> _showMsgBadgeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<DynamicBadgeMode>(
+    context: context,
+    builder: (context) => SelectDialog<DynamicBadgeMode>(
+      title: '消息未读标记',
+      value: Pref.msgBadgeMode,
+      values: DynamicBadgeMode.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    final mainController = Get.find<MainController>()
+      ..msgBadgeMode = DynamicBadgeMode.values[res.index];
+    if (mainController.msgBadgeMode != DynamicBadgeMode.hidden) {
+      mainController.queryUnreadMsg(true);
+    } else {
+      mainController.msgUnReadCount.value = '';
+    }
+    await GStorage.setting.put(SettingBoxKey.msgBadgeMode, res.index);
+    SmartDialog.showToast('设置成功');
+    setState();
   }
-  GStorage.setting
-      .put(SettingBoxKey.msgBadgeMode, value.index)
-      .whenComplete(setState);
 }
 
 Future<void> _showMsgUnReadDialog(
@@ -953,13 +987,66 @@ Future<void> _showToastDialog(
   }
 }
 
-void _setThemeType(ThemeType value, VoidCallback setState) {
-  try {
-    Get.find<MineController>().themeType.value = value;
-  } catch (_) {}
-  GStorage.setting.put(SettingBoxKey.themeMode, value.index);
-  Get.changeThemeMode(ThemeUtils.themeMode = value.toThemeMode);
-  setState();
+Future<void> _showThemeTypeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<ThemeType>(
+    context: context,
+    builder: (context) => SelectDialog<ThemeType>(
+      title: '主题模式',
+      value: Pref.themeType,
+      values: ThemeType.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    try {
+      Get.find<MineController>().themeType.value = res;
+    } catch (_) {}
+    GStorage.setting.put(SettingBoxKey.themeMode, res.index);
+    Get.changeThemeMode(ThemeUtils.themeMode = res.toThemeMode);
+    setState();
+  }
+}
+
+Future<void> _showDefHomeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<NavigationBarType>(
+    context: context,
+    builder: (context) => SelectDialog<NavigationBarType>(
+      title: '首页启动页',
+      value: Pref.defaultHomePage,
+      values: NavigationBarType.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.defaultHomePage, res.index);
+    Get.find<MainController>().setDefaultHomePage(res);
+    SmartDialog.showToast('设置成功');
+    setState();
+  }
+}
+
+Future<void> _showBarHideTypeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<BarHideType>(
+    context: context,
+    builder: (context) => SelectDialog<BarHideType>(
+      title: '顶/底栏收起类型',
+      value: Pref.barHideType,
+      values: BarHideType.values.map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.barHideType, res.index);
+    Get.find<MainController>().updateBarHideType(res);
+    SmartDialog.showToast('设置成功');
+    setState();
+  }
 }
 
 NormalModel _useSSDModel() {

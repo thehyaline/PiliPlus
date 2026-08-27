@@ -30,7 +30,7 @@ class DynamicsController
   late bool showLiveUp = Pref.expandDynLivePanel;
   late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
 
-  final upPanelPosition = Pref.upPanelPosition;
+  final upPanelPosition = Pref.upPanelPosition.obs;
   final livePanelPosition = Pref.livePanelPosition.obs;
 
   @override

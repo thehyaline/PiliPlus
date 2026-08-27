@@ -30,7 +30,8 @@ class DynamicsPage extends StatefulWidget {
 class _DynamicsPageState extends CommonPageState<DynamicsPage>
     with AutomaticKeepAliveClientMixin {
   final _dynamicsController = Get.putOrFind(DynamicsController.new);
-  UpPanelPosition get upPanelPosition => _dynamicsController.upPanelPosition;
+  UpPanelPosition get upPanelPosition =>
+      _dynamicsController.upPanelPosition.value;
   late final MainController _mainController = Get.find<MainController>();
 
   @override
@@ -90,6 +91,10 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    return Obx(_buildPage);
+  }
+
+  Widget _buildPage() {
     final theme = Theme.of(context);
 
     Widget? drawer;

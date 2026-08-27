@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
@@ -6,37 +7,33 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
-  RxDouble? _barOffset;
-  RxBool? _showTopBar;
-  RxBool? _showBottomBar;
+  RxDouble? get _barOffset => _mainController.barOffset;
+  RxBool? get _showBottomBar => _mainController.showBottomBar;
+  RxBool? get _showTopBar => Get.isRegistered<HomeController>()
+      ? Get.find<HomeController>().showTopBar
+      : null;
   final _mainController = Get.find<MainController>();
 
   bool get needsCorrection => false;
 
-  @override
-  void initState() {
-    super.initState();
-    _barOffset = _mainController.barOffset;
-    _showBottomBar = _mainController.showBottomBar;
-    try {
-      _showTopBar = Get.find<HomeController>().showTopBar;
-    } catch (_) {}
-  }
-
   Widget onBuild(Widget child) {
-    if (_barOffset != null) {
-      return NotificationListener<ScrollNotification>(
-        onNotification: onNotificationType2,
-        child: child,
-      );
-    }
-    if (_showTopBar != null || _showBottomBar != null) {
-      return NotificationListener<UserScrollNotification>(
-        onNotification: onNotificationType1,
-        child: child,
-      );
-    }
-    return child;
+    return Obx(() {
+      // 无条件读取 barHideType，保证收起功能全部关闭时 Obx 也有订阅
+      final hideType = _mainController.barHideType.value;
+      if (_barOffset != null && hideType == BarHideType.sync) {
+        return NotificationListener<ScrollNotification>(
+          onNotification: onNotificationType2,
+          child: child,
+        );
+      }
+      if (_showTopBar != null || _showBottomBar != null) {
+        return NotificationListener<UserScrollNotification>(
+          onNotification: onNotificationType1,
+          child: child,
+        );
+      }
+      return child;
+    });
   }
 
   bool onNotificationType1(UserScrollNotification notification) {
@@ -100,13 +97,5 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     }
 
     return false;
-  }
-
-  @override
-  void dispose() {
-    _barOffset = null;
-    _showTopBar = null;
-    _showBottomBar = null;
-    super.dispose();
   }
 }

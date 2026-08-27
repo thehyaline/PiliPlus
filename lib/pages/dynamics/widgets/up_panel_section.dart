@@ -19,7 +19,7 @@ class UpPanelSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final upPanelPosition = dynamicsController.upPanelPosition;
+    final upPanelPosition = dynamicsController.upPanelPosition.value;
     final isTop = upPanelPosition == UpPanelPosition.top;
     final needBg = upPanelPosition.index > 2;
     return Material(
