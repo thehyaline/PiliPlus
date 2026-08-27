@@ -230,11 +230,14 @@ List<SettingsGroup> get playSettings => [
   SettingsGroup(
     title: 'SuperChat',
     items: [
-      NormalModel(
+      PopupModel<SuperChatType>(
         title: 'SuperChat (醒目留言) 显示类型',
         leading: const Icon(Icons.live_tv),
-        getSubtitle: () => '当前:「${Pref.superChatType.title}」',
-        onTap: _showSuperChatDialog,
+        value: () => Pref.superChatType,
+        items: SuperChatType.values,
+        onSelected: (value, setState) => GStorage.setting
+            .put(SettingBoxKey.superChatType, value.index)
+            .whenComplete(setState),
       ),
       NormalModel(
         title: '全屏 SC 大小',
@@ -247,11 +250,14 @@ List<SettingsGroup> get playSettings => [
   SettingsGroup(
     title: '界面/系统',
     items: [
-      NormalModel(
+      PopupModel<BtmProgressBehavior>(
         title: '底部进度条展示',
         leading: const Icon(Icons.border_bottom_outlined),
-        getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.desc}',
-        onTap: _showProgressBehaviorDialog,
+        value: () => Pref.btmProgressBehavior,
+        items: BtmProgressBehavior.values,
+        onSelected: (value, setState) => GStorage.setting
+            .put(SettingBoxKey.btmProgressBehavior, value.index)
+            .whenComplete(setState),
       ),
       const SwitchModel(
         title: '观看人数',
@@ -373,24 +379,6 @@ Future<void> _showSubtitleDialog(
   }
 }
 
-Future<void> _showSuperChatDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<SuperChatType>(
-    context: context,
-    builder: (context) => SelectDialog<SuperChatType>(
-      title: 'SuperChat (醒目留言) 显示类型',
-      value: Pref.superChatType,
-      values: SuperChatType.values.map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.superChatType, res.index);
-    setState();
-  }
-}
-
 Future<void> _showFullScreenModeDialog(
   BuildContext context,
   VoidCallback setState,
@@ -444,27 +432,6 @@ Future<void> _showSlideFullScreenModeDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.slideFullScreenMode, res.index);
-    setState();
-  }
-}
-
-Future<void> _showProgressBehaviorDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<BtmProgressBehavior>(
-    context: context,
-    builder: (context) => SelectDialog<BtmProgressBehavior>(
-      title: '底部进度条展示',
-      value: Pref.btmProgressBehavior,
-      values: BtmProgressBehavior.values.map((e) => (e, e.desc)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.btmProgressBehavior,
-      res.index,
-    );
     setState();
   }
 }
