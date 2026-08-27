@@ -237,36 +237,51 @@ Win32Window::MessageHandler(HWND hwnd,
                             LPARAM const lparam) noexcept {
   switch (message) {
     case WM_WINDOWPOSCHANGING: {
-      // 启动初期，外部窗口管理工具可能通过 SetWindowPlacement 把窗口跨
-      // 显示器搬到不同 DPI 的副屏（其 WINDOWPOSCHANGING 特征：带
-      // NOACTIVATE|NOZORDER 的完整尺寸移动；DPI-unaware 调用者传的坐标
-      // 会被系统换算成物理像素）。窗口一旦跨 DPI 迁移就会连锁触发
-      // WM_DPICHANGED 缩放，最终大半落在屏外，表现为“窗口不见了、
-      // 任务栏还有任务”。用户手动拖动（拖动期间不拦截）、最大化/还原
-      // （同一显示器内）和本进程 setBounds（flags 不含 NOACTIVATE）都
-      // 不受影响。30 秒后完全放行，避免影响显示器拔插时的窗口重排。
+      // 启动初期，外部窗口管理工具（Shell/开始菜单/资源管理器等）会把
+      // 新窗口搬到发起启动的显示器。此类迁移不限于 SetWindowPlacement
+      // 的完整移动（可能不带 NOACTIVATE|NOZORDER，也可能只移动位置或
+      // 只改尺寸），因此启动 30 秒内只要会把窗口移到不同 DPI 的显示器
+      // 一律拦截，不看 flags 和是否携带尺寸。窗口一旦跨 DPI 迁移
+      // （DPI-unaware 调用者传的坐标会被系统换算成物理像素）就会连锁
+      // 触发 WM_DPICHANGED 缩放，而启动阶段首帧尚未渲染，引擎 surface
+      // 重建等不到光栅帧而超时损坏，表现为“窗口不见了、任务栏还有
+      // 任务”或“窗口透明只剩边框”。用户手动拖动（拖动期间不拦截）、
+      // 最大化/还原（同一显示器内）不受影响；同 DPI 显示器间的迁移不
+      // 触发 DPI 链、保持放行。30 秒后完全放行，避免影响显示器拔插时
+      // 的窗口重排。
       auto* wp = reinterpret_cast<WINDOWPOS*>(lparam);
       if (wp != nullptr && !in_drag_move_ &&
-          (wp->flags & (SWP_NOACTIVATE | SWP_NOZORDER)) ==
-              (SWP_NOACTIVATE | SWP_NOZORDER) &&
-          !(wp->flags & (SWP_NOSIZE | SWP_NOMOVE)) &&
           GetTickCount64() - creation_time_ < 30000) {
         RECT current{};
         if (GetWindowRect(hwnd, &current)) {
-          HMONITOR cur_monitor =
-              MonitorFromRect(&current, MONITOR_DEFAULTTONEAREST);
-          RECT proposed{wp->x, wp->y, wp->x + wp->cx, wp->y + wp->cy};
-          HMONITOR dst_monitor =
-              MonitorFromRect(&proposed, MONITOR_DEFAULTTONEAREST);
+          // 用矩形中心点判定所在显示器，避免跨屏矩形时 MonitorFromRect
+          // 只按相交面积取显示器而误判目标。
+          HMONITOR cur_monitor = MonitorFromPoint(
+              {current.left + (current.right - current.left) / 2,
+               current.top + (current.bottom - current.top) / 2},
+              MONITOR_DEFAULTTONEAREST);
+          HMONITOR dst_monitor = MonitorFromPoint(
+              {wp->x + wp->cx / 2, wp->y + wp->cy / 2},
+              MONITOR_DEFAULTTONEAREST);
           if (cur_monitor != dst_monitor &&
               DpiForMonitor(dst_monitor) != GetDpiForWindow(hwnd)) {
-            // 恢复到当前矩形，阻止这次跨 DPI 显示器迁移。
-            wp->x = current.left;
-            wp->y = current.top;
-            wp->cx = current.right - current.left;
-            wp->cy = current.bottom - current.top;
+            // 返回 TRUE 让系统取消整个位置变更流程。仅把坐标改回当前矩形
+            // 不足以阻止 User32 内部跨 DPI 处理链——子窗口（FlutterView）
+            // 的 WS_VISIBLE 会被破坏且没有后续完整迁移来修复，表现为
+            // 窗口透明只剩 DWM 边框。
+            return TRUE;
           }
         }
+      }
+      break;
+    }
+    case WM_WINDOWPOSCHANGED: {
+      auto* wp = reinterpret_cast<WINDOWPOS*>(lparam);
+      if (wp != nullptr && (wp->flags & SWP_SHOWWINDOW) &&
+          child_content_ != nullptr && !IsWindowVisible(child_content_)) {
+        // 兜底：show 流程完成后 FlutterView 子窗口 WS_VISIBLE 仍未恢复
+        // 时强制显示（跨 DPI 异步 SetWindowPos 竞争会破坏该状态）。
+        ShowWindow(child_content_, SW_SHOW);
       }
       break;
     }
@@ -334,6 +349,19 @@ Win32Window::MessageHandler(HWND hwnd,
       }
       return 0;
     }
+
+    case WM_SHOWWINDOW:
+      if (wparam != 0 && child_content_ != nullptr) {
+        const LRESULT result = DefWindowProc(hwnd, message, wparam, lparam);
+        // 兜底：跨 DPI 异步 SetWindowPos 竞争会丢失 FlutterView 子窗口的
+        // WS_VISIBLE，客户区无内容表现为整窗透明只剩 DWM 边框。show 后
+        // 强制恢复子窗口可见性。
+        if (!IsWindowVisible(child_content_)) {
+          ShowWindow(child_content_, SW_SHOW);
+        }
+        return result;
+      }
+      break;
 
     case WM_ACTIVATE:
       if (child_content_ != nullptr) {
