@@ -195,6 +195,8 @@ class LiveRoomController extends GetxController {
     if (videoUrl == null) {
       return null;
     }
+    // 直播断流自动重连失败时重新拉取播放地址
+    plPlayerController.onLiveReconnect = queryLiveUrl;
     return plPlayerController.setDataSource(
       NetworkSource(videoSource: videoUrl!, audioSource: null),
       isLive: true,

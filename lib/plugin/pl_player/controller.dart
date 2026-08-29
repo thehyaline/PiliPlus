@@ -726,7 +726,8 @@ class PlPlayerController with BlockConfigMixin {
     final opt = {
       'video-sync': Pref.videoSync,
       if (Platform.isAndroid) 'ao': Pref.audioOutput,
-      'stream-lavf-o': 'reconnect=1',
+      // reconnect_streamed: 直播流(不可 seek)读取错误时也会自动重连
+      'stream-lavf-o': 'reconnect=1:reconnect_streamed=1:reconnect_delay_max=5',
       'volume':
           (PlatformUtils.isMobile ? Pref.playerVolume : volume.value * 100)
               .toString(),
@@ -866,6 +867,29 @@ class PlPlayerController with BlockConfigMixin {
     return null;
   }
 
+  /// 直播断流重连失败计数，播放恢复时清零
+  int _liveReconnectFails = 0;
+
+  /// 直播连续重连失败后重新拉取播放地址的回调（由直播间注册）
+  Future<void> Function()? onLiveReconnect;
+
+  /// 直播断流自动重连：先重试当前地址，连续失败则通过 [onLiveReconnect] 重新拉流
+  void _tryLiveReconnect() {
+    _liveReconnectFails++;
+    EasyThrottle.throttle(
+      'controllerStream.live.error',
+      const Duration(milliseconds: 5000),
+      () {
+        if (_liveReconnectFails >= 2) {
+          _liveReconnectFails = 0;
+          onLiveReconnect?.call();
+        } else {
+          refreshPlayer();
+        }
+      },
+    );
+  }
+
   // 开始播放
   Future<void> _initializePlayer() async {
     if (_instance == null) return;
@@ -907,6 +931,7 @@ class PlPlayerController with BlockConfigMixin {
       stream.playing.listen((bool playing) {
         WakelockPlus.toggle(enable: playing);
         if (playing) {
+          _liveReconnectFails = 0;
           if (_isAutoEnterPip) {
             if (_isCurrVideoPage) {
               enterPip(autoEnter: true);
@@ -939,13 +964,18 @@ class PlPlayerController with BlockConfigMixin {
       ///completed
       stream.completed.listen((bool completed) {
         if (completed) {
-          playerStatus.value = .completed;
+          if (isLive) {
+            // 直播流被服务端断开(EOF)时自动重连
+            _tryLiveReconnect();
+          } else {
+            playerStatus.value = .completed;
 
-          for (final element in _statusListeners) {
-            element(.completed);
+            for (final element in _statusListeners) {
+              element(.completed);
+            }
+
+            makeHeartBeat(-1, type: .completed);
           }
-
-          makeHeartBeat(-1, type: .completed);
         }
       }),
 
@@ -997,9 +1027,11 @@ class PlPlayerController with BlockConfigMixin {
         }
         if (isLive) {
           if (event.startsWith('tcp: ffurl_read returned ') ||
+              event.startsWith('tls: ') ||
               event.startsWith("Failed to open https://") ||
-              event.startsWith("Can not open external file https://")) {
-            Future.delayed(const Duration(milliseconds: 3000), refreshPlayer);
+              event.startsWith("Can not open external file https://") ||
+              event.contains('HTTP error')) {
+            _tryLiveReconnect();
           }
           return;
         }
