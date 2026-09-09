@@ -12,8 +12,8 @@ import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/rendering.dart' show OverflowBoxFit;
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class UpPanel extends StatefulWidget {
   const UpPanel({

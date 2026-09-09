@@ -11,8 +11,8 @@ import 'package:PiliPlus/pages/search_panel/video/widgets/video_card_v.dart';
 import 'package:PiliPlus/pages/search_panel/view.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SearchVideoPanel extends CommonSearchPanel {
   const SearchVideoPanel({

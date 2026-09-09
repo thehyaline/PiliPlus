@@ -235,6 +235,21 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  double? _opacity;
+
+  Future<void>? _setOpacity(double opacity) {
+    if (Platform.isWindows && _opacity != opacity) {
+      _opacity = opacity;
+      return windowManager.setOpacity(opacity);
+    }
+    return null;
+  }
+
+  @override
+  Future<void>? onWindowFocus() {
+    return _setOpacity(1.0);
+  }
+
   /// https://github.com/leanflutter/window_manager/issues/571
   ///
   /// 先隐藏再置透明：若任一步失败，都不会留下"可见但透明"的窗口
@@ -246,11 +261,8 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
-  Future<void> _show() async {
-    if (Platform.isWindows) {
-      await windowManager.setOpacity(1.0);
-    }
-    await windowManager.show();
+  Future<void> _show() {
+    return windowManager.show();
   }
 
   @override

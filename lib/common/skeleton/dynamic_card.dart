@@ -11,9 +11,7 @@ class DynamicCardSkeleton extends StatelessWidget {
     final buttonStyle = TextButton.styleFrom(
       tapTargetSize: .padded,
       padding: const .symmetric(horizontal: 15),
-      foregroundColor: theme.colorScheme.outline.withValues(
-        alpha: 0.2,
-      ),
+      foregroundColor: theme.colorScheme.outline.withValues(alpha: 0.2),
     );
     return Skeleton(
       child: Card(

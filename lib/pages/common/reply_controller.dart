@@ -17,7 +17,9 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
-  final RxInt count = (-1).obs;
+  ReplyController({int count = -1}) : count = RxInt(count);
+
+  late final RxInt count;
 
   late final Rx<ReplySortType> sortType;
   late Mode mode;
@@ -213,7 +215,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     loadingState.refresh();
   }
 
-  void onCheckReply(ReplyInfo replyInfo, {required bool isManual}) {
+  void onCheckReply(ReplyInfo replyInfo, {bool isManual = true}) {
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
       biliSendCommAntifraud: _biliSendCommAntifraud,
