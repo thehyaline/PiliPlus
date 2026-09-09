@@ -726,8 +726,7 @@ class PlPlayerController with BlockConfigMixin {
     final opt = {
       'video-sync': Pref.videoSync,
       if (Platform.isAndroid) 'ao': Pref.audioOutput,
-      // reconnect_streamed: 直播流(不可 seek)读取错误时也会自动重连
-      'stream-lavf-o': 'reconnect=1:reconnect_streamed=1:reconnect_delay_max=5',
+      'stream-lavf-o': 'reconnect=1',
       'volume':
           (PlatformUtils.isMobile ? Pref.playerVolume : volume.value * 100)
               .toString(),

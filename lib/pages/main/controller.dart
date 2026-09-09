@@ -333,7 +333,13 @@ class MainController extends GetxController
           barOffset?.value = 0.0;
       }
     }
-    homeController.updateBarHideType(value);
+    // onInit 阶段本控制器 isInit 未置位，此时创建 HomeController 会使其
+    // onInit 反向 Get.find<MainController>() 造成重入（hideBottomBar 二次
+    // 赋值报 LateInitializationError）；HomeController 由 HomeView 自行
+    // 创建，这里只同步已创建的实例。
+    if (Get.isRegistered<HomeController>()) {
+      homeController.updateBarHideType(value);
+    }
     barHideType.value = value;
   }
 

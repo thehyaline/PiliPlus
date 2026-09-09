@@ -93,10 +93,33 @@ Future<void> _initAppPath() async {
 }
 
 void main() async {
+  // 首帧 build 异常时显示错误信息页，避免整屏灰/默认错误页无法辨认。
+  ErrorWidget.builder = (details) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: const Color(0xFFF0F0F0),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '页面渲染出错：\n${details.exceptionAsString()}',
+              style: const TextStyle(color: Color(0xFFB00020)),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
   ScaledWidgetsFlutterBinding.ensureInitialized();
   // 窗口/应用可见性变化时复位悬停状态，消除"幽灵悬浮"高亮
   HoverReset.ensureRegistered();
-  MediaKit.ensureInitialized();
+  try {
+    MediaKit.ensureInitialized();
+  } catch (e) {
+    // 初始化失败（如 so 缺失）时仅打印，播放器创建时 media_kit 会再次兜底。
+    if (kDebugMode) debugPrint('MediaKit init error: $e');
+  }
   await _initAppPath();
   try {
     await GStorage.init();
@@ -117,11 +140,23 @@ void main() async {
   HttpOverrides.global = _CustomHttpOverrides();
 
   if (PlatformUtils.isMobile) {
-    if (Platform.isAndroid) MaxScreenSize.init();
-    await Future.wait([
-      if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-      setupServiceLocator(),
-    ]);
+    if (Platform.isAndroid) {
+      try {
+        MaxScreenSize.init();
+      } catch (e) {
+        // JNI 初始化失败仅降级（折叠屏特性不可用），不阻塞应用启动。
+        if (kDebugMode) debugPrint('MaxScreenSize init error: $e');
+      }
+    }
+    try {
+      await Future.wait([
+        if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
+        setupServiceLocator(),
+      ]);
+    } catch (e) {
+      // 方向/音频服务初始化失败不阻塞首帧，保证 runApp 一定执行。
+      if (kDebugMode) debugPrint('mobile init error: $e');
+    }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {
       webViewEnvironment = await WebViewEnvironment.create(

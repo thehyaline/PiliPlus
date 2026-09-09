@@ -17,7 +17,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 2.1.2+5318
+version: 2.1.2-5d6f8913d+5319
 
 environment:
   sdk: ">=3.13.0"
