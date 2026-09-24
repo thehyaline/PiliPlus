@@ -224,6 +224,7 @@ class _SettingPageState extends State<SettingPage> {
             : Text(item.subtitle!, style: subTitleStyle),
       );
     }
+
     return ListView(
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [

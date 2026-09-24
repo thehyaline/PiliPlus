@@ -2,6 +2,8 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -22,6 +24,7 @@ import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -292,13 +295,15 @@ class _MediaPageState extends CommonPageState<MinePage>
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            behavior: .opaque,
+          TvCard(
+            debugLabel: '我的-头像',
             onTap: controller.onLogin,
             onLongPress: () {
               Feedback.forLongPress(context);
               controller.onLogin(true);
             },
+            // 手柄：Y 键 / 长按确定 = 长按（打开切换账号）
+            onMore: () => controller.onLogin(true),
             onSecondaryTap: PlatformUtils.isMobile
                 ? null
                 : () => controller.onLogin(true),
@@ -456,27 +461,34 @@ class _MediaPageState extends CommonPageState<MinePage>
     required VoidCallback onTap,
   }) {
     return Flexible(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: Style.mdRadius,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 80),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Column(
-              spacing: 4,
-              mainAxisSize: .min,
-              mainAxisAlignment: .center,
-              children: [
-                Text(
-                  count?.toString() ?? '-',
-                  style: countStyle,
-                ),
-                Text(
-                  name,
-                  style: labelStyle,
-                ),
-              ],
+      child: FocusRing(
+        radius: Style.mdRadius,
+        debugLabel: name,
+        builder: (context, node, _) => InkWell(
+          focusNode: node,
+          // 焦点视觉由 FocusRing 负责
+          focusColor: Colors.transparent,
+          onTap: onTap,
+          borderRadius: Style.mdRadius,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 80),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Column(
+                spacing: 4,
+                mainAxisSize: .min,
+                mainAxisAlignment: .center,
+                children: [
+                  Text(
+                    count?.toString() ?? '-',
+                    style: countStyle,
+                  ),
+                  Text(
+                    name,
+                    style: labelStyle,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -543,6 +555,8 @@ class _MediaPageState extends CommonPageState<MinePage>
               child: ListView.separated(
                 controller: _historyScrollController,
                 padding: const .only(left: 20, top: 10, right: 20, bottom: 10),
+                // 下一张卡留在焦点树里，方向键才能走到下一张
+                scrollCacheExtent: TvFocusSpec.cacheExtent,
                 itemCount: historyList.length,
                 itemBuilder: (context, index) => MineHistoryItem(
                   item: historyList[index],
@@ -630,6 +644,8 @@ class _MediaPageState extends CommonPageState<MinePage>
             child: ListView.separated(
               controller: controller.scrollController,
               padding: const .only(left: 20, top: 10, right: 20, bottom: 10),
+              // 同上：手柄要能一路走到「查看更多」那个按钮
+              scrollCacheExtent: TvFocusSpec.cacheExtent,
               itemCount: response.list.length + (flag ? 1 : 0),
               itemBuilder: (context, index) {
                 if (flag && index == favFolderList.length) {

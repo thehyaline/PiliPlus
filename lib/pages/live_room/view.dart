@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
@@ -225,7 +226,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     } else {
       child = childWhenDisabled;
     }
-    if (plPlayerController.keyboardControl) {
+    // 同视频页：手柄模式和"键盘控制"两个开关并列
+    if (plPlayerController.keyboardControl || Pref.tvFocus) {
       child = PlayerFocus(
         plPlayerController: plPlayerController,
         onSendDanmaku: _liveRoomController.onSendDanmaku,
@@ -769,144 +771,166 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   }
 
   Widget get _buildInputWidget {
-    final child = Container(
-      padding: .only(top: 5, left: 10, right: 10, bottom: padding.bottom),
-      height: 70 + padding.bottom,
-      decoration: const BoxDecoration(
-        borderRadius: .vertical(top: .circular(20)),
-        border: Border(top: BorderSide(color: Color(0x1AFFFFFF))),
-        color: Color(0x1AFFFFFF),
-      ),
-      child: GestureDetector(
-        onTap: _liveRoomController.onSendDanmaku,
-        behavior: .opaque,
-        child: Padding(
-          padding: const .only(top: 5, bottom: 10),
-          child: Align(
-            alignment: .topCenter,
-            child: Row(
-              spacing: 6,
-              children: [
-                Obx(
-                  () {
-                    final enableShowLiveDanmaku =
-                        plPlayerController.enableShowLiveDanmaku.value;
-                    return SizedBox(
+    final child = TvCard(
+      debugLabel: '发送弹幕',
+      // 底栏是贴着屏幕下沿的整条面板，圆角在顶上
+      radius: const .vertical(top: .circular(20)),
+      onTap: _liveRoomController.onSendDanmaku,
+      // 手柄：Y 键 / 长按确定 = 点赞。这里的点赞按钮触摸上是"按住连点"，
+      // 手柄没有第二个键位可分，就按一次算一次
+      onMore: () {
+        _liveRoomController
+          ..onLikeTapDown(null)
+          ..onLikeTapUp();
+      },
+      child: Container(
+        padding: .only(top: 5, left: 10, right: 10, bottom: padding.bottom),
+        height: 70 + padding.bottom,
+        decoration: const BoxDecoration(
+          borderRadius: .vertical(top: .circular(20)),
+          border: Border(top: BorderSide(color: Color(0x1AFFFFFF))),
+          color: Color(0x1AFFFFFF),
+        ),
+        // 触摸：整条都是"发送弹幕"的热区（内层手势优先，跟外面 TvCard 的
+        // InkWell 不会各触发一次）
+        child: GestureDetector(
+          onTap: _liveRoomController.onSendDanmaku,
+          behavior: .opaque,
+          child: Padding(
+            padding: const .only(top: 5, bottom: 10),
+            child: Align(
+              alignment: .topCenter,
+              // 弹幕开关 / 点赞 / 表情都是触摸上的次要操作：手柄模式里不该各占
+              // 一个焦点（方向键停在这条栏上只能停一次）。弹幕开关在播放器
+              // 控件里也有一个，手柄走那边。
+              child: TvCardSubAction(
+                child: Row(
+                  spacing: 6,
+                  children: [
+                    Obx(
+                      () {
+                        final enableShowLiveDanmaku =
+                            plPlayerController.enableShowLiveDanmaku.value;
+                        return SizedBox(
+                          width: 34,
+                          height: 34,
+                          child: IconButton(
+                            style: IconButton.styleFrom(padding: .zero),
+                            onPressed: () {
+                              final newVal = !enableShowLiveDanmaku;
+                              plPlayerController.enableShowLiveDanmaku.value =
+                                  newVal;
+                              if (!plPlayerController.tempPlayerConf) {
+                                GStorage.setting.put(
+                                  SettingBoxKey.enableShowLiveDanmaku,
+                                  newVal,
+                                );
+                              }
+                            },
+                            icon: enableShowLiveDanmaku
+                                ? const Icon(
+                                    size: 22,
+                                    CustomIcons.dm_on,
+                                    color: baseWhite,
+                                  )
+                                : const Icon(
+                                    size: 22,
+                                    CustomIcons.dm_off,
+                                    color: baseWhite,
+                                  ),
+                          ),
+                        );
+                      },
+                    ),
+                    const Expanded(
+                      child: Text('发送弹幕', style: TextStyle(color: baseWhite)),
+                    ),
+                    Builder(
+                      builder: (context) {
+                        final isLogin =
+                            kDebugMode || _liveRoomController.isLogin;
+                        final colorScheme = ColorScheme.of(context);
+                        return Material(
+                          type: MaterialType.transparency,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              InkWell(
+                                overlayColor: _overlayColor(colorScheme),
+                                customBorder: const CircleBorder(),
+                                onTap: isLogin
+                                    ? null
+                                    : _liveRoomController.toastNotLogin,
+                                onTapDown: isLogin
+                                    ? _liveRoomController.onLikeTapDown
+                                    : null,
+                                onTapUp: isLogin
+                                    ? _liveRoomController.onLikeTapUp
+                                    : null,
+                                onTapCancel: isLogin
+                                    ? _liveRoomController.onLikeTapUp
+                                    : null,
+                                child: const SizedBox.square(
+                                  dimension: 34,
+                                  child: Icon(
+                                    size: 22,
+                                    color: baseWhite,
+                                    Icons.thumb_up_off_alt,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 30,
+                                top: -12,
+                                child: Obx(() {
+                                  final likeClickTime =
+                                      _liveRoomController.likeClickTime.value;
+                                  if (likeClickTime == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 160),
+                                    transitionBuilder: (child, animation) {
+                                      return ScaleTransition(
+                                        scale: animation,
+                                        child: child,
+                                      );
+                                    },
+                                    child: Text(
+                                      key: ValueKey(likeClickTime),
+                                      'x$likeClickTime',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.isDark
+                                            ? colorScheme.primary
+                                            : colorScheme.inversePrimary,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(
                       width: 34,
                       height: 34,
                       child: IconButton(
-                        style: IconButton.styleFrom(padding: .zero),
-                        onPressed: () {
-                          final newVal = !enableShowLiveDanmaku;
-                          plPlayerController.enableShowLiveDanmaku.value =
-                              newVal;
-                          if (!plPlayerController.tempPlayerConf) {
-                            GStorage.setting.put(
-                              SettingBoxKey.enableShowLiveDanmaku,
-                              newVal,
-                            );
-                          }
-                        },
-                        icon: enableShowLiveDanmaku
-                            ? const Icon(
-                                size: 22,
-                                CustomIcons.dm_on,
-                                color: baseWhite,
-                              )
-                            : const Icon(
-                                size: 22,
-                                CustomIcons.dm_off,
-                                color: baseWhite,
-                              ),
+                        style: IconButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () =>
+                            _liveRoomController.onSendDanmaku(true),
+                        icon: const Icon(
+                          size: 22,
+                          color: baseWhite,
+                          Icons.emoji_emotions_outlined,
+                        ),
                       ),
-                    );
-                  },
-                ),
-                const Expanded(
-                  child: Text('发送弹幕', style: TextStyle(color: baseWhite)),
-                ),
-                Builder(
-                  builder: (context) {
-                    final isLogin = kDebugMode || _liveRoomController.isLogin;
-                    final colorScheme = ColorScheme.of(context);
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          InkWell(
-                            overlayColor: _overlayColor(colorScheme),
-                            customBorder: const CircleBorder(),
-                            onTap: isLogin
-                                ? null
-                                : _liveRoomController.toastNotLogin,
-                            onTapDown: isLogin
-                                ? _liveRoomController.onLikeTapDown
-                                : null,
-                            onTapUp: isLogin
-                                ? _liveRoomController.onLikeTapUp
-                                : null,
-                            onTapCancel: isLogin
-                                ? _liveRoomController.onLikeTapUp
-                                : null,
-                            child: const SizedBox.square(
-                              dimension: 34,
-                              child: Icon(
-                                size: 22,
-                                color: baseWhite,
-                                Icons.thumb_up_off_alt,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 30,
-                            top: -12,
-                            child: Obx(() {
-                              final likeClickTime =
-                                  _liveRoomController.likeClickTime.value;
-                              if (likeClickTime == 0) {
-                                return const SizedBox.shrink();
-                              }
-                              return AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 160),
-                                transitionBuilder: (child, animation) {
-                                  return ScaleTransition(
-                                    scale: animation,
-                                    child: child,
-                                  );
-                                },
-                                child: Text(
-                                  key: ValueKey(likeClickTime),
-                                  'x$likeClickTime',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.isDark
-                                        ? colorScheme.primary
-                                        : colorScheme.inversePrimary,
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: IconButton(
-                    style: IconButton.styleFrom(padding: EdgeInsets.zero),
-                    onPressed: () => _liveRoomController.onSendDanmaku(true),
-                    icon: const Icon(
-                      size: 22,
-                      color: baseWhite,
-                      Icons.emoji_emotions_outlined,
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

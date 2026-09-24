@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_viewer/hero.dart';
@@ -499,18 +500,20 @@ class _AudioPageState extends State<AudioPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('播放倍速(${_controller.speed})'),
-                        Slider(
-                          padding: EdgeInsets.zero,
-                          min: 0.5,
-                          max: 2.0,
-                          divisions: 15,
-                          value: _controller.speed,
-                          onChanged: (value) {
-                            _controller.speed = value.toPrecision(1);
-                            (context as Element).markNeedsBuild();
-                          },
-                          onChangeEnd: (_) =>
-                              _controller.setSpeed(_controller.speed),
+                        TvSlider(
+                          child: Slider(
+                            padding: EdgeInsets.zero,
+                            min: 0.5,
+                            max: 2.0,
+                            divisions: 15,
+                            value: _controller.speed,
+                            onChanged: (value) {
+                              _controller.speed = value.toPrecision(1);
+                              (context as Element).markNeedsBuild();
+                            },
+                            onChangeEnd: (_) =>
+                                _controller.setSpeed(_controller.speed),
+                          ),
                         ),
                       ],
                     ),

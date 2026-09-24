@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart'
     show RichTextType, RichTextEditingDeltaReplacement;
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
@@ -141,23 +142,30 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
           left: 15,
           bottom: 10,
         ),
-        child: Obx(
-          () => RichTextField(
-            key: key,
-            controller: editController,
-            minLines: 4,
-            maxLines: 8,
-            autofocus: false,
-            readOnly: readOnly.value,
-            onChanged: onChanged,
-            onSubmitted: onSubmitted,
-            focusNode: focusNode,
-            decoration: InputDecoration(
-              hintText: widget.hint ?? "输入回复内容",
-              border: InputBorder.none,
-              hintStyle: const TextStyle(fontSize: 14),
+        child: TvTextField(
+          // 两段式焦点：手柄先把焦点落在外层（不弹键盘），按确定才进输入框；
+          // 编辑态按返回键退回外层，不会顺手关掉回复面板
+          editFocusNode: focusNode,
+          navFocusNode: navFocusNode,
+          debugLabel: 'ReplyInput',
+          builder: (context, node) => Obx(
+            () => RichTextField(
+              key: key,
+              controller: editController,
+              minLines: 4,
+              maxLines: 8,
+              autofocus: false,
+              readOnly: readOnly.value,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              focusNode: node,
+              decoration: InputDecoration(
+                hintText: widget.hint ?? "输入回复内容",
+                border: InputBorder.none,
+                hintStyle: const TextStyle(fontSize: 14),
+              ),
+              style: theme.textTheme.bodyLarge,
             ),
-            style: theme.textTheme.bodyLarge,
           ),
         ),
       ),

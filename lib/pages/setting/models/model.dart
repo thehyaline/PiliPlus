@@ -1,10 +1,12 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/models/common/enum_with_label.dart';
 import 'package:PiliPlus/pages/setting/widgets/normal_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -236,13 +238,19 @@ SettingsModel getBanWordModel({
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('使用|隔开，如：尝试|测试'),
-              TextFormField(
+              TvTextField(
+                // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                 autofocus: true,
-                initialValue: editValue,
-                textInputAction: TextInputAction.newline,
-                minLines: 1,
-                maxLines: 4,
-                onChanged: (value) => editValue = value,
+                builder: (context, node) => TextFormField(
+                  // 非 TV 模式保持"打开就能输入"的老行为
+                  autofocus: !Pref.tvFocus,
+                  focusNode: node,
+                  initialValue: editValue,
+                  textInputAction: TextInputAction.newline,
+                  minLines: 1,
+                  maxLines: 4,
+                  onChanged: (value) => editValue = value,
+                ),
               ),
             ],
           ),
@@ -315,12 +323,17 @@ SettingsModel getVideoFilterSelectModel({
             context: context,
             builder: (context) => AlertDialog(
               title: Text('自定义$title'),
-              content: TextField(
+              content: TvTextField(
+                // TV：同上——先落在这一格，按 A 才弹数字键盘
                 autofocus: true,
-                onChanged: (value) => valueStr = value,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(suffixText: suffix),
+                builder: (context, node) => TextField(
+                  autofocus: !Pref.tvFocus,
+                  focusNode: node,
+                  onChanged: (value) => valueStr = value,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(suffixText: suffix),
+                ),
               ),
               actions: [
                 TextButton(

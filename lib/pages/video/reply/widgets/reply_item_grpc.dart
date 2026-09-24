@@ -7,6 +7,8 @@ import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart';
@@ -54,6 +56,7 @@ import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:protobuf/protobuf.dart';
@@ -96,25 +99,18 @@ class ReplyItemGrpc extends StatelessWidget {
   static bool enableWordRe = Pref.enableWordRe;
   static int? replyLengthLimit = Pref.replyLengthLimit;
 
+  /// 一次只翻一条（原来靠按钮 `build` 里的局部 bool，见 [toggleTranslation]）
+  static bool _translating = false;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
 
-    void showMore() => showModalBottomSheet(
+    void showMore() => _openMorePanel(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
-      ),
-      builder: (context) {
-        return morePanel(
-          context: context,
-          item: replyItem,
-          onDelete: () => onDelete?.call(replyItem, null),
-          isSubReply: false,
-        );
-      },
+      item: replyItem,
+      onDelete: () => onDelete?.call(replyItem, null),
+      isSubReply: false,
     );
 
     Widget child = Padding(
@@ -135,14 +131,17 @@ class ReplyItemGrpc extends StatelessWidget {
         ],
       );
     }
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () => replyReply?.call(replyItem, null),
-        onLongPress: showMore,
-        onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
-        child: child,
-      ),
+    // 手柄：一条评论 = 一个焦点节点。回复 / 翻译 / 赞 / 踩 / 查看对话 / 子评论
+    // 全在卡片里面，方向键一旦进去就要按七八下才出得来，所以整块移出焦点树，
+    // 改由长按确定（或手柄 Y 键）弹出的操作面板提供 —— 触摸行为不变。
+    // 确定键短按仍是原来的「回复这条评论」。
+    return TvCard(
+      debugLabel: '评论',
+      onTap: () => replyReply?.call(replyItem, null),
+      onLongPress: showMore,
+      onMore: showMore,
+      onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
+      child: TvCardSubAction(child: child),
     );
   }
 
@@ -404,6 +403,53 @@ class ReplyItemGrpc extends StatelessWidget {
     );
   }
 
+  /// 翻译 / 显示原文。
+  ///
+  /// 原来是按钮 `onPressed` 里的一整块，现在卡片上的「翻译」按钮和操作面板
+  /// 里的「翻译」共用——手柄模式下卡片上的按钮摸不到，只能从面板翻。
+  /// [item] 用的是面板打开时那一条（子评论面板里就是那条子评论）。
+  Future<void> toggleTranslation(BuildContext context, ReplyInfo item) async {
+    final replyControl = item.replyControl;
+    void rebuild() {
+      if (context.mounted) {
+        (context as Element).markNeedsBuild();
+      }
+    }
+
+    if (replyControl.showTranslation) {
+      replyControl.showTranslation = false;
+      rebuild();
+      return;
+    }
+    if (_translating) {
+      return;
+    }
+    if (item.hasTranslatedContent()) {
+      replyControl.showTranslation = true;
+      rebuild();
+      return;
+    }
+    _translating = true;
+    final res = await ReplyGrpc.translateReply(
+      type: item.type,
+      oid: item.oid,
+      rpid: item.id,
+    );
+    if (res case Success(:final response)) {
+      final translated = response.translatedReplies[item.id];
+      if (translated != null && translated.hasTranslatedContent()) {
+        replyControl.showTranslation = true;
+        item.translatedContent = translated.translatedContent;
+        rebuild();
+      } else {
+        SmartDialog.showToast('翻译结果为空');
+      }
+    } else if (res case Error(:final errMsg)) {
+      SmartDialog.showToast('翻译失败: $errMsg');
+    }
+    _translating = false;
+  }
+
   Widget _buildTranslateBtn(
     BuildContext context,
     ColorScheme colorScheme,
@@ -411,7 +457,6 @@ class ReplyItemGrpc extends StatelessWidget {
     TextStyle textStyle,
     ButtonStyle buttonStyle,
   ) {
-    late bool isProcessing = false;
     final color = replyControl.showTranslation
         ? colorScheme.primary
         : colorScheme.outline.withValues(alpha: 0.8);
@@ -419,42 +464,7 @@ class ReplyItemGrpc extends StatelessWidget {
       height: 32,
       child: TextButton(
         style: buttonStyle,
-        onPressed: () async {
-          if (replyControl.showTranslation) {
-            replyControl.showTranslation = false;
-            (context as Element).markNeedsBuild();
-          } else {
-            if (isProcessing) {
-              return;
-            }
-            if (replyItem.hasTranslatedContent()) {
-              replyControl.showTranslation = true;
-              (context as Element).markNeedsBuild();
-              return;
-            }
-            isProcessing = true;
-            final res = await ReplyGrpc.translateReply(
-              type: replyItem.type,
-              oid: replyItem.oid,
-              rpid: replyItem.id,
-            );
-            if (res case Success(:final response)) {
-              final item = response.translatedReplies[replyItem.id];
-              if (item != null && item.hasTranslatedContent()) {
-                replyControl.showTranslation = true;
-                replyItem.translatedContent = item.translatedContent;
-                if (context.mounted) {
-                  (context as Element).markNeedsBuild();
-                }
-              } else {
-                SmartDialog.showToast('翻译结果为空');
-              }
-            } else if (res case Error(:final errMsg)) {
-              SmartDialog.showToast('翻译失败: $errMsg');
-            }
-            isProcessing = false;
-          }
-        },
+        onPressed: () => toggleTranslation(context, replyItem),
         child: Row(
           spacing: 3,
           mainAxisSize: .min,
@@ -594,21 +604,11 @@ class ReplyItemGrpc extends StatelessWidget {
                     padding = const .fromLTRB(8, 4, 8, 4);
                   }
                 }
-                void showMore() => showModalBottomSheet(
+                void showMore() => _openMorePanel(
                   context: context,
-                  useSafeArea: true,
-                  isScrollControlled: true,
-                  constraints: BoxConstraints(
-                    maxWidth: min(640, context.mediaQueryShortestSide),
-                  ),
-                  builder: (context) {
-                    return morePanel(
-                      context: context,
-                      item: childReply,
-                      onDelete: () => onDelete?.call(replyItem, index),
-                      isSubReply: true,
-                    );
-                  },
+                  item: childReply,
+                  onDelete: () => onDelete?.call(replyItem, index),
+                  isSubReply: true,
                 );
                 return InkWell(
                   borderRadius: borderRadius,
@@ -985,6 +985,66 @@ class ReplyItemGrpc extends StatelessWidget {
     return TextSpan(children: spanChildren);
   }
 
+  /// 打开评论操作面板：长按确定 / 手柄 Y 键 / 桌面右键都走这里。
+  ///
+  /// 三件事写在弹出这一层，而不是面板内容里：
+  /// - 传的是**卡片自己的 context**（`builder` 里那个是弹层的）：面板里的
+  ///   「翻译」要 `markNeedsBuild` 卡片才看得到结果；
+  /// - [TvFocusOnOpen]：弹层是独立路由，不主动送一次焦点，用户就面对
+  ///   "菜单弹出来了、按确定没反应"；
+  /// - 外面再套一层滚动：手柄补齐了卡片上摸不到的操作，条目比触摸时多，
+  ///   小屏上会超出屏幕（`Column` 直接溢出）。
+  void _openMorePanel({
+    required BuildContext context,
+    required ReplyInfo item,
+    required VoidCallback onDelete,
+    required bool isSubReply,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxWidth: min(640, context.mediaQueryShortestSide),
+      ),
+      builder: (_) => TvFocusOnOpen(
+        child: SingleChildScrollView(
+          child: morePanel(
+            context: context,
+            item: item,
+            onDelete: onDelete,
+            isSubReply: isSubReply,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 面板里的一行：确定键激活 + 焦点环。
+  ///
+  /// 视觉上就是原来的 `ListTile`。`onTap` 之所以交给 [TvCard]，是因为
+  /// `ListTile` 自己只有一层很淡的 focus tint，坐在三米外根本看不出选中了哪一项；
+  /// 反过来 `ListTile` 保留 `onTap` 会再插一个焦点节点进来（`enabled: true`
+  /// 是为了让它在没有 `onTap` 时仍然是正常配色，而不是变灰的禁用态）。
+  Widget _panelItem({
+    required VoidCallback onTap,
+    required String title,
+    TextStyle? style,
+    Widget? leading,
+  }) {
+    return TvCard(
+      debugLabel: '评论操作',
+      radius: const BorderRadius.all(Radius.circular(8)),
+      onTap: onTap,
+      child: ListTile(
+        enabled: true,
+        minLeadingWidth: 0,
+        leading: leading,
+        title: Text(title, style: style),
+      ),
+    );
+  }
+
   Widget morePanel({
     required BuildContext context,
     required ReplyInfo item,
@@ -997,7 +1057,6 @@ class ReplyItemGrpc extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final errorColor = colorScheme.error;
     final style = theme.textTheme.titleSmall!;
-
     return Padding(
       padding: .only(
         bottom: MediaQuery.viewPaddingOf(context).bottom + 20,
@@ -1005,25 +1064,77 @@ class ReplyItemGrpc extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: Get.back,
-            borderRadius: Style.bottomSheetRadius,
-            child: SizedBox(
-              height: 35,
-              child: Center(
-                child: Container(
-                  width: 32,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: colorScheme.outline,
-                    borderRadius: const BorderRadius.all(Radius.circular(3)),
-                  ),
-                ),
-              ),
-            ),
+          const TvCardSubAction(
+            // 拖拽把手：触摸用的，别让它抢走"面板第一项"的位置
+            child: _PanelHandle(),
           ),
+          // —— 手柄模式下卡片上摸不到的操作用这里补齐（卡片只占一个焦点节点）——
+          if (onReply != null)
+            _panelItem(
+              onTap: () {
+                Get.back();
+                onReply!(item);
+              },
+              leading: const Icon(Icons.reply, size: 19),
+              title: '回复',
+              style: style,
+            ),
+          _panelItem(
+            onTap: () {
+              Get.back();
+              ZanActions.like(context, item, isLike: ZanActions.isLiked(item));
+            },
+            leading: Icon(
+              ZanActions.isLiked(item)
+                  ? FontAwesomeIcons.solidThumbsUp
+                  : FontAwesomeIcons.thumbsUp,
+              size: 19,
+            ),
+            title: ZanActions.isLiked(item) ? '取消赞' : '点赞',
+            style: style,
+          ),
+          _panelItem(
+            onTap: () {
+              Get.back();
+              ZanActions.hate(
+                context,
+                item,
+                isDislike: ZanActions.isDisliked(item),
+              );
+            },
+            leading: Icon(
+              ZanActions.isDisliked(item)
+                  ? FontAwesomeIcons.solidThumbsDown
+                  : FontAwesomeIcons.thumbsDown,
+              size: 19,
+            ),
+            title: ZanActions.isDisliked(item) ? '取消踩' : '点踩',
+            style: style,
+          ),
+          if (item.replyControl.translationSwitch ==
+              .TRANSLATION_SWITCH_SHOW_TRANSLATION)
+            _panelItem(
+              onTap: () {
+                Get.back();
+                toggleTranslation(context, item);
+              },
+              leading: const Icon(Icons.translate, size: 19),
+              title: item.replyControl.showTranslation ? '显示原文' : '翻译',
+              style: style,
+            ),
+          // 子评论列表页（reply_reply）没有 replyReply，这条就别出现
+          if (!isSubReply && replyReply != null && item.count > Int64.ZERO)
+            _panelItem(
+              onTap: () {
+                Get.back();
+                replyReply?.call(item, null);
+              },
+              leading: const Icon(Icons.forum_outlined, size: 19),
+              title: '查看${item.count}条回复',
+              style: style,
+            ),
           if (kDebugMode && GStorage.reply != null) ...[
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
                 GStorage.reply!.put(
@@ -1035,23 +1146,19 @@ class ReplyItemGrpc extends StatelessWidget {
                       .writeToBuffer(),
                 );
               },
-              title: Text(
-                'save to local',
-                style: style.copyWith(color: colorScheme.primary),
-              ),
+              title: 'save to local',
+              style: style.copyWith(color: colorScheme.primary),
             ),
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
                 onDelete();
                 GStorage.reply!.delete(item.id.toString());
               },
-              title: Text(
-                'remove from local',
-                style: style.copyWith(color: colorScheme.primary),
-              ),
+              title: 'remove from local',
+              style: style.copyWith(color: colorScheme.primary),
             ),
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
                 final oid = item.oid.toInt();
@@ -1065,14 +1172,12 @@ class ReplyItemGrpc extends StatelessWidget {
                   for (var i = oid; i < oid + 1000; i++) i.toString(): data,
                 });
               },
-              title: Text(
-                'save to local (x1000)',
-                style: style.copyWith(color: colorScheme.primary),
-              ),
+              title: 'save to local (x1000)',
+              style: style.copyWith(color: colorScheme.primary),
             ),
           ],
           if (ownerMid == upMid || ownerMid == item.member.mid)
-            ListTile(
+            _panelItem(
               onTap: () async {
                 Get.back();
                 bool? isDelete = await showDialog<bool>(
@@ -1133,12 +1238,12 @@ class ReplyItemGrpc extends StatelessWidget {
                   SmartDialog.showToast('删除失败, $res');
                 }
               },
-              minLeadingWidth: 0,
               leading: Icon(Icons.delete_outlined, color: errorColor, size: 19),
-              title: Text('删除', style: style.copyWith(color: errorColor)),
+              title: '删除',
+              style: style.copyWith(color: errorColor),
             ),
           if (ownerMid != Int64.ZERO)
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
 
@@ -1167,61 +1272,89 @@ class ReplyItemGrpc extends StatelessWidget {
                   },
                 );
               },
-              minLeadingWidth: 0,
               leading: Icon(Icons.error_outline, color: errorColor, size: 19),
-              title: Text('举报', style: style.copyWith(color: errorColor)),
+              title: '举报',
+              style: style.copyWith(color: errorColor),
             ),
           if (replyLevel == 1 && !isSubReply && ownerMid == upMid)
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
                 onToggleTop?.call(item);
               },
-              minLeadingWidth: 0,
               leading: const Icon(Icons.vertical_align_top, size: 19),
-              title: Text(
-                '${replyItem.replyControl.isUpTop ? '取消' : ''}置顶',
-                style: style,
-              ),
+              title: '${replyItem.replyControl.isUpTop ? '取消' : ''}置顶',
+              style: style,
             ),
-          ListTile(
+          _panelItem(
             onTap: () {
               Get.back();
               Utils.copyText(message);
             },
-            minLeadingWidth: 0,
             leading: const Icon(Icons.copy_all_outlined, size: 19),
-            title: Text('复制全部', style: style),
+            title: '复制全部',
+            style: style,
           ),
-          ListTile(
+          _panelItem(
             onTap: () {
               Get.back();
               showReplyCopyDialog(context, message, item.content.emotes);
             },
-            minLeadingWidth: 0,
             leading: const Icon(Icons.copy_outlined, size: 19),
-            title: Text('自由复制', style: style),
+            title: '自由复制',
+            style: style,
           ),
-          ListTile(
+          _panelItem(
             onTap: () {
               Get.back();
               SavePanel.toSavePanel(upMid: upMid, item: item);
             },
-            minLeadingWidth: 0,
             leading: const Icon(Icons.save_alt, size: 19),
-            title: Text('保存评论', style: style),
+            title: '保存评论',
+            style: style,
           ),
           if (kDebugMode || item.mid == ownerMid)
-            ListTile(
+            _panelItem(
               onTap: () {
                 Get.back();
                 onCheckReply?.call(item);
               },
-              minLeadingWidth: 0,
               leading: const Icon(CustomIcons.shield_reply, size: 19),
-              title: Text('检查评论', style: style),
+              title: '检查评论',
+              style: style,
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// 底弹层顶部那根小横条：点一下关掉面板。
+///
+/// 手柄模式下它被 [TvCardSubAction] 排除在焦点树外——它是触摸用的把手，
+/// 排在所有操作前面，[TvFocusOnOpen] 万一选中它，"面板第一项"就成了一个
+/// 看不见的东西。
+class _PanelHandle extends StatelessWidget {
+  const _PanelHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.of(context);
+    return InkWell(
+      onTap: Get.back,
+      borderRadius: Style.bottomSheetRadius,
+      child: SizedBox(
+        height: 35,
+        child: Center(
+          child: Container(
+            width: 32,
+            height: 3,
+            decoration: BoxDecoration(
+              color: colorScheme.outline,
+              borderRadius: const BorderRadius.all(Radius.circular(3)),
+            ),
+          ),
+        ),
       ),
     );
   }

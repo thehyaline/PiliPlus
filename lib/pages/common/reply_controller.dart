@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_memory.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo, SubjectControl, Mode;
 import 'package:PiliPlus/grpc/bilibili/pagination.pb.dart';
@@ -80,10 +81,13 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
 
   @override
   Future<void> onRefresh() {
+    // 手柄：列表整个重建，正在聚焦的那条评论没了焦点就掉在区域上，
+    // 方向键要重按好几下才回得来——先记住位置，重建完再放回去
+    TvFocusMemory.park();
     cursorNext = null;
     subjectControl = null;
     paginationReply = null;
-    return super.onRefresh();
+    return super.onRefresh().whenComplete(TvFocusMemory.restore);
   }
 
   // 排序搜索评论
@@ -204,6 +208,9 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   }
 
   void onRemove(int index, ReplyInfo item, int? subIndex) {
+    // 手柄：删的正好是聚焦着的那条时，卡片要下一帧才消失，
+    // 所以这里 park、等重建完由 restore 把焦点放到同一条位置上（见 TvFocusMemory）
+    TvFocusMemory.park();
     if (subIndex == null) {
       loadingState.value.data!.removeAt(index);
     } else {
@@ -213,6 +220,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     }
     count.value -= 1;
     loadingState.refresh();
+    TvFocusMemory.restore();
   }
 
   void onCheckReply(ReplyInfo replyInfo, {bool isManual = true}) {

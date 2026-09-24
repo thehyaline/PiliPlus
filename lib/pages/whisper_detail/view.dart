@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
 import 'package:PiliPlus/common/widgets/flutter/chat_list_view.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -281,29 +282,36 @@ class _WhisperDetailPageState
             tooltip: '表情',
           ),
           Expanded(
-            child: Obx(
-              () => RichTextField(
-                key: key,
-                readOnly: readOnly.value,
-                focusNode: focusNode,
-                controller: editController,
-                minLines: 1,
-                maxLines: 4,
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  filled: true,
-                  hintText: '发个消息聊聊呗~',
-                  fillColor: theme.colorScheme.surface,
-                  border: const OutlineInputBorder(
-                    borderSide: BorderSide.none,
-                    borderRadius: BorderRadius.all(Radius.circular(6)),
-                    gapPadding: 0,
+            child: TvTextField(
+              // 两段式焦点：手柄先把焦点落在外层（不弹键盘），按确定才进输入框；
+              // 编辑态按返回键退回外层，不会顺手退出会话
+              editFocusNode: focusNode,
+              navFocusNode: navFocusNode,
+              debugLabel: 'WhisperInput',
+              builder: (context, node) => Obx(
+                () => RichTextField(
+                  key: key,
+                  readOnly: readOnly.value,
+                  focusNode: node,
+                  controller: editController,
+                  minLines: 1,
+                  maxLines: 4,
+                  onChanged: onChanged,
+                  onSubmitted: onSubmitted,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    filled: true,
+                    hintText: '发个消息聊聊呗~',
+                    fillColor: theme.colorScheme.surface,
+                    border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(6)),
+                      gapPadding: 0,
+                    ),
+                    contentPadding: const EdgeInsets.all(10),
                   ),
-                  contentPadding: const EdgeInsets.all(10),
+                  // inputFormatters: [LengthLimitingTextInputFormatter(500)],
                 ),
-                // inputFormatters: [LengthLimitingTextInputFormatter(500)],
               ),
             ),
           ),

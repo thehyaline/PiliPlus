@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
@@ -9,6 +10,7 @@ import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/pages/history/widgets/actions.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -37,103 +39,106 @@ class HistoryItem extends StatelessWidget {
             ..enableMultiSelect.value = true
             ..onSelect(item);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: enableMultiSelect
-            ? () => ctr.onSelect(item)
-            : () => openHistoryItem(item),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Style.safeSpace,
-                vertical: 5,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: Style.aspectRatio,
-                    child: LayoutBuilder(
-                      builder: (context, boxConstraints) {
-                        double maxWidth = boxConstraints.maxWidth;
-                        double maxHeight = boxConstraints.maxHeight;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            NetworkImgLayer(
-                              src: item.cover?.isNotEmpty == true
-                                  ? item.cover
-                                  : item.covers?.firstOrNull ?? '',
-                              width: maxWidth,
-                              height: maxHeight,
-                            ),
-                            if (hasDuration)
-                              PBadge(
-                                text: item.progress == -1
-                                    ? '已看完'
-                                    : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
-                                right: 6.0,
-                                bottom: 8.0,
-                                type: PBadgeType.gray,
-                              ),
-                            if (item.isFav == 1)
-                              const PBadge(
-                                text: '已收藏',
-                                top: 6.0,
-                                right: 6.0,
-                                type: PBadgeType.gray,
-                              )
-                            else if (item.badge?.isNotEmpty == true)
-                              PBadge(
-                                text: item.badge,
-                                top: 6.0,
-                                right: 6.0,
-                                type: business == 'live' && item.liveStatus != 1
-                                    ? PBadgeType.gray
-                                    : PBadgeType.primary,
-                              ),
-                            if (hasDuration &&
-                                item.progress != null &&
-                                item.progress != 0)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: VideoProgressIndicator(
-                                  color: theme.colorScheme.primary,
-                                  backgroundColor:
-                                      theme.colorScheme.secondaryContainer,
-                                  progress: item.progress == -1
-                                      ? 1
-                                      : item.progress! / item.duration!,
-                                ),
-                              ),
-                            Positioned.fill(
-                              child: selectMask(
-                                theme.colorScheme,
-                                item.checked,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  content(theme),
-                ],
-              ),
+    return TvCard(
+      debugLabel: '观看记录',
+      onTap: enableMultiSelect
+          ? () => ctr.onSelect(item)
+          : () => openHistoryItem(item),
+      onLongPress: onLongPress,
+      // 手柄：长按确定 / Y 键 = 右下角那个「⋮」的菜单
+      onMore: enableMultiSelect ? null : () => _showMenu(context, business!),
+      onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
             ),
-            Positioned(
-              right: 12,
-              bottom: 0,
-              width: 29,
-              height: 29,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            src: item.cover?.isNotEmpty == true
+                                ? item.cover
+                                : item.covers?.firstOrNull ?? '',
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
+                          if (hasDuration)
+                            PBadge(
+                              text: item.progress == -1
+                                  ? '已看完'
+                                  : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
+                              right: 6.0,
+                              bottom: 8.0,
+                              type: PBadgeType.gray,
+                            ),
+                          if (item.isFav == 1)
+                            const PBadge(
+                              text: '已收藏',
+                              top: 6.0,
+                              right: 6.0,
+                              type: PBadgeType.gray,
+                            )
+                          else if (item.badge?.isNotEmpty == true)
+                            PBadge(
+                              text: item.badge,
+                              top: 6.0,
+                              right: 6.0,
+                              type: business == 'live' && item.liveStatus != 1
+                                  ? PBadgeType.gray
+                                  : PBadgeType.primary,
+                            ),
+                          if (hasDuration &&
+                              item.progress != null &&
+                              item.progress != 0)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: VideoProgressIndicator(
+                                color: theme.colorScheme.primary,
+                                backgroundColor:
+                                    theme.colorScheme.secondaryContainer,
+                                progress: item.progress == -1
+                                    ? 1
+                                    : item.progress! / item.duration!,
+                              ),
+                            ),
+                          Positioned.fill(
+                            child: selectMask(
+                              theme.colorScheme,
+                              item.checked,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                content(theme),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 12,
+            bottom: 0,
+            width: 29,
+            height: 29,
+            // 方向键不该停在这颗小按钮上——菜单走「长按确定 / Y 键」
+            child: TvCardSubAction(
               child: PopupMenuButton(
                 padding: EdgeInsets.zero,
                 tooltip: '功能菜单',
@@ -149,9 +154,22 @@ class HistoryItem extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  /// 手柄没有指针位置，菜单锚在这张卡自己身上。
+  void _showMenu(BuildContext context, String business) {
+    final box = context.findRenderObject();
+    final offset = box is RenderBox && box.hasSize
+        ? box.localToGlobal(box.size.center(Offset.zero))
+        : Offset.zero;
+    showMenu<void>(
+      context: context,
+      position: PageUtils.menuPosition(offset),
+      items: buildHistoryItemMenu(item, () => onDelete(item.kid!, business)),
     );
   }
 

@@ -84,8 +84,10 @@ void _hideTaskbarOnCurrentMonitor() {
   if (!PlatformUtils.isWindows || _hiddenTaskbars.isNotEmpty) return;
   final appWindow = _appWindow();
   if (appWindow == null) return;
-  final monitor =
-      win32.MonitorFromWindow(appWindow, win32.MONITOR_DEFAULTTONEAREST);
+  final monitor = win32.MonitorFromWindow(
+    appWindow,
+    win32.MONITOR_DEFAULTTONEAREST,
+  );
   _forEachTaskbar((hwnd) {
     if (win32.MonitorFromWindow(hwnd, win32.MONITOR_DEFAULTTONEAREST) ==
         monitor) {

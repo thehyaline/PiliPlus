@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/search_bar_width.dart';
@@ -102,7 +103,11 @@ class _SearchResultPageState extends State<SearchResultPage>
                 color: theme.colorScheme.onSecondaryContainer.withValues(
                   alpha: 0.05,
                 ),
-                child: GestureDetector(
+                // 手柄：这颗"假输入框"要能被方向键选中
+                // （按确定进搜索页，那里再按一次确定才弹键盘）
+                child: TvCard(
+                  debugLabel: '搜索框',
+                  radius: const .all(.circular(25)),
                   onTap: () {
                     if (_isFromSearch) {
                       Get.back();
@@ -113,7 +118,6 @@ class _SearchResultPageState extends State<SearchResultPage>
                       );
                     }
                   },
-                  behavior: HitTestBehavior.opaque,
                   child: Row(
                     children: [
                       const SizedBox(width: 14),

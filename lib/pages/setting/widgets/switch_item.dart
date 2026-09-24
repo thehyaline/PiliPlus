@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -97,9 +98,9 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     final switchBtn = Transform.scale(
       scale: 0.8,
       alignment: .centerRight,
-      child: Switch(
-        value: val,
-        onChanged: switchChange,
+      // 手柄：开关和整行是同一个动作，方向键不该停在这颗开关上
+      child: TvCardSubAction(
+        child: Switch(value: val, onChanged: switchChange),
       ),
     );
 

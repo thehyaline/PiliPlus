@@ -119,7 +119,9 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
         // 随页面滚动开启时，栏位作为列表内容由各动态 tab 渲染，此处不再固定
         if (!Pref.upPanelFollowPage) {
           upPanelTop = Padding(
-            padding: const EdgeInsets.symmetric(vertical: Style.waterfallMargin),
+            padding: const EdgeInsets.symmetric(
+              vertical: Style.waterfallMargin,
+            ),
             child: UpPanelSection(dynamicsController: _dynamicsController),
           );
         }
@@ -167,8 +169,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                 final metrics = dynGridMetrics(extent);
                 final offset = max(0.0, (extent - metrics.gridWidth) / 2);
                 // UP主列表固定位于顶部时，板块需下移避让其高度（含上下外边距）
-                final top =
-                    upPanelTop != null
+                final top = upPanelTop != null
                     ? Style.upPanelTopHeight + Style.waterfallMargin * 2
                     : 0.0;
                 // Positioned 仅指定 top 时子组件高度约束无上界，需手动限制：

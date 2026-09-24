@@ -53,7 +53,8 @@ class SearchVideoCardV extends StatelessWidget {
                       final double maxWidth = boxConstraints.maxWidth;
                       final double maxHeight = boxConstraints.maxHeight;
                       final progress = videoItem.progress;
-                      final bool showProgress = progress != null && progress != 0;
+                      final bool showProgress =
+                          progress != null && progress != 0;
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [

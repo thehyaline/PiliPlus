@@ -8,66 +8,32 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
-class ZanButtonGrpc extends StatelessWidget {
-  const ZanButtonGrpc({
-    super.key,
-    required this.replyItem,
-  });
+/// 评论的赞 / 踩。
+///
+/// 从 [ZanButtonGrpc] 里提出来是因为手柄模式下**一条评论只留一个焦点节点**，
+/// 卡片上这两个按钮不在焦点树里（见 `reply_item_grpc.dart`），
+/// 它们改由「长按确定 / 手柄 Y 键」弹出的操作面板调用——两个入口共用一个实现。
+abstract final class ZanActions {
+  /// 一次只发一个请求。原来靠按钮 `build` 里的局部 bool 挡住重复点击，
+  /// 面板那边没有这个作用域，就挪上来当全局闸门。
+  static bool _processing = false;
 
-  final ReplyInfo replyItem;
+  static bool isLiked(ReplyInfo replyItem) =>
+      replyItem.replyControl.action == $fixnum.Int64.ONE;
 
-  Future<void> onHateReply(
-    BuildContext context,
-    bool isProcessing,
-    VoidCallback onDone, {
-    required bool isLike,
-    required bool isDislike,
-  }) async {
-    if (isProcessing) {
-      return;
-    }
-    isProcessing = true;
-    feedBack();
-    final int oid = replyItem.oid.toInt();
-    final int rpid = replyItem.id.toInt();
-    // 1 已点赞 2 不喜欢 0 未操作
-    final int action = isDislike ? 0 : 2;
-    final res = await ReplyHttp.hateReply(
-      type: replyItem.type.toInt(),
-      action: action == 2 ? 1 : 0,
-      oid: oid,
-      rpid: rpid,
-    );
-    // SmartDialog.dismiss();
-    if (res.isSuccess) {
-      SmartDialog.showToast(isDislike ? '取消踩' : '点踩成功');
-      if (action == 2) {
-        if (isLike) replyItem.like -= $fixnum.Int64.ONE;
-        replyItem.replyControl.action = $fixnum.Int64.TWO;
-      } else {
-        replyItem.replyControl.action = $fixnum.Int64.ZERO;
-      }
-      if (context.mounted) {
-        (context as Element?)?.markNeedsBuild();
-      }
-    } else {
-      res.toast();
-    }
-    onDone();
-  }
+  static bool isDisliked(ReplyInfo replyItem) =>
+      replyItem.replyControl.action == $fixnum.Int64.TWO;
 
   // 评论点赞
-  Future<void> onLikeReply(
+  static Future<void> like(
     BuildContext context,
-    bool isProcessing,
-    VoidCallback onDone, {
+    ReplyInfo replyItem, {
     required bool isLike,
-    required bool isDislike,
   }) async {
-    if (isProcessing) {
+    if (_processing) {
       return;
     }
-    isProcessing = true;
+    _processing = true;
     feedBack();
     final int oid = replyItem.oid.toInt();
     final int rpid = replyItem.id.toInt();
@@ -96,16 +62,59 @@ class ZanButtonGrpc extends StatelessWidget {
     } else {
       res.toast();
     }
-    onDone();
+    _processing = false;
   }
+
+  static Future<void> hate(
+    BuildContext context,
+    ReplyInfo replyItem, {
+    required bool isDislike,
+  }) async {
+    if (_processing) {
+      return;
+    }
+    _processing = true;
+    feedBack();
+    final int oid = replyItem.oid.toInt();
+    final int rpid = replyItem.id.toInt();
+    // 1 已点赞 2 不喜欢 0 未操作
+    final int action = isDislike ? 0 : 2;
+    final res = await ReplyHttp.hateReply(
+      type: replyItem.type.toInt(),
+      action: action == 2 ? 1 : 0,
+      oid: oid,
+      rpid: rpid,
+    );
+    if (res.isSuccess) {
+      SmartDialog.showToast(isDislike ? '取消踩' : '点踩成功');
+      if (action == 2) {
+        replyItem.replyControl.action = $fixnum.Int64.TWO;
+      } else {
+        replyItem.replyControl.action = $fixnum.Int64.ZERO;
+      }
+      if (context.mounted) {
+        (context as Element?)?.markNeedsBuild();
+      }
+    } else {
+      res.toast();
+    }
+    _processing = false;
+  }
+}
+
+class ZanButtonGrpc extends StatelessWidget {
+  const ZanButtonGrpc({
+    super.key,
+    required this.replyItem,
+  });
+
+  final ReplyInfo replyItem;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    late bool isProcessing = false;
-    final action = replyItem.replyControl.action;
-    final isLike = action == $fixnum.Int64.ONE;
-    final isDislike = action == $fixnum.Int64.TWO;
+    final isLike = ZanActions.isLiked(replyItem);
+    final isDislike = ZanActions.isDisliked(replyItem);
     final outline = theme.colorScheme.outline;
     final primary = theme.colorScheme.primary;
     final ButtonStyle style = TextButton.styleFrom(
@@ -125,13 +134,8 @@ class ZanButtonGrpc extends StatelessWidget {
               padding: WidgetStatePropertyAll(.zero),
               minimumSize: WidgetStatePropertyAll(.square(40)),
             ),
-            onPressed: () => onHateReply(
-              context,
-              isProcessing,
-              () => isProcessing = false,
-              isLike: isLike,
-              isDislike: isDislike,
-            ),
+            onPressed: () =>
+                ZanActions.hate(context, replyItem, isDislike: isDislike),
             child: Icon(
               isDislike
                   ? FontAwesomeIcons.solidThumbsDown
@@ -146,13 +150,8 @@ class ZanButtonGrpc extends StatelessWidget {
           height: 32,
           child: TextButton(
             style: style,
-            onPressed: () => onLikeReply(
-              context,
-              isProcessing,
-              () => isProcessing = false,
-              isLike: isLike,
-              isDislike: isDislike,
-            ),
+            onPressed: () =>
+                ZanActions.like(context, replyItem, isLike: isLike),
             child: Row(
               spacing: 4,
               children: [

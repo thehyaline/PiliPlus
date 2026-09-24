@@ -3,6 +3,7 @@ import 'package:PiliPlus/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_seek_bar.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -18,7 +19,6 @@ class BottomControl extends StatelessWidget {
     required this.buildBottomControl,
     required this.videoDetailController,
   });
-
   final double maxWidth;
   final bool isFullScreen;
   final PlPlayerController controller;
@@ -68,21 +68,24 @@ class BottomControl extends StatelessWidget {
                   alignment: Alignment.bottomCenter,
                   children: [
                     Obx(
-                      () => ProgressBar(
-                        progress: controller.progress,
-                        buffered: controller.buffered.value,
-                        total: controller.duration.value,
-                        progressBarColor: primary,
-                        baseBarColor: const Color(0x33FFFFFF),
-                        bufferedBarColor: bufferedBarColor,
-                        thumbColor: primary,
-                        thumbGlowColor: thumbGlowColor,
-                        barHeight: 3.5,
-                        thumbRadius: 7,
-                        thumbGlowRadius: 25,
-                        onDragStart: onDragStart,
-                        onDragUpdate: onDragUpdate,
-                        onSeek: onSeek,
+                      () => TvSeekBar(
+                        host: _ControllerSeekBarHost(controller, onSeek),
+                        child: ProgressBar(
+                          progress: controller.progress,
+                          buffered: controller.buffered.value,
+                          total: controller.duration.value,
+                          progressBarColor: primary,
+                          baseBarColor: const Color(0x33FFFFFF),
+                          bufferedBarColor: bufferedBarColor,
+                          thumbColor: primary,
+                          thumbGlowColor: thumbGlowColor,
+                          barHeight: 3.5,
+                          thumbRadius: 7,
+                          thumbGlowRadius: 25,
+                          onDragStart: onDragStart,
+                          onDragUpdate: onDragUpdate,
+                          onSeek: onSeek,
+                        ),
                       ),
                     ),
                     if (controller.enableBlock &&
@@ -122,4 +125,40 @@ class BottomControl extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 把 [PlPlayerController] 收窄成 [TvSeekBarHost]（手柄在进度条上微调用）。
+class _ControllerSeekBarHost implements TvSeekBarHost {
+  const _ControllerSeekBarHost(this.controller, this.onSeek);
+
+  final PlPlayerController controller;
+  final ValueChanged<int> onSeek;
+
+  @override
+  int get position => controller.position.value;
+
+  @override
+  int get duration => controller.duration.value;
+
+  @override
+  int get seekPosition => controller.seekPosition.value;
+
+  @override
+  set seekPosition(int value) => controller.seekPosition.value = value;
+
+  @override
+  void beginSeek(int seconds) => controller.onSeekStart(seconds);
+
+  @override
+  void commitSeek(int milliseconds) => onSeek(milliseconds);
+
+  @override
+  void previewIndex(int seconds) => controller.updatePreviewIndex(seconds);
+
+  @override
+  bool get showPreview =>
+      !controller.isFileSource && controller.showSeekPreview;
+
+  @override
+  void togglePlay() => controller.onDoubleTapCenter();
 }

@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/dial_prefix.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -187,18 +188,23 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: TextField(
-            minLines: 1,
-            maxLines: 10,
-            controller: _loginPageCtr.cookieTextController,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.cookie_outlined),
-              border: const UnderlineInputBorder(),
-              labelText: 'Cookie',
-              suffixIcon: IconButton(
-                onPressed: _loginPageCtr.cookieTextController.clear,
-                icon: const Icon(Icons.clear),
+          child: TvTextField(
+            builder: (context, node) => TextField(
+              focusNode: node,
+              minLines: 1,
+              maxLines: 10,
+              controller: _loginPageCtr.cookieTextController,
+              inputFormatters: [
+                FilteringTextInputFormatter.deny(RegExp(r"\s")),
+              ],
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.cookie_outlined),
+                border: const UnderlineInputBorder(),
+                labelText: 'Cookie',
+                suffixIcon: IconButton(
+                  onPressed: _loginPageCtr.cookieTextController.clear,
+                  icon: const Icon(Icons.clear),
+                ),
               ),
             ),
           ),
@@ -220,36 +226,46 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: TextField(
-            controller: _loginPageCtr.usernameTextController,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.account_box),
-              border: const UnderlineInputBorder(),
-              labelText: '账号',
-              hintText: '邮箱/手机号',
-              suffixIcon: IconButton(
-                onPressed: _loginPageCtr.usernameTextController.clear,
-                icon: const Icon(Icons.clear),
+          child: TvTextField(
+            builder: (context, node) => TextField(
+              focusNode: node,
+              controller: _loginPageCtr.usernameTextController,
+              inputFormatters: [
+                FilteringTextInputFormatter.deny(RegExp(r"\s")),
+              ],
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.account_box),
+                border: const UnderlineInputBorder(),
+                labelText: '账号',
+                hintText: '邮箱/手机号',
+                suffixIcon: IconButton(
+                  onPressed: _loginPageCtr.usernameTextController.clear,
+                  icon: const Icon(Icons.clear),
+                ),
               ),
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: TextField(
-            obscureText: !showPassword,
-            keyboardType: TextInputType.visiblePassword,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
-            controller: _loginPageCtr.passwordTextController,
-            autofillHints: const [AutofillHints.password],
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.password),
-              border: const UnderlineInputBorder(),
-              labelText: '密码',
-              suffixIcon: IconButton(
-                onPressed: _loginPageCtr.passwordTextController.clear,
-                icon: const Icon(Icons.clear),
+          child: TvTextField(
+            builder: (context, node) => TextField(
+              focusNode: node,
+              obscureText: !showPassword,
+              keyboardType: TextInputType.visiblePassword,
+              inputFormatters: [
+                FilteringTextInputFormatter.deny(RegExp(r"\s")),
+              ],
+              controller: _loginPageCtr.passwordTextController,
+              autofillHints: const [AutofillHints.password],
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.password),
+                border: const UnderlineInputBorder(),
+                labelText: '密码',
+                suffixIcon: IconButton(
+                  onPressed: _loginPageCtr.passwordTextController.clear,
+                  icon: const Icon(Icons.clear),
+                ),
               ),
             ),
           ),
@@ -422,18 +438,21 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: TextField(
-                    controller: _loginPageCtr.telTextController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      labelText: '手机号',
-                      suffixIcon: IconButton(
-                        onPressed: _loginPageCtr.telTextController.clear,
-                        icon: const Icon(Icons.clear),
+                  child: TvTextField(
+                    builder: (context, node) => TextField(
+                      focusNode: node,
+                      controller: _loginPageCtr.telTextController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        labelText: '手机号',
+                        suffixIcon: IconButton(
+                          onPressed: _loginPageCtr.telTextController.clear,
+                          icon: const Icon(Icons.clear),
+                        ),
                       ),
                     ),
                   ),
@@ -453,17 +472,20 @@ class _LoginPageState extends State<LoginPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _loginPageCtr.smsCodeTextController,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.sms_outlined),
-                      border: InputBorder.none,
-                      labelText: '验证码',
+                  child: TvTextField(
+                    builder: (context, node) => TextField(
+                      focusNode: node,
+                      controller: _loginPageCtr.smsCodeTextController,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.sms_outlined),
+                        border: InputBorder.none,
+                        labelText: '验证码',
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
                   ),
                 ),
                 Obx(

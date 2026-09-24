@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
@@ -17,7 +18,9 @@ class FavFolderItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return GestureDetector(
+    // 手柄：一张卡 = 一个焦点节点（原来是 GestureDetector，方向键直接跳过）
+    return TvCard(
+      debugLabel: '收藏夹',
       onTap: () {
         Get.toNamed(
           '/favDetail',
@@ -28,7 +31,6 @@ class FavFolderItem extends StatelessWidget {
           },
         );
       },
-      behavior: HitTestBehavior.opaque,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

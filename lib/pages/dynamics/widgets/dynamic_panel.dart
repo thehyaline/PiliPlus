@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/avatars.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
@@ -61,65 +62,65 @@ class DynamicPanel extends StatelessWidget {
 
     void showMore() => _imageSaveDialog(context, authorWidget.morePanel);
 
-    final child = Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap:
-            isDetail &&
-                !const {
-                  'DYNAMIC_TYPE_AV',
-                  'DYNAMIC_TYPE_UGC_SEASON',
-                  'DYNAMIC_TYPE_PGC_UNION',
-                  'DYNAMIC_TYPE_PGC',
-                  'DYNAMIC_TYPE_LIVE',
-                  'DYNAMIC_TYPE_LIVE_RCMD',
-                  'DYNAMIC_TYPE_MEDIALIST',
-                  'DYNAMIC_TYPE_COURSES_SEASON',
-                }.contains(item.type)
-            ? null
-            : () => PageUtils.pushDynDetail(item),
-        onLongPress: showMore,
-        onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-              child: authorWidget,
-            ),
-            if (item.modules.moduleDispute case final moduleDispute?)
-              _buildDispute(theme, moduleDispute),
-            ...dynContent(
-              context,
-              theme: theme,
-              isSave: isSave,
-              isDetail: isDetail,
-              item: item,
-              floor: 1,
-            ),
-            const SizedBox(height: 2),
-            if (!isDetail) ...[
-              if (item.modules.moduleInteraction case ModuleInteraction(
-                :final items,
-              ))
-                if (items != null && items.isNotEmpty)
-                  dynInteraction(
-                    theme: theme,
-                    items: items,
-                  ),
-              ActionPanel(item: item),
-              if (item.modules.moduleFold case final moduleFold?) ...[
-                Divider(
-                  height: 1,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+    final child = TvCard(
+      debugLabel: '动态',
+      onTap:
+          isDetail &&
+              !const {
+                'DYNAMIC_TYPE_AV',
+                'DYNAMIC_TYPE_UGC_SEASON',
+                'DYNAMIC_TYPE_PGC_UNION',
+                'DYNAMIC_TYPE_PGC',
+                'DYNAMIC_TYPE_LIVE',
+                'DYNAMIC_TYPE_LIVE_RCMD',
+                'DYNAMIC_TYPE_MEDIALIST',
+                'DYNAMIC_TYPE_COURSES_SEASON',
+              }.contains(item.type)
+          ? null
+          : () => PageUtils.pushDynDetail(item),
+      onLongPress: showMore,
+      // 手柄：长按确定 = 长按（作者面板里那个「更多」）
+      onMore: showMore,
+      onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+            child: authorWidget,
+          ),
+          if (item.modules.moduleDispute case final moduleDispute?)
+            _buildDispute(theme, moduleDispute),
+          ...dynContent(
+            context,
+            theme: theme,
+            isSave: isSave,
+            isDetail: isDetail,
+            item: item,
+            floor: 1,
+          ),
+          const SizedBox(height: 2),
+          if (!isDetail) ...[
+            if (item.modules.moduleInteraction case ModuleInteraction(
+              :final items,
+            ))
+              if (items != null && items.isNotEmpty)
+                dynInteraction(
+                  theme: theme,
+                  items: items,
                 ),
-                _buildFoldItem(theme, moduleFold),
-              ],
-            ] else if (!isSave)
-              const SizedBox(height: 12),
-          ],
-        ),
+            ActionPanel(item: item),
+            if (item.modules.moduleFold case final moduleFold?) ...[
+              Divider(
+                height: 1,
+                color: theme.dividerColor.withValues(alpha: 0.1),
+              ),
+              _buildFoldItem(theme, moduleFold),
+            ],
+          ] else if (!isSave)
+            const SizedBox(height: 12),
+        ],
       ),
     );
     if (isSave || (isDetail && !isDetailPortraitW)) {

@@ -9,6 +9,7 @@ import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/services/logger.dart';
@@ -24,6 +25,7 @@ import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -71,14 +73,20 @@ class _AboutPageState extends State<AboutPage> {
     context: context,
     builder: (context) => AlertDialog(
       constraints: Style.dialogFixedConstraints,
-      content: TextField(
+      content: TvTextField(
+        // TV：焦点落在这个输入框上但不弹键盘，按 A 才输入（见 TvTextField）
         autofocus: true,
-        onSubmitted: (value) {
-          Get.back();
-          if (value.isNotEmpty) {
-            PiliScheme.routePushFromUrl(value);
-          }
-        },
+        builder: (context, node) => TextField(
+          // 非 TV 模式保持"打开就能输入"的老行为
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          onSubmitted: (value) {
+            Get.back();
+            if (value.isNotEmpty) {
+              PiliScheme.routePushFromUrl(value);
+            }
+          },
+        ),
       ),
     ),
   );

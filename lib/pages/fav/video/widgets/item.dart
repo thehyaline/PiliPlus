@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
@@ -21,42 +22,41 @@ class FavVideoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress:
-            onLongPress ??
-            (onTap == null
-                ? null
-                : () => imageSaveDialog(
-                    title: item.title,
-                    cover: item.cover,
-                  )),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    return Hero(
-                      tag: heroTag,
-                      child: NetworkImgLayer(
-                        src: item.cover,
-                        width: boxConstraints.maxWidth,
-                        height: boxConstraints.maxHeight,
-                      ),
-                    );
-                  },
-                ),
+    return TvCard(
+      debugLabel: '收藏-视频',
+      onTap: onTap,
+      // 长按确定 / Y 键自动跟着这个长按走（触摸那边就是它）
+      onLongPress:
+          onLongPress ??
+          (onTap == null
+              ? null
+              : () => imageSaveDialog(
+                  title: item.title,
+                  cover: item.cover,
+                )),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: Style.aspectRatio,
+              child: LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  return Hero(
+                    tag: heroTag,
+                    child: NetworkImgLayer(
+                      src: item.cover,
+                      width: boxConstraints.maxWidth,
+                      height: boxConstraints.maxHeight,
+                    ),
+                  );
+                },
               ),
-              const SizedBox(width: 10),
-              content(context),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            content(context),
+          ],
         ),
       ),
     );

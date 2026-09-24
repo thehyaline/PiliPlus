@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:PiliPlus/common/widgets/color_palette.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -287,8 +288,7 @@ List<SettingsGroup> get styleSettings => [
       NormalModel(
         title: '正在直播板块',
         leading: const Icon(Icons.live_tv),
-        getSubtitle: () =>
-            '当前板块位置：${Pref.livePanelPosition.label}（仅在大屏设备生效）',
+        getSubtitle: () => '当前板块位置：${Pref.livePanelPosition.label}（仅在大屏设备生效）',
         onTap: _showLivePanelPosDialog,
       ),
       NormalModel(
@@ -345,7 +345,10 @@ List<SettingsGroup> get styleSettings => [
           title: const Text('查看大图质量'),
           initValue: Pref.previewQ,
           onChanged: (picQuality) async {
-            await GStorage.setting.put(SettingBoxKey.previewQuality, picQuality);
+            await GStorage.setting.put(
+              SettingBoxKey.previewQuality,
+              picQuality,
+            );
             setState();
           },
         ),
@@ -412,6 +415,28 @@ List<SettingsGroup> get styleSettings => [
       ),
     ],
   ),
+  const SettingsGroup(
+    title: '手柄 / 遥控器',
+    items: [
+      SwitchModel(
+        title: '手柄/遥控器模式',
+        subtitle:
+            '为方向键、确定键、返回键做适配：卡片只有一个焦点、'
+            '焦点框跟随按键、长按确定打开更多。触摸操作不受影响',
+        leading: Icon(MdiIcons.gamepadOutline),
+        setKey: SettingBoxKey.tvFocus,
+        defaultVal: true,
+        needReboot: true,
+      ),
+      SwitchModel(
+        title: '长按确定打开更多',
+        subtitle: '关闭后长按确定与短按相同',
+        leading: Icon(Icons.more_horiz_outlined),
+        setKey: SettingBoxKey.tvLongPressOk,
+        defaultVal: true,
+      ),
+    ],
+  ),
   SettingsGroup(
     title: '其他',
     items: [
@@ -427,7 +452,8 @@ List<SettingsGroup> get styleSettings => [
         leading: const Icon(Icons.exit_to_app_outlined),
         setKey: SettingBoxKey.directExitOnBack,
         defaultVal: false,
-        onChanged: (value) => Get.find<MainController>().directExitOnBack = value,
+        onChanged: (value) =>
+            Get.find<MainController>().directExitOnBack = value,
       ),
       if (Platform.isAndroid)
         NormalModel(
@@ -487,18 +513,21 @@ void _showUiScaleDialog(
           spacing: 20,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Slider(
-              padding: .zero,
-              value: uiScale,
-              min: minUiScale,
-              max: maxUiScale,
-              secondaryTrackValue: 1.0,
-              divisions: ((maxUiScale - minUiScale) * 20).toInt(),
-              label: textController.text,
-              onChanged: (value) => setDialogState(() {
-                uiScale = value.toPrecision(2);
-                textController.text = uiScale.toStringAsFixed(2);
-              }),
+            // 手柄：只留左右键调节，上下键留给"走出这一格"
+            TvSlider(
+              child: Slider(
+                padding: .zero,
+                value: uiScale,
+                min: minUiScale,
+                max: maxUiScale,
+                secondaryTrackValue: 1.0,
+                divisions: ((maxUiScale - minUiScale) * 20).toInt(),
+                label: textController.text,
+                onChanged: (value) => setDialogState(() {
+                  uiScale = value.toPrecision(2);
+                  textController.text = uiScale.toStringAsFixed(2);
+                }),
+              ),
             ),
             TextFormField(
               controller: textController,

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -60,17 +61,19 @@ class _DualSliderDialogState extends State<DualSliderDialog> {
             widget.sliders[i].description,
             Builder(
               builder: (context) {
-                return Slider(
-                  value: _tempValues[i],
-                  min: widget.min,
-                  max: widget.max,
-                  divisions: widget.divisions,
-                  label:
-                      '${_tempValues[i].toStringAsFixed(widget.precise)}${widget.suffix}',
-                  onChanged: (double value) {
-                    _tempValues[i] = value.toPrecision(widget.precise);
-                    (context as Element).markNeedsBuild();
-                  },
+                return TvSlider(
+                  child: Slider(
+                    value: _tempValues[i],
+                    min: widget.min,
+                    max: widget.max,
+                    divisions: widget.divisions,
+                    label:
+                        '${_tempValues[i].toStringAsFixed(widget.precise)}${widget.suffix}',
+                    onChanged: (double value) {
+                      _tempValues[i] = value.toPrecision(widget.precise);
+                      (context as Element).markNeedsBuild();
+                    },
+                  ),
                 );
               },
             ),

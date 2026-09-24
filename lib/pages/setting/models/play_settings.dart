@@ -209,7 +209,8 @@ List<SettingsGroup> get playSettings => [
         NormalModel(
           title: '最高音量',
           leading: const Icon(Icons.volume_up),
-          getSubtitle: () => '当前:「${(Pref.maxVolume * 100).toStringAsFixed(0)}%」',
+          getSubtitle: () =>
+              '当前:「${(Pref.maxVolume * 100).toStringAsFixed(0)}%」',
           onTap: _showMaxVolumeDialog,
         ),
       const SwitchModel(

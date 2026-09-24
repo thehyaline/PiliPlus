@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_button.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ComBtn extends StatelessWidget {
@@ -22,15 +23,20 @@ class ComBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: width,
-      height: height,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTap: onSecondaryTap,
-        behavior: HitTestBehavior.opaque,
-        child: icon,
+    final child = TvButton(
+      debugLabel: tooltip ?? 'ComBtn',
+      onTap: onTap,
+      onSecondaryTap: onSecondaryTap,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onSecondaryTap: onSecondaryTap,
+          behavior: HitTestBehavior.opaque,
+          child: icon,
+        ),
       ),
     );
     if (tooltip != null) {

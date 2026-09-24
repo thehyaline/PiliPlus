@@ -1962,8 +1962,7 @@ class HeaderControlState extends State<HeaderControl>
                             final enableShowDanmaku =
                                 plPlayerController.enableShowDanmaku.value;
                             return IconButton(
-                              tooltip:
-                                  "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+                              tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
                               style: btnStyle,
                               onPressed: () {
                                 final newVal = !enableShowDanmaku;

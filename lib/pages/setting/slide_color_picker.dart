@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
 import 'package:flutter/services.dart'
     show LengthLimitingTextInputFormatter, FilteringTextInputFormatter;
@@ -58,13 +59,15 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
               trackHeight: 10,
               thumbSize: const WidgetStatePropertyAll(Size(4, 25)),
             ),
-            child: Slider(
-              padding: EdgeInsets.zero,
-              min: 0,
-              max: 255,
-              divisions: 255,
-              value: value.toDouble(),
-              onChanged: onChanged,
+            child: TvSlider(
+              child: Slider(
+                padding: EdgeInsets.zero,
+                min: 0,
+                max: 255,
+                divisions: 255,
+                value: value.toDouble(),
+                onChanged: onChanged,
+              ),
             ),
           ),
         ),

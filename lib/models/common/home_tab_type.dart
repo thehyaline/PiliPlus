@@ -43,4 +43,14 @@ enum HomeTabType implements EnumWithLabel {
     HomeTabType.bangumi => const PgcPage(tabType: HomeTabType.bangumi),
     HomeTabType.cinema => const PgcPage(tabType: HomeTabType.cinema),
   };
+
+  /// TV 焦点区域的标签：页面里的 `TvRegion` 用同一个常量登记，
+  /// 手柄切栏（L1/R1）之后靠它把焦点送进新栏（`TvRegions.focusFirst`）。
+  /// 还没接手柄适配的栏目返回 null——切过去之后焦点就留在原地。
+  String? get tvRegion => switch (this) {
+    HomeTabType.live => LivePage.tvRegion,
+    HomeTabType.rcmd => RcmdPage.tvRegion,
+    HomeTabType.hot => HotPage.tvRegion,
+    HomeTabType.rank || HomeTabType.bangumi || HomeTabType.cinema => null,
+  };
 }

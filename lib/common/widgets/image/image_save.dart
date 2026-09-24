@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/http/user.dart';
@@ -23,93 +24,97 @@ void imageSaveDialog({
       final colorScheme = ColorScheme.of(context);
       final imgWidth = MediaQuery.sizeOf(context).shortestSide - 16;
       final height = imgWidth / Style.aspectRatio16x9;
-      return Padding(
-        padding: const .symmetric(horizontal: Style.safeSpace),
-        child: DecoratedBox(
-          decoration: _ImageDecoration(
-            imageHeight: height,
-            color: colorScheme.surface,
-            borderRadius: const .all(Style.imgRadius),
-          ),
-          child: SizedBox(
-            width: imgWidth,
-            child: Column(
-              mainAxisSize: .min,
-              children: [
-                IgnorePointer(
-                  child: NetworkImgLayer(
-                    src: cover,
-                    quality: 100,
-                    width: imgWidth,
-                    height: height,
-                    borderRadius: const .vertical(top: Style.imgRadius),
+      // 手柄：SmartDialog 这类 overlay 弹层没有自己的 scope，得先立一个，
+      // 否则焦点还在底下的卡片上，方向键够不到这几个按钮
+      return TvOverlayScope(
+        child: Padding(
+          padding: const .symmetric(horizontal: Style.safeSpace),
+          child: DecoratedBox(
+            decoration: _ImageDecoration(
+              imageHeight: height,
+              color: colorScheme.surface,
+              borderRadius: const .all(Style.imgRadius),
+            ),
+            child: SizedBox(
+              width: imgWidth,
+              child: Column(
+                mainAxisSize: .min,
+                children: [
+                  IgnorePointer(
+                    child: NetworkImgLayer(
+                      src: cover,
+                      quality: 100,
+                      width: imgWidth,
+                      height: height,
+                      borderRadius: const .vertical(top: Style.imgRadius),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const .fromLTRB(12, 10, 8, 10),
-                  child: Row(
-                    children: [
-                      if (title != null)
-                        Expanded(
-                          child: SelectionText(
-                            title,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.onSurface,
+                  Padding(
+                    padding: const .fromLTRB(12, 10, 8, 10),
+                    child: Row(
+                      children: [
+                        if (title != null)
+                          Expanded(
+                            child: SelectionText(
+                              title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
-                          ),
-                        )
-                      else
-                        const Spacer(),
-                      if (aid != null || bvid != null)
-                        iconButton(
-                          iconSize: _iconSize,
-                          tooltip: '稍后再看',
-                          onPressed: () => {
-                            SmartDialog.dismiss(),
-                            UserHttp.toViewLater(aid: aid, bvid: bvid),
-                          },
-                          icon: const Icon(Icons.watch_later_outlined),
-                        ),
-                      if (cover != null && cover.isNotEmpty) ...[
-                        if (PlatformUtils.isMobile)
-                          iconButton(
-                            iconSize: _iconSize,
-                            tooltip: '分享',
-                            onPressed: () {
-                              SmartDialog.dismiss();
-                              ImageUtils.onShareImg(cover);
-                            },
-                            icon: const Icon(Icons.share),
                           )
                         else
+                          const Spacer(),
+                        if (aid != null || bvid != null)
                           iconButton(
-                            iconSize: 18,
-                            tooltip: '复制链接',
-                            onPressed: () {
-                              SmartDialog.dismiss();
-                              Utils.copyText(cover);
+                            iconSize: _iconSize,
+                            tooltip: '稍后再看',
+                            onPressed: () => {
+                              SmartDialog.dismiss(),
+                              UserHttp.toViewLater(aid: aid, bvid: bvid),
                             },
-                            icon: const Icon(Icons.copy),
+                            icon: const Icon(Icons.watch_later_outlined),
                           ),
-                        iconButton(
-                          iconSize: _iconSize,
-                          tooltip: '保存封面图',
-                          onPressed: () async {
-                            bool saveStatus = await ImageUtils.downloadImg([
-                              cover,
-                            ]);
-                            if (saveStatus) {
-                              SmartDialog.dismiss();
-                            }
-                          },
-                          icon: const Icon(Icons.download),
-                        ),
+                        if (cover != null && cover.isNotEmpty) ...[
+                          if (PlatformUtils.isMobile)
+                            iconButton(
+                              iconSize: _iconSize,
+                              tooltip: '分享',
+                              onPressed: () {
+                                SmartDialog.dismiss();
+                                ImageUtils.onShareImg(cover);
+                              },
+                              icon: const Icon(Icons.share),
+                            )
+                          else
+                            iconButton(
+                              iconSize: 18,
+                              tooltip: '复制链接',
+                              onPressed: () {
+                                SmartDialog.dismiss();
+                                Utils.copyText(cover);
+                              },
+                              icon: const Icon(Icons.copy),
+                            ),
+                          iconButton(
+                            iconSize: _iconSize,
+                            tooltip: '保存封面图',
+                            onPressed: () async {
+                              bool saveStatus = await ImageUtils.downloadImg([
+                                cover,
+                              ]);
+                              if (saveStatus) {
+                                SmartDialog.dismiss();
+                              }
+                            },
+                            icon: const Icon(Icons.download),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

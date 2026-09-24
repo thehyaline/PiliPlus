@@ -1,6 +1,8 @@
 import 'package:PiliPlus/common/skeleton/whisper_item.dart';
 import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart';
@@ -10,6 +12,7 @@ import 'package:PiliPlus/pages/whisper/widgets/item.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/extension/three_dot_ext.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -95,15 +98,20 @@ class _WhisperPageState extends State<WhisperPage> {
       ),
       body: refreshIndicator(
         onRefresh: _controller.onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            _buildTopItems(theme, padding),
-            SliverPadding(
-              padding: EdgeInsets.only(bottom: padding.bottom + 100),
-              sliver: Obx(() => _buildBody(_controller.loadingState.value)),
-            ),
-          ],
+        child: TvRegion(
+          debugLabel: 'whisper-list',
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            // 下一条会话留在焦点树里，方向键到底部才能继续走
+            scrollCacheExtent: TvFocusSpec.cacheExtent,
+            slivers: [
+              _buildTopItems(theme, padding),
+              SliverPadding(
+                padding: EdgeInsets.only(bottom: padding.bottom + 100),
+                sliver: Obx(() => _buildBody(_controller.loadingState.value)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -163,8 +171,17 @@ class _WhisperPageState extends State<WhisperPage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: List.generate(_controller.msgFeedTopItems.length, (index) {
             final item = _controller.msgFeedTopItems[index];
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            // 手柄：四个入口 = 四个焦点节点（原来是 GestureDetector，方向键直接跳过）
+            return TvCard(
+              debugLabel: item.name,
+              onTap: () {
+                if (!item.enabled) {
+                  SmartDialog.showToast('已禁用');
+                  return;
+                }
+                _controller.unreadCounts[index] = 0;
+                Get.toNamed(item.route);
+              },
               child: Padding(
                 padding: const EdgeInsets.all(10),
                 child: Column(
@@ -203,14 +220,6 @@ class _WhisperPageState extends State<WhisperPage> {
                   ],
                 ),
               ),
-              onTap: () {
-                if (!item.enabled) {
-                  SmartDialog.showToast('已禁用');
-                  return;
-                }
-                _controller.unreadCounts[index] = 0;
-                Get.toNamed(item.route);
-              },
             );
           }),
         ),

@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop, touchSlopH;
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
@@ -733,9 +734,14 @@ Future<void> audioNormalization(
             spacing: 16,
             children: [
               const Text('等同于 --lavfi-complex="[aid1] 参数 [ao]"'),
-              TextField(
+              TvTextField(
+                // TV：焦点落在这格但不弹键盘，按 A 才输入
                 autofocus: true,
-                onChanged: (value) => param = value,
+                builder: (context, node) => TextField(
+                  autofocus: !Pref.tvFocus,
+                  focusNode: node,
+                  onChanged: (value) => param = value,
+                ),
               ),
             ],
           ),
@@ -1268,12 +1274,17 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('最大缓存大小'),
-      content: TextField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        onChanged: (value) => valueStr = value,
-        keyboardType: TextInputType.number,
-        inputFormatters: FilteringText.decimal,
-        decoration: const InputDecoration(suffixText: 'MB'),
+        builder: (context, node) => TextField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          onChanged: (value) => valueStr = value,
+          keyboardType: TextInputType.number,
+          inputFormatters: FilteringText.decimal,
+          decoration: const InputDecoration(suffixText: 'MB'),
+        ),
       ),
       actions: [
         TextButton(

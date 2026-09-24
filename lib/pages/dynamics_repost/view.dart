@@ -1,6 +1,8 @@
 import 'package:PiliPlus/common/widgets/animated_height.dart';
 import 'package:PiliPlus/common/widgets/draggable_sheet/dyn.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
@@ -201,8 +203,8 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildEditPlaceHolder() => GestureDetector(
-    behavior: HitTestBehavior.opaque,
+  Widget _buildEditPlaceHolder() => TvCard(
+    debugLabel: 'RepostPlaceholder',
     onTap: () {
       setState(() => _expanded = true);
       Future.delayed(_durtion, () {
@@ -224,26 +226,31 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
-      key: key,
-      controller: editController,
-      minLines: 4,
-      maxLines: null,
-      autofocus: false,
-      focusNode: focusNode,
-      onSubmitted: onSubmitted,
-      readOnly: readOnly.value,
-      decoration: InputDecoration(
-        hintText: '说点什么吧',
-        hintStyle: TextStyle(color: theme.colorScheme.outline),
-        border: const OutlineInputBorder(
-          borderSide: BorderSide.none,
-          gapPadding: 0,
+  Widget _buildEditWidget() => TvTextField(
+    editFocusNode: focusNode,
+    navFocusNode: navFocusNode,
+    debugLabel: 'RepostInput',
+    builder: (context, node) => Obx(
+      () => RichTextField(
+        key: key,
+        controller: editController,
+        minLines: 4,
+        maxLines: null,
+        autofocus: false,
+        focusNode: node,
+        onSubmitted: onSubmitted,
+        readOnly: readOnly.value,
+        decoration: InputDecoration(
+          hintText: '说点什么吧',
+          hintStyle: TextStyle(color: theme.colorScheme.outline),
+          border: const OutlineInputBorder(
+            borderSide: BorderSide.none,
+            gapPadding: 0,
+          ),
+          contentPadding: EdgeInsets.zero,
         ),
-        contentPadding: EdgeInsets.zero,
+        // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
       ),
-      // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
     ),
   );
 

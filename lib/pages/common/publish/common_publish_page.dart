@@ -29,6 +29,10 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
     with WidgetsBindingObserver {
   late bool _paused = false;
   late final FocusNode focusNode;
+
+  /// 手柄模式下输入框的**导航态**落点（见 `TvTextField` 的两段式焦点）：
+  /// 进页面时焦点先落在这上面，不弹键盘，按确定才把焦点交给 [focusNode]。
+  late final FocusNode navFocusNode;
   late final controller = ChatBottomPanelContainerController<PanelType>(
     uiScale: Pref.uiScale,
   );
@@ -51,6 +55,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   void initState() {
     super.initState();
     focusNode = FocusNode()..addListener(_onFocusChanged);
+    navFocusNode = FocusNode(debugLabel: 'publish.nav');
 
     if (handleKeyboard) {
       WidgetsBinding.instance.addObserver(this);
@@ -86,6 +91,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
       onSave();
     }
     focusNode.dispose();
+    navFocusNode.dispose();
     editController.dispose();
     if (handleKeyboard) {
       WidgetsBinding.instance.removeObserver(this);
@@ -94,7 +100,11 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   }
 
   void _safeRequestFocus() {
-    if (mounted) {
+    if (!mounted) return;
+    // 手柄模式下落在外层：键盘不弹，方向键还能从这一格走开
+    if (Pref.tvFocus) {
+      navFocusNode.requestFocus();
+    } else {
       focusNode.requestFocus();
     }
   }

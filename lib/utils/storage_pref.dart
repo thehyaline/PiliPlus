@@ -1005,6 +1005,16 @@ abstract final class Pref {
   static bool get keyboardControl =>
       _setting.get(SettingBoxKey.keyboardControl, defaultValue: true);
 
+  /// 手柄/遥控器模式：长按确定、栏目切换键等 10-foot 行为的总开关。
+  /// 焦点框的显示本身由 FocusManager.highlightMode 控制，
+  /// 触屏设备上即使本项为 true 也不会出现焦点框。
+  static bool get tvFocus =>
+      _setting.get(SettingBoxKey.tvFocus, defaultValue: true);
+
+  /// 长按确定是否打开「更多」菜单
+  static bool get tvLongPressOk =>
+      _setting.get(SettingBoxKey.tvLongPressOk, defaultValue: true);
+
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);
 

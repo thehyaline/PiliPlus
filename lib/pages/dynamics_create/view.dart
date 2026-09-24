@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/draggable_sheet/dyn.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
@@ -222,24 +223,28 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
               const SizedBox(height: 5),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _titleEditCtr,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
-                    hintText: '标题，选填20字',
-                    isDense: true,
-                    visualDensity: .standard,
-                    contentPadding: EdgeInsets.zero,
-                    border: const OutlineInputBorder(
-                      gapPadding: 0,
-                      borderSide: BorderSide.none,
+                child: TvTextField(
+                  debugLabel: 'DynTitleInput',
+                  builder: (context, node) => TextField(
+                    controller: _titleEditCtr,
+                    focusNode: node,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      hintText: '标题，选填20字',
+                      isDense: true,
+                      visualDensity: .standard,
+                      contentPadding: EdgeInsets.zero,
+                      border: const OutlineInputBorder(
+                        gapPadding: 0,
+                        borderSide: BorderSide.none,
+                      ),
+                      hintStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.outline.withValues(alpha: 0.7),
+                      ),
                     ),
-                    hintStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.outline.withValues(alpha: 0.7),
-                    ),
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
                   ),
-                  inputFormatters: [LengthLimitingTextInputFormatter(20)],
                 ),
               ),
               const SizedBox(height: 5),
@@ -697,27 +702,32 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     selected: false,
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
-      key: key,
-      controller: editController,
-      minLines: 4,
-      maxLines: null,
-      focusNode: focusNode,
-      readOnly: readOnly.value,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      decoration: InputDecoration(
-        hintText: '说点什么吧',
-        visualDensity: .standard,
-        hintStyle: TextStyle(color: theme.colorScheme.outline),
-        border: const OutlineInputBorder(
-          borderSide: BorderSide.none,
-          gapPadding: 0,
+  Widget _buildEditWidget() => TvTextField(
+    editFocusNode: focusNode,
+    navFocusNode: navFocusNode,
+    debugLabel: 'DynCreateInput',
+    builder: (context, node) => Obx(
+      () => RichTextField(
+        key: key,
+        controller: editController,
+        minLines: 4,
+        maxLines: null,
+        focusNode: node,
+        readOnly: readOnly.value,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        decoration: InputDecoration(
+          hintText: '说点什么吧',
+          visualDensity: .standard,
+          hintStyle: TextStyle(color: theme.colorScheme.outline),
+          border: const OutlineInputBorder(
+            borderSide: BorderSide.none,
+            gapPadding: 0,
+          ),
+          contentPadding: EdgeInsets.zero,
         ),
-        contentPadding: EdgeInsets.zero,
+        // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
       ),
-      // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
     ),
   );
 

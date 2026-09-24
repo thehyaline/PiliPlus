@@ -127,8 +127,7 @@ class FloatingNavigationBar extends StatelessWidget {
                             return _NavigationDestinationInfo(
                               index: i,
                               selectedIndex: selectedIndex,
-                              totalNumberOfDestinations:
-                                  destinations.length,
+                              totalNumberOfDestinations: destinations.length,
                               selectedAnimation: animation,
                               labelBehavior: effectiveLabelBehavior,
                               indicatorColor: indicatorColor,

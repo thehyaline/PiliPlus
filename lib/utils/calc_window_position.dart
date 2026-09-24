@@ -37,8 +37,7 @@ Future<Rect> calcWindowBounds(Size windowSize) async {
       // 主屏 DPI 一致，否则拒绝使用。记录的位置来自 getBounds（虚拟化
       // 坐标），而 setBounds 按物理坐标解释；跨 DPI 显示器（如 200%
       // 副屏）上两者差一倍，直接使用会让窗口横跨不同 DPI 的显示器。
-      final rect =
-          Rect.fromLTWH(dx, dy, windowSize.width, windowSize.height);
+      final rect = Rect.fromLTWH(dx, dy, windowSize.width, windowSize.height);
       if (displays.any((display) {
         final bounds = _visibleBoundsOf(display);
         return _sameDpi(display, primaryDisplay) &&

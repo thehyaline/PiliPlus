@@ -44,8 +44,7 @@ class UpPanelSection extends StatelessWidget {
             return _buildUpPanel(
               dynamicsController.loadingState.value,
               // 分离直播栏开启且位于顶部时，直播列表从 UP主栏移出
-              showLiveSection:
-                  !showLive && !(isTop && Pref.separateTopLiveBar),
+              showLiveSection: !showLive && !(isTop && Pref.separateTopLiveBar),
             );
           }),
         ),
@@ -60,16 +59,16 @@ class UpPanelSection extends StatelessWidget {
     return switch (loadingState) {
       Loading() => const SizedBox.shrink(),
       Success(:final response) => UpPanel(
-          upData: response,
-          dynamicsController: dynamicsController,
-          showLiveSection: showLiveSection,
-        ),
+        upData: response,
+        dynamicsController: dynamicsController,
+        showLiveSection: showLiveSection,
+      ),
       Error() => Center(
-          child: IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: dynamicsController.onReload,
-          ),
+        child: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: dynamicsController.onReload,
         ),
+      ),
     };
   }
 }

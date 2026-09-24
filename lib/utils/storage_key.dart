@@ -28,6 +28,8 @@ abstract final class SettingBoxKey {
       superChatType = 'superChatType',
       fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
+      tvFocus = 'tvFocus',
+      tvLongPressOk = 'tvLongPressOk',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',

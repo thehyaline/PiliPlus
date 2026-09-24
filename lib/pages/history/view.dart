@@ -1,6 +1,8 @@
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_memory.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -14,6 +16,7 @@ import 'package:PiliPlus/pages/history/controller.dart';
 import 'package:PiliPlus/pages/history/widgets/item.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -61,22 +64,32 @@ class _HistoryPageState extends State<HistoryPage>
   Widget build(BuildContext context) {
     super.build(context);
     final padding = MediaQuery.viewPaddingOf(context);
-    Widget child = refreshIndicator(
-      onRefresh: _historyController.onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _historyController.scrollController,
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(
-              top: 7,
-              bottom: padding.bottom + 100,
+    Widget child = TvRegion(
+      debugLabel: widget.type == null ? 'history' : 'history-${widget.type}',
+      child: refreshIndicator(
+        onRefresh: () async {
+          // 刷新会把整张列表换掉，焦点先寄存在列表里
+          TvFocusMemory.park();
+          await _historyController.onRefresh();
+          TvFocusMemory.restore();
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: _historyController.scrollController,
+          // 让下一行留在焦点树里，方向键才能走到下一行
+          scrollCacheExtent: TvFocusSpec.cacheExtent,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                top: 7,
+                bottom: padding.bottom + 100,
+              ),
+              sliver: Obx(
+                () => _buildBody(_historyController.loadingState.value),
+              ),
             ),
-            sliver: Obx(
-              () => _buildBody(_historyController.loadingState.value),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     if (widget.type != null) {

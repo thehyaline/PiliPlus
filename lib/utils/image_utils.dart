@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
@@ -57,18 +58,21 @@ abstract final class ImageUtils {
     if (status == PermissionStatus.denied ||
         status == PermissionStatus.permanentlyDenied) {
       SmartDialog.show(
-        builder: (context) => AlertDialog(
-          title: const Text('提示'),
-          content: const Text('存储权限未授权'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                SmartDialog.dismiss();
-                openAppSettings();
-              },
-              child: const Text('去授权'),
-            ),
-          ],
+        // 手柄：SmartDialog 弹层没有自己的 scope，立一个才能用方向键选到按钮
+        builder: (context) => TvOverlayScope(
+          child: AlertDialog(
+            title: const Text('提示'),
+            content: const Text('存储权限未授权'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  SmartDialog.dismiss();
+                  openAppSettings();
+                },
+                child: const Text('去授权'),
+              ),
+            ],
+          ),
         ),
       );
       return false;

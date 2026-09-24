@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
@@ -7,6 +8,7 @@ import 'package:PiliPlus/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/pages/common/search/common_search_controller.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -65,26 +67,33 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
         ...?extraActions,
         const SizedBox(width: 10),
       ],
-      title: TextField(
+      title: TvTextField(
+        // TV：焦点先落在搜索框（导航态），按 A 才弹键盘输入
         autofocus: true,
-        focusNode: controller.focusNode,
-        controller: controller.editController,
-        textInputAction: TextInputAction.search,
-        textAlignVertical: TextAlignVertical.center,
-        decoration: InputDecoration(
-          hintText: '搜索',
-          visualDensity: .standard,
-          border: InputBorder.none,
-          suffixIcon: IconButton(
-            tooltip: '清空',
-            icon: const Icon(Icons.clear, size: 22),
-            onPressed: () => controller
-              ..loadingState.value = LoadingState.loading()
-              ..onClear()
-              ..focusNode.requestFocus(),
+        editFocusNode: controller.focusNode,
+        radius: const BorderRadius.all(Radius.circular(25)),
+        builder: (context, node) => TextField(
+          // 非 TV 模式保持"进页面就准备输入"的老行为
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          controller: controller.editController,
+          textInputAction: TextInputAction.search,
+          textAlignVertical: TextAlignVertical.center,
+          decoration: InputDecoration(
+            hintText: '搜索',
+            visualDensity: .standard,
+            border: InputBorder.none,
+            suffixIcon: IconButton(
+              tooltip: '清空',
+              icon: const Icon(Icons.clear, size: 22),
+              onPressed: () => controller
+                ..loadingState.value = LoadingState.loading()
+                ..onClear()
+                ..focusNode.requestFocus(),
+            ),
           ),
+          onSubmitted: (value) => controller.onRefresh(),
         ),
-        onSubmitted: (value) => controller.onRefresh(),
       ),
     );
     if (multiSelect) {

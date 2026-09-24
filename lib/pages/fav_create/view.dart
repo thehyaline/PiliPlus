@@ -1,6 +1,7 @@
 import 'dart:io' show File;
 
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -12,6 +13,7 @@ import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/extension/file_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -287,31 +289,36 @@ class _CreateFavPageState extends State<CreateFavPage> {
                   ),
                 ),
                 Expanded(
-                  child: TextField(
+                  child: TvTextField(
+                    // TV：焦点落在这格但不弹键盘，按 A 才输入
                     autofocus: true,
-                    readOnly: _attr != null && BiliUtils.isDefaultFav(_attr!),
-                    controller: _titleController,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _attr != null && BiliUtils.isDefaultFav(_attr!)
-                          ? theme.colorScheme.outline
-                          : null,
-                    ),
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(20),
-                    ],
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: '名称',
-                      hintStyle: TextStyle(
+                    builder: (context, node) => TextField(
+                      autofocus: !Pref.tvFocus,
+                      focusNode: node,
+                      readOnly: _attr != null && BiliUtils.isDefaultFav(_attr!),
+                      controller: _titleController,
+                      style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.outline,
+                        color: _attr != null && BiliUtils.isDefaultFav(_attr!)
+                            ? theme.colorScheme.outline
+                            : null,
                       ),
-                      border: const OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                        gapPadding: 0,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(20),
+                      ],
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: '名称',
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: theme.colorScheme.outline,
+                        ),
+                        border: const OutlineInputBorder(
+                          borderSide: BorderSide.none,
+                          gapPadding: 0,
+                        ),
+                        contentPadding: EdgeInsets.zero,
                       ),
-                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ),

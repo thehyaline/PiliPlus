@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_focus_memory.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -45,9 +46,15 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel> with GridMixin {
                 itemBuilder: (context, index) {
                   return VideoCardH(
                     videoItem: response[index],
-                    onRemove: () => _relatedController.loadingState
-                      ..value.data!.removeAt(index)
-                      ..refresh(),
+                    onRemove: () {
+                      // 删掉的正好是焦点所在的那张卡时焦点会掉到区域 scope 上
+                      // （方向键无处可去），park/restore 让它落到接替位置的卡上
+                      TvFocusMemory.park();
+                      _relatedController.loadingState
+                        ..value.data!.removeAt(index)
+                        ..refresh();
+                      TvFocusMemory.restore(preferIndex: index);
+                    },
                   );
                 },
                 itemCount: response.length,

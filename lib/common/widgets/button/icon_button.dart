@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:material_ui/material_ui.dart';
 
 Widget iconButton({
@@ -17,18 +18,24 @@ Widget iconButton({
     backgroundColor = colorScheme.secondaryContainer;
     foregroundColor = colorScheme.onSecondaryContainer;
   }
-  return SizedBox(
-    width: size,
-    height: size,
-    child: IconButton(
-      icon: icon,
-      tooltip: tooltip,
-      onPressed: onPressed,
-      style: IconButton.styleFrom(
-        padding: EdgeInsets.zero,
-        iconSize: iconSize ?? size / 2,
-        backgroundColor: backgroundColor,
-        foregroundColor: foregroundColor,
+  // `FocusRing` 把节点交给 `IconButton`，整棵子树还是只有一个焦点节点，
+  // 只是多一个按键聚焦时的描边；触摸和老模式（`Pref.tvFocus` 关）看不到
+  return FocusRing(
+    debugLabel: tooltip ?? 'IconButton',
+    builder: (context, focusNode, focused) => SizedBox(
+      width: size,
+      height: size,
+      child: IconButton(
+        focusNode: focusNode,
+        icon: icon,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          padding: EdgeInsets.zero,
+          iconSize: iconSize ?? size / 2,
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+        ),
       ),
     ),
   );

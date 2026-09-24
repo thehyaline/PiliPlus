@@ -29,17 +29,23 @@ class VideoPopupMenu extends StatelessWidget {
   final BaseSimpleVideoItemModel videoItem;
   final VoidCallback? onRemove;
 
+  /// 手柄/遥控器要弹出这个菜单时用的句柄：
+  /// 卡片在自己的「更多」回调里 `buttonKey.currentState?.showButtonMenu()`。
+  final GlobalKey<PopupMenuButtonState<dynamic>>? buttonKey;
+
   const VideoPopupMenu({
     super.key,
     required this.iconSize,
     required this.videoItem,
     this.onRemove,
+    this.buttonKey,
     this.menuItemHeight = 45,
   });
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton(
+    return PopupMenuButton<dynamic>(
+      key: buttonKey,
       padding: EdgeInsets.zero,
       icon: Icon(
         Icons.more_vert_outlined,

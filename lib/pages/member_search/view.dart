@@ -1,8 +1,10 @@
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/pages/member_search/child/view.dart';
 import 'package:PiliPlus/pages/member_search/controller.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -32,28 +34,34 @@ class _MemberSearchPageState extends State<MemberSearchPage> {
           ),
           const SizedBox(width: 10),
         ],
-        title: TextField(
+        title: TvTextField(
+          // TV：焦点先落在搜索框（导航态），按 A 才弹键盘输入
           autofocus: true,
-          focusNode: _controller.focusNode,
-          controller: _controller.editingController,
-          textInputAction: TextInputAction.search,
-          textAlignVertical: TextAlignVertical.center,
-          decoration: InputDecoration(
-            hintText: '搜索',
-            visualDensity: .standard,
-            border: InputBorder.none,
-            suffixIcon: IconButton(
-              tooltip: '清空',
-              icon: const Icon(Icons.clear, size: 22),
-              onPressed: _controller.onClear,
+          editFocusNode: _controller.focusNode,
+          builder: (context, node) => TextField(
+            // 非 TV 模式保持"进页面就准备输入"的老行为
+            autofocus: !Pref.tvFocus,
+            focusNode: node,
+            controller: _controller.editingController,
+            textInputAction: TextInputAction.search,
+            textAlignVertical: TextAlignVertical.center,
+            decoration: InputDecoration(
+              hintText: '搜索',
+              visualDensity: .standard,
+              border: InputBorder.none,
+              suffixIcon: IconButton(
+                tooltip: '清空',
+                icon: const Icon(Icons.clear, size: 22),
+                onPressed: _controller.onClear,
+              ),
             ),
+            onSubmitted: (value) => _controller.submit(),
+            onChanged: (value) {
+              if (value.isEmpty) {
+                _controller.hasData.value = false;
+              }
+            },
           ),
-          onSubmitted: (value) => _controller.submit(),
-          onChanged: (value) {
-            if (value.isEmpty) {
-              _controller.hasData.value = false;
-            }
-          },
         ),
       ),
       body: ViewSafeArea(

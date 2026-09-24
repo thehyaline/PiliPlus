@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -50,62 +51,65 @@ abstract final class Update {
               onPressed: () => onDownload(data, ext: ext),
               child: Text(text),
             );
-            return AlertDialog(
-              title: const Text('🎉 发现新版本 '),
-              content: SizedBox(
-                height: 280,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${data['tag_name']}',
-                        style: const TextStyle(fontSize: 20),
-                      ),
-                      const SizedBox(height: 8),
-                      Text('${data['body']}'),
-                      TextButton(
-                        onPressed: () => PageUtils.launchURL(
-                          '${Constants.sourceCodeUrl}/commits/main',
+            // 手柄：SmartDialog 弹层没有自己的 scope，立一个才能用方向键选按钮
+            return TvOverlayScope(
+              child: AlertDialog(
+                title: const Text('🎉 发现新版本 '),
+                content: SizedBox(
+                  height: 280,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${data['tag_name']}',
+                          style: const TextStyle(fontSize: 20),
                         ),
-                        child: Text(
-                          "点此查看完整更新(即commit)内容",
-                          style: TextStyle(color: colorScheme.primary),
+                        const SizedBox(height: 8),
+                        Text('${data['body']}'),
+                        TextButton(
+                          onPressed: () => PageUtils.launchURL(
+                            '${Constants.sourceCodeUrl}/commits/main',
+                          ),
+                          child: Text(
+                            "点此查看完整更新(即commit)内容",
+                            style: TextStyle(color: colorScheme.primary),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              actions: [
-                if (isAuto)
+                actions: [
+                  if (isAuto)
+                    TextButton(
+                      onPressed: () {
+                        SmartDialog.dismiss();
+                        GStorage.setting.put(SettingBoxKey.autoUpdate, false);
+                      },
+                      child: Text(
+                        '不再提醒',
+                        style: TextStyle(color: colorScheme.outline),
+                      ),
+                    ),
                   TextButton(
-                    onPressed: () {
-                      SmartDialog.dismiss();
-                      GStorage.setting.put(SettingBoxKey.autoUpdate, false);
-                    },
+                    onPressed: SmartDialog.dismiss,
                     child: Text(
-                      '不再提醒',
+                      '取消',
                       style: TextStyle(color: colorScheme.outline),
                     ),
                   ),
-                TextButton(
-                  onPressed: SmartDialog.dismiss,
-                  child: Text(
-                    '取消',
-                    style: TextStyle(color: colorScheme.outline),
-                  ),
-                ),
-                if (Platform.isWindows) ...[
-                  downloadBtn('zip', ext: 'zip'),
-                  downloadBtn('exe', ext: 'exe'),
-                ] else if (Platform.isLinux) ...[
-                  downloadBtn('rpm', ext: 'rpm'),
-                  downloadBtn('deb', ext: 'deb'),
-                  downloadBtn('targz', ext: 'tar.gz'),
-                ] else
-                  downloadBtn('Github'),
-              ],
+                  if (Platform.isWindows) ...[
+                    downloadBtn('zip', ext: 'zip'),
+                    downloadBtn('exe', ext: 'exe'),
+                  ] else if (Platform.isLinux) ...[
+                    downloadBtn('rpm', ext: 'rpm'),
+                    downloadBtn('deb', ext: 'deb'),
+                    downloadBtn('targz', ext: 'tar.gz'),
+                  ] else
+                    downloadBtn('Github'),
+                ],
+              ),
             );
           },
         );

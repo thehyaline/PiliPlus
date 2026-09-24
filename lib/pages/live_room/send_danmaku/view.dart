@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/models/common/publish_panel_type.dart';
@@ -134,23 +135,28 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () => RichTextField(
-                key: key,
-                textInputAction: .send,
-                controller: editController,
-                autofocus: false,
-                readOnly: readOnly.value,
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-                focusNode: focusNode,
-                decoration: const InputDecoration(
-                  hintText: "输入弹幕内容",
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(fontSize: 14),
+            child: TvTextField(
+              editFocusNode: focusNode,
+              navFocusNode: navFocusNode,
+              debugLabel: 'LiveDanmakuInput',
+              builder: (context, node) => Obx(
+                () => RichTextField(
+                  key: key,
+                  textInputAction: .send,
+                  controller: editController,
+                  autofocus: false,
+                  readOnly: readOnly.value,
+                  onChanged: onChanged,
+                  onSubmitted: onSubmitted,
+                  focusNode: node,
+                  decoration: const InputDecoration(
+                    hintText: "输入弹幕内容",
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(fontSize: 14),
+                  ),
+                  style: theme.textTheme.bodyLarge,
+                  // inputFormatters: [LengthLimitingTextInputFormatter(20)],
                 ),
-                style: theme.textTheme.bodyLarge,
-                // inputFormatters: [LengthLimitingTextInputFormatter(20)],
               ),
             ),
           ),

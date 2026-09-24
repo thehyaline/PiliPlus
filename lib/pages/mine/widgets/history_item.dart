@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/badge.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
@@ -14,7 +15,11 @@ class MineHistoryItem extends StatelessWidget {
   final HistoryItemModel item;
   final VoidCallback onDelete;
 
-  const MineHistoryItem({super.key, required this.item, required this.onDelete});
+  const MineHistoryItem({
+    super.key,
+    required this.item,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +27,16 @@ class MineHistoryItem extends StatelessWidget {
     final authorName = item.authorName;
     final timeText = DateFormatUtils.chatFormat(item.viewAt, isHistory: true);
     final hasDuration = item.duration != null && item.duration != 0;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    // 手柄：一张卡 = 一个焦点节点，确定键进视频、长按确定 / Y 键出菜单
+    return TvCard(
+      debugLabel: '观看记录',
       onTap: () => openHistoryItem(item),
-      onLongPressStart: (details) {
+      onLongPress: () {
         Feedback.forLongPress(context);
-        _showMenu(context, details.globalPosition);
+        _showMenu(context);
       },
-      onSecondaryTapDown: PlatformUtils.isMobile
-          ? null
-          : (details) => _showMenu(context, details.globalPosition),
+      onMore: () => _showMenu(context),
+      onSecondaryTap: PlatformUtils.isMobile ? null : () => _showMenu(context),
       child: SizedBox(
         width: 180,
         child: Column(
@@ -64,9 +69,7 @@ class MineHistoryItem extends StatelessWidget {
                   )
                 else if (item.history.business == 'live')
                   PBadge(
-                    text: item.badge?.isNotEmpty == true
-                        ? item.badge!
-                        : '未开播',
+                    text: item.badge?.isNotEmpty == true ? item.badge! : '未开播',
                     top: 6.0,
                     right: 6.0,
                     type: PBadgeType.gray,
@@ -109,7 +112,15 @@ class MineHistoryItem extends StatelessWidget {
     );
   }
 
-  void _showMenu(BuildContext context, Offset offset) {
+  /// 弹出操作菜单。
+  ///
+  /// 手柄没有指针位置可用，菜单锚在这张卡自己身上（`context` 的渲染盒就是卡片）；
+  /// 触摸长按/右键也走这里——菜单本来就贴着卡片，位置差不了多少。
+  void _showMenu(BuildContext context) {
+    final box = context.findRenderObject();
+    final offset = box is RenderBox && box.hasSize
+        ? box.localToGlobal(box.size.center(Offset.zero))
+        : Offset.zero;
     showMenu<void>(
       context: context,
       position: PageUtils.menuPosition(offset),

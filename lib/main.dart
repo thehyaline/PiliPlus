@@ -4,6 +4,7 @@ import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/back_detector.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_shortcuts.dart';
 import 'package:PiliPlus/common/widgets/hover_reset.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
@@ -17,6 +18,7 @@ import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/utils/app_back.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/calc_window_position.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -255,30 +257,10 @@ void main() async {
 
 KeyEventResult _onKeyEvent(KeyEvent event) {
   if (event.logicalKey == .escape && event is KeyDownEvent) {
-    _onBack();
+    appBack();
     return .handled;
   }
   return .ignored;
-}
-
-void _onBack() {
-  if (SmartDialog.checkExist()) {
-    SmartDialog.dismiss();
-    return;
-  }
-
-  final route = Get.routing.route;
-  if (route is GetPageRoute) {
-    if (route.popDisposition == .doNotPop) {
-      route.onPopInvokedWithResult(false, null);
-      return;
-    }
-  }
-
-  final navigator = Get.key.currentState!;
-  if (navigator.canPop()) {
-    navigator.pop();
-  }
 }
 
 class MyApp extends StatelessWidget {
@@ -379,17 +361,19 @@ class MyApp extends StatelessWidget {
       );
     }
     if (PlatformUtils.isDesktop) {
-      return MouseRegion(
+      child = MouseRegion(
         // 鼠标移出窗口时复位悬停高亮，兜底 MouseTracker 未收到
         // 离开事件导致的"幽灵悬浮"（配合 hover_reset.dart）
         onExit: (_) => HoverReset.reset(),
         child: BackDetector(
-          onBack: _onBack,
+          onBack: appBack,
           child: child,
         ),
       );
     }
-    return child;
+    // 手柄/遥控器键位层：在 Navigator 之上，只吃返回/分栏/媒体键，
+    // 其余按键照常往上走（见 tv_shortcuts.dart）
+    return TvShortcuts(child: child);
   }
 
   /// from [DynamicColorBuilderState.initPlatformState]

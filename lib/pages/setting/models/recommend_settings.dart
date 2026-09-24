@@ -106,7 +106,8 @@ List<SettingsGroup> get recommendSettings => [
         leading: const Icon(Icons.explore_outlined),
         setKey: SettingBoxKey.applyFilterToRelatedVideos,
         defaultVal: true,
-        onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
+        onChanged: (value) =>
+            RecommendFilter.applyFilterToRelatedVideos = value,
       ),
     ],
   ),

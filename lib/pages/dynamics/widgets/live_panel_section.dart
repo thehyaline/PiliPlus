@@ -29,13 +29,9 @@ class LivePanelSection extends StatelessWidget {
     final liveList = upData.liveUsers?.items;
     return Padding(
       padding: EdgeInsets.only(
-        left: position == LivePanelPosition.right
-            ? 0
-            : Style.waterfallMargin,
+        left: position == LivePanelPosition.right ? 0 : Style.waterfallMargin,
         top: Style.waterfallMargin,
-        right: position == LivePanelPosition.left
-            ? 0
-            : Style.waterfallMargin,
+        right: position == LivePanelPosition.left ? 0 : Style.waterfallMargin,
       ),
       // 板块最大高度由调用方约束（底部留出 livePanelBottomGap 空隙），
       // 内容超高时内部列表滚动

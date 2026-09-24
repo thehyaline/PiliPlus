@@ -12,6 +12,7 @@ import 'package:PiliPlus/common/widgets/disabled_icon.dart';
 import 'package:PiliPlus/common/widgets/gesture/immediate_tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/gesture/mouse_interactive_viewer.dart';
 import 'package:PiliPlus/common/widgets/gesture/player_gesture_recognizer.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/player_bar.dart';
@@ -51,6 +52,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_player_osd.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
@@ -65,6 +67,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -1118,7 +1121,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       void fullScreenTrigger(bool status) {
         plPlayerController.triggerFullScreen(
           status: status,
-          inAppFullScreen: PlatformUtils.isWindows &&
+          inAppFullScreen:
+              PlatformUtils.isWindows &&
               Pref.slideFullScreenMode ==
                   DesktopFullScreenMode.windowFullscreen,
         );
@@ -1225,7 +1229,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       case ui.PointerDeviceKind.mouse when PlatformUtils.isDesktop:
         plPlayerController.triggerFullScreen(
           status: !isFullScreen,
-          inAppFullScreen: PlatformUtils.isWindows &&
+          inAppFullScreen:
+              PlatformUtils.isWindows &&
               Pref.doubleClickFullScreenMode ==
                   DesktopFullScreenMode.windowFullscreen,
         );
@@ -1622,43 +1627,53 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           bottom: -1,
           child: ClipRect(
             child: RepaintBoundary(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  AppBarAni(
-                    isTop: true,
-                    controller: _animationController,
-                    isFullScreen: isFullScreen,
-                    removeSafeArea: plPlayerController.removeSafeArea,
-                    isLive: plPlayerController.isLive,
-                    child: plPlayerController.isDesktopPip
-                        ? GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onPanStart: (_) => windowManager.startDragging(),
-                            child: widget.headerControl,
-                          )
-                        : widget.headerControl,
-                  ),
-                  AppBarAni(
-                    isTop: false,
-                    controller: _animationController,
-                    isFullScreen: isFullScreen,
-                    removeSafeArea: plPlayerController.removeSafeArea,
-                    isLive: plPlayerController.isLive,
-                    child:
-                        widget.bottomControl ??
-                        BottomControl(
-                          maxWidth: maxWidth,
-                          isFullScreen: isFullScreen,
-                          controller: plPlayerController,
-                          videoDetailController: videoDetailController,
-                          buildBottomControl: () => buildBottomControl(
-                            videoDetailController,
-                            maxWidth > maxHeight,
-                          ),
-                        ),
-                  ),
-                ],
+              child: PlayerTvOsd(
+                showControls: plPlayerController.showControls,
+                onFocusInOsd: (value) =>
+                    plPlayerController.tvFocusInControls = value,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    AppBarAni(
+                      isTop: true,
+                      controller: _animationController,
+                      isFullScreen: isFullScreen,
+                      removeSafeArea: plPlayerController.removeSafeArea,
+                      isLive: plPlayerController.isLive,
+                      child: plPlayerController.isDesktopPip
+                          ? GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onPanStart: (_) => windowManager.startDragging(),
+                              child: widget.headerControl,
+                            )
+                          : widget.headerControl,
+                    ),
+                    AppBarAni(
+                      isTop: false,
+                      controller: _animationController,
+                      isFullScreen: isFullScreen,
+                      removeSafeArea: plPlayerController.removeSafeArea,
+                      isLive: plPlayerController.isLive,
+                      // 「确定键进控制条」的落点：视频页正好是进度条，
+                      // 直播页正好是播放/暂停按钮（两边第一个可聚焦控件）
+                      child: TvRegion(
+                        debugLabel: TvLabels.playerOsdBar,
+                        child:
+                            widget.bottomControl ??
+                            BottomControl(
+                              maxWidth: maxWidth,
+                              isFullScreen: isFullScreen,
+                              controller: plPlayerController,
+                              videoDetailController: videoDetailController,
+                              buildBottomControl: () => buildBottomControl(
+                                videoDetailController,
+                                maxWidth > maxHeight,
+                              ),
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

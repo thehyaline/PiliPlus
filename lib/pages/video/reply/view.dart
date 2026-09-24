@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/skeleton/video_reply.dart';
 import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -15,6 +16,7 @@ import 'package:PiliPlus/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -43,6 +45,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         FabMixin {
   late ColorScheme colorScheme;
   late VideoReplyController _videoReplyController;
+
+  /// 评论列表的焦点区域标签（手柄从这里把焦点送进列表，见 `TvRegions`）。
+  static const tvRegion = 'video-reply-list';
 
   String get heroTag => widget.heroTag;
 
@@ -75,13 +80,19 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         onRefresh: _videoReplyController.onRefresh,
         isClampingScrollPhysics: widget.isNested,
         child: ScaffoldLayout(
-          body: CustomScrollView(
-            controller: widget.isNested
-                ? null
-                : _videoReplyController.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            key: const PageStorageKey(_VideoReplyPanelState),
-            slivers: [
+          // 评论列表 = 一个焦点区域：方向键在卡片之间走，出界了才交给外面的页面
+          // （竖屏时评论是详情页里的一栏，外面还有简介、播放器）。
+          body: TvRegion(
+            debugLabel: _VideoReplyPanelState.tvRegion,
+            child: CustomScrollView(
+              controller: widget.isNested
+                  ? null
+                  : _videoReplyController.scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              // 让下一条评论留在焦点树里，方向键才能走到下一条
+              scrollCacheExtent: TvFocusSpec.cacheExtent,
+              key: const PageStorageKey(_VideoReplyPanelState),
+              slivers: [
               SliverFloatingHeaderWidget(
                 backgroundColor: colorScheme.surface,
                 child: Padding(
@@ -118,6 +129,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
               ),
               Obx(() => _buildBody(_videoReplyController.loadingState.value)),
             ],
+            ),
           ),
           fab: SlideTransition(
             position: fabAnimation,

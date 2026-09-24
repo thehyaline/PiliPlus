@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/utils/extension/box_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
@@ -316,17 +317,19 @@ class _FontSettingPageState extends State<FontSettingPage> {
                           ),
                         ),
                         Expanded(
-                          child: Slider(
-                            padding: .zero,
-                            value: _selectedWeight.toDouble(),
-                            min: 0,
-                            max: 8,
-                            divisions: 8,
-                            secondaryTrackValue: _normalFontWeight.toDouble(),
-                            label: 'w${(_selectedWeight + 1) * 100}',
-                            onChanged: (value) {
-                              setState(() => _selectedWeight = value.toInt());
-                            },
+                          child: TvSlider(
+                            child: Slider(
+                              padding: .zero,
+                              value: _selectedWeight.toDouble(),
+                              min: 0,
+                              max: 8,
+                              divisions: 8,
+                              secondaryTrackValue: _normalFontWeight.toDouble(),
+                              label: 'w${(_selectedWeight + 1) * 100}',
+                              onChanged: (value) {
+                                setState(() => _selectedWeight = value.toInt());
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(
@@ -351,18 +354,20 @@ class _FontSettingPageState extends State<FontSettingPage> {
                           child: Text('小', style: TextStyle(fontSize: 11.9)),
                         ),
                         Expanded(
-                          child: Slider(
-                            padding: .zero,
-                            value: _selectedScale,
-                            min: 0.85,
-                            max: 1.6,
-                            divisions: 15,
-                            secondaryTrackValue: 1,
-                            label: _selectedScale == 1.0
-                                ? '默认'
-                                : _selectedScale.toStringAsFixed(2),
-                            onChanged: (value) => setState(
-                              () => _selectedScale = value.toPrecision(2),
+                          child: TvSlider(
+                            child: Slider(
+                              padding: .zero,
+                              value: _selectedScale,
+                              min: 0.85,
+                              max: 1.6,
+                              divisions: 15,
+                              secondaryTrackValue: 1,
+                              label: _selectedScale == 1.0
+                                  ? '默认'
+                                  : _selectedScale.toStringAsFixed(2),
+                              onChanged: (value) => setState(
+                                () => _selectedScale = value.toPrecision(2),
+                              ),
                             ),
                           ),
                         ),

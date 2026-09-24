@@ -1157,10 +1157,21 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   bool tripling = false;
 
+  /// 手柄模式下焦点是否停在控制条里（由 `PlayerTvOsd` 监听焦点变化维护）。
+  ///
+  /// 停在里面时控制条不自动收：一收焦点就落到看不见的按钮上，
+  /// 方向键会像"失灵"一样。人一离开（或按 B 收起来）就恢复正常计时。
+  bool tvFocusInControls = false;
+
   /// 隐藏控制条
   void hideTaskControls() {
     _timer?.cancel();
     _timer = Timer(showControlDuration, () {
+      if (tvFocusInControls) {
+        // 焦点还在控制条里，再等一会儿
+        hideTaskControls();
+        return;
+      }
       if (!isSeeking.value && !tripling) {
         controls = false;
       }

@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/animated_height.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/expandable.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
@@ -40,6 +41,7 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -139,7 +141,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     ],
                   if (isHorizontal && PlatformUtils.isDesktop)
                     ..._infos(videoDetail)
-                  else
+                  else ...[
+                    if (Pref.tvFocus && !isLoading) _buildExpandToggle(),
                     Obx(
                       () => AnimatedHeightWidgetExt(
                         expand: introController.expand.value,
@@ -151,6 +154,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                         ),
                       ),
                     ),
+                  ],
                   Obx(
                     () => introController.status.value
                         ? const SizedBox.shrink()
@@ -216,6 +220,47 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 手柄/遥控器的「展开简介」。
+  ///
+  /// 简介默认是收起的（`expand` 默认 false，收起时正文、BV 号、标签整块的
+  /// 高度是 0），而展开的入口只有外面那个"点哪儿都行"的 `GestureDetector`——
+  /// 手柄碰不到它，于是简介正文在电视上根本没法看。
+  ///
+  /// 这里补一行显式的展开/收起，位置固定在正文**上方**：节点不随展开状态移动，
+  /// 来回切换时焦点不会丢（如果按常规做法"收起时在下面、展开时在上面"，
+  /// 按一下确定焦点就没了）。只在手柄模式下出现。
+  Widget _buildExpandToggle() {
+    return Obx(
+      () => TvCard(
+        debugLabel: '简介展开',
+        radius: const .all(.circular(8)),
+        onTap: () {
+          feedBack();
+          introController.expand.toggle();
+        },
+        child: Padding(
+          padding: const .symmetric(horizontal: 5, vertical: 5),
+          child: Row(
+            mainAxisSize: .min,
+            children: [
+              Text(
+                introController.expand.value ? '收起简介' : '展开简介',
+                style: TextStyle(fontSize: 13, color: colorScheme.secondary),
+              ),
+              Icon(
+                introController.expand.value
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: colorScheme.secondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/disabled_icon.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/search_bar_width.dart';
@@ -107,8 +108,8 @@ class _SearchPageState extends State<SearchPage> {
               )
             // 竖屏时搜索框占满宽度无需占位；宽屏时与 UID 按钮等宽占位、与返回按钮对称保持居中
             : isPortrait
-                ? const SizedBox.shrink()
-                : const SizedBox(width: 48),
+            ? const SizedBox.shrink()
+            : const SizedBox(width: 48),
       ),
       const SizedBox(width: 10),
     ],
@@ -125,23 +126,29 @@ class _SearchPageState extends State<SearchPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    autofocus: false,
-                    focusNode: _searchController.searchFocusNode,
-                    controller: _searchController.controller,
-                    textInputAction: TextInputAction.search,
-                    onChanged: _searchController.onChange,
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: InputDecoration(
-                      visualDensity: .standard,
-                      isDense: true,
-                      hintText: _searchController.hintText ?? '搜索',
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
+                  child: TvTextField(
+                    editFocusNode: _searchController.searchFocusNode,
+                    radius: const BorderRadius.all(Radius.circular(25)),
+                    // 进搜索页焦点先落在搜索框上（导航态，不弹键盘），按 A 才输入
+                    autofocus: true,
+                    builder: (context, node) => TextField(
+                      autofocus: false,
+                      focusNode: node,
+                      controller: _searchController.controller,
+                      textInputAction: TextInputAction.search,
+                      onChanged: _searchController.onChange,
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        visualDensity: .standard,
+                        isDense: true,
+                        hintText: _searchController.hintText ?? '搜索',
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
                       ),
+                      onSubmitted: (value) => _searchController.submit(),
                     ),
-                    onSubmitted: (value) => _searchController.submit(),
                   ),
                 ),
                 ValueListenableBuilder<TextEditingValue>(

@@ -6,6 +6,8 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_section_switcher.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
@@ -68,7 +70,9 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -82,6 +86,11 @@ enum _LayoutMode { pip, portrait, landscape, almostSquare }
 
 class VideoDetailPageV extends StatefulWidget {
   const VideoDetailPageV({super.key});
+
+  /// 简介/评论/播放列表这一行的区域标签。
+  ///
+  /// 手柄切栏（L1/R1）之后要靠它把焦点送回 TabBar，见 [_VideoDetailPageVState._switchTab]。
+  static const tvTabBarRegion = 'video-tabbar';
 
   @override
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
@@ -928,7 +937,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         }
         if (width / Style.aspectRatio16x9 > maxHeight) {
           final videoHeight = maxHeight - padding.vertical;
-          return maxWidth - videoHeight * Style.aspectRatio16x9 -
+          return maxWidth -
+              videoHeight * Style.aspectRatio16x9 -
               padding.horizontal;
         }
         return maxWidth - width - padding.horizontal;
@@ -1009,16 +1019,22 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                           localIntroPanel()
                         else if (showIntro)
                           KeepAliveWrapper(
-                            child: CustomScrollView(
-                              key: const PageStorageKey(CommonIntroController),
-                              controller:
-                                  videoDetailController.effectiveIntroScrollCtr,
-                              slivers: [
-                                RelatedVideoPanel(
-                                  key: videoRelatedKey,
-                                  heroTag: heroTag,
+                            child: TvRegion(
+                              debugLabel: 'video-intro-panel',
+                              child: CustomScrollView(
+                                key: const PageStorageKey(
+                                  CommonIntroController,
                                 ),
-                              ],
+                                controller: videoDetailController
+                                    .effectiveIntroScrollCtr,
+                                scrollCacheExtent: TvFocusSpec.cacheExtent,
+                                slivers: [
+                                  RelatedVideoPanel(
+                                    key: videoRelatedKey,
+                                    heroTag: heroTag,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         if (videoDetailController.showReply) videoReplyPanel(),
@@ -1319,6 +1335,22 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     return _LayoutMode.almostSquare;
   }
 
+  /// L1/R1 切栏（[TvSectionSwitcher] 调过来，逻辑和首页一致）。
+  ///
+  /// 切栏之后焦点还留在旧栏那张看不见的卡上——这时按确定会打开旧栏的东西，
+  /// 所以切完必须把焦点接走。这里统一落在 TabBar 上：看得见，按 ↓ 就能进新栏。
+  void _switchTab(int offset) {
+    final tabController = videoDetailController.tabCtr;
+    if (tabController.indexIsChanging) return;
+    final target = tabController.index + offset;
+    if (target < 0 || target >= tabController.length) return;
+    tabController.animateTo(target);
+    // 等这一帧把新栏建出来，下一帧再把焦点送进 TabBar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TvRegions.focusFirst(VideoDetailPageV.tvTabBarRegion, index: target);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final targetMode = _computeLayoutMode();
@@ -1353,7 +1385,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       case _LayoutMode.almostSquare:
         child = childWhenDisabledAlmostSquare;
     }
-    if (videoDetailController.plPlayerController.keyboardControl) {
+    // 手柄模式（Pref.tvFocus）也要装上这个按键层：两个开关是并列的，
+    // 关掉"键盘控制"的人照样能用手柄/遥控器
+    if (videoDetailController.plPlayerController.keyboardControl ||
+        Pref.tvFocus) {
       child = PlayerFocus(
         plPlayerController: videoDetailController.plPlayerController,
         introController: introController,
@@ -1369,6 +1404,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         child: child,
       );
     }
+    // L1/R1 切栏：简介 / 评论 / 播放列表。
+    // 只有一栏时不接键，让 L1/R1 放行给别人（对齐首页，见 `TvSectionSwitcher`）
+    final tabCount = videoDetailController.tabCtr.length;
+    child = TvSectionSwitcher(
+      onPrev: tabCount > 1 ? () => _switchTab(-1) : null,
+      onNext: tabCount > 1 ? () => _switchTab(1) : null,
+      child: child,
+    );
     return videoDetailController.plPlayerController.darkVideoPage
         ? Theme(data: theme, child: child)
         : child;
@@ -1473,7 +1516,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   alignment: .centerLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                    child: tabBar(),
+                    // 手柄：切栏之后的焦点落点（L1/R1 → `_switchTab`）。
+                    // 区域里只有标签，所以"第 n 个"就是第 n 栏
+                    child: TvRegion(
+                      debugLabel: VideoDetailPageV.tvTabBarRegion,
+                      child: tabBar(),
+                    ),
                   ),
                 ),
               ),
@@ -1691,21 +1739,26 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   Widget localIntroPanel({
     bool needCtr = true,
   }) {
-    return CustomScrollView(
-      controller: needCtr
-          ? videoDetailController.effectiveIntroScrollCtr
-          : null,
-      physics: !needCtr ? platformAlwaysClampingPhysics : null,
-      key: const PageStorageKey(CommonIntroController),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.only(top: 7, bottom: padding.bottom + 100),
-          sliver: LocalIntroPanel(
-            key: videoRelatedKey,
-            heroTag: heroTag,
+    return TvRegion(
+      debugLabel: 'video-intro-panel',
+      child: CustomScrollView(
+        controller: needCtr
+            ? videoDetailController.effectiveIntroScrollCtr
+            : null,
+        physics: !needCtr ? platformAlwaysClampingPhysics : null,
+        // 让下一屏在焦点树里，方向键才能翻过这一屏（见 TvFocusSpec.cacheExtent）
+        scrollCacheExtent: TvFocusSpec.cacheExtent,
+        key: const PageStorageKey(CommonIntroController),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(top: 7, bottom: padding.bottom + 100),
+            sliver: LocalIntroPanel(
+              key: videoRelatedKey,
+              heroTag: heroTag,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1726,6 +1779,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           ? videoDetailController.effectiveIntroScrollCtr
           : null,
       physics: !needCtr ? platformAlwaysClampingPhysics : null,
+      // 「相关视频」是懒加载网格，撑一点 cacheExtent 让下一排留在焦点树里
+      scrollCacheExtent: TvFocusSpec.cacheExtent,
       slivers: [
         if (videoDetailController.isUgc) ...[
           UgcIntroPanel(
@@ -1783,9 +1838,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           child: Material(
             type: .transparency,
             child: InkWell(
-              onTap: () =>
-                  videoDetailController.showMediaListPanel(context,
-                      width: rightPanelWidth),
+              onTap: () => videoDetailController.showMediaListPanel(
+                context,
+                width: rightPanelWidth,
+              ),
               borderRadius: const .all(.circular(14)),
               child: Container(
                 height: 54,
@@ -1817,7 +1873,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ),
       );
     }
-    return KeepAliveWrapper(child: child);
+    // 简介 + 相关视频 = 一个焦点区域：方向键在里面走，
+    // 走到边（例如相关视频最后一排再按 ↓）才交给外面的页面（对齐评论列表）
+    return KeepAliveWrapper(
+      child: TvRegion(debugLabel: 'video-intro-panel', child: child),
+    );
   }
 
   Widget get seasonPanel {

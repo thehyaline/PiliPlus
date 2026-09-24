@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
@@ -11,6 +12,7 @@ import 'package:PiliPlus/pages/setting/models/recommend_settings.dart';
 import 'package:PiliPlus/pages/setting/models/style_settings.dart';
 import 'package:PiliPlus/pages/setting/models/video_settings.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -77,16 +79,22 @@ class _SettingsSearchPageState
           ),
           const SizedBox(width: 10),
         ],
-        title: TextField(
+        title: TvTextField(
+          // TV：焦点先落在搜索框（导航态），按 A 才弹键盘输入
           autofocus: true,
-          controller: _textEditingController,
-          textAlignVertical: TextAlignVertical.center,
-          onChanged: ctr!.add,
-          decoration: const InputDecoration(
-            isDense: true,
-            hintText: '搜索',
-            visualDensity: .standard,
-            border: InputBorder.none,
+          builder: (context, node) => TextField(
+            // 非 TV 模式保持"进页面就准备输入"的老行为
+            autofocus: !Pref.tvFocus,
+            focusNode: node,
+            controller: _textEditingController,
+            textAlignVertical: TextAlignVertical.center,
+            onChanged: ctr!.add,
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: '搜索',
+              visualDensity: .standard,
+              border: InputBorder.none,
+            ),
           ),
         ),
       ),

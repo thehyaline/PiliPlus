@@ -4,6 +4,9 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_memory.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
@@ -20,12 +23,17 @@ import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LivePage extends StatefulWidget {
   const LivePage({super.key});
+
+  /// TV 焦点区域的标签（`TvRegion.debugLabel`）：切栏之后靠它把焦点送回这个网格
+  /// （见 `TvRegions.focusFirst`），所以要和首页 tab 那边的映射对上。
+  static const tvRegion = 'home-live-grid';
 
   @override
   State<LivePage> createState() => _LivePageState();
@@ -54,45 +62,55 @@ class _LivePageState extends State<LivePage>
       clipBehavior: Clip.hardEdge,
       margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
-      child: refreshIndicator(
-        onRefresh: controller.onRefresh,
-        child: CustomScrollView(
-          controller: controller.scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.only(
-                top: Style.cardSpace,
-                bottom: 100,
-              ),
-              sliver: SliverLayoutBuilder(
-                builder: (context, constraints) {
-                  // 头部元素与下方网格卡片区域对齐（列数受限居中时同款留白）
-                  final hPad = Grid.videoGridPadding(
-                    constraints.crossAxisExtent,
-                  );
-                  return SliverMainAxisGroup(
-                    slivers: [
-                      Obx(
-                        () => _buildTop(
-                          theme,
-                          controller.topState.value,
-                          hPad,
+      child: TvRegion(
+        debugLabel: LivePage.tvRegion,
+        child: refreshIndicator(
+          onRefresh: () async {
+            // 刷新会把整张列表换掉，焦点先寄存在网格里
+            TvFocusMemory.park();
+            await controller.onRefresh();
+            TvFocusMemory.restore();
+          },
+          child: CustomScrollView(
+            controller: controller.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            // 让下一行留在焦点树里，方向键才能走到下一行
+            scrollCacheExtent: TvFocusSpec.cacheExtent,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.only(
+                  top: Style.cardSpace,
+                  bottom: 100,
+                ),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    // 头部元素与下方网格卡片区域对齐（列数受限居中时同款留白）
+                    final hPad = Grid.videoGridPadding(
+                      constraints.crossAxisExtent,
+                    );
+                    return SliverMainAxisGroup(
+                      slivers: [
+                        Obx(
+                          () => _buildTop(
+                            theme,
+                            controller.topState.value,
+                            hPad,
+                          ),
                         ),
-                      ),
-                      Obx(
-                        () => _buildBody(
-                          theme,
-                          controller.loadingState.value,
-                          hPad,
+                        Obx(
+                          () => _buildBody(
+                            theme,
+                            controller.loadingState.value,
+                            hPad,
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -267,18 +285,23 @@ class _LivePageState extends State<LivePage>
                   gridDelegate: gridDelegate,
                   itemBuilder: (context, index) {
                     if (index == response.length - 1) {
+                      TvFocusMemory.park();
                       controller.onLoadMore();
+                      TvFocusMemory.restore();
                     }
                     final item = response[index];
+                    final autofocus = index == 0;
                     if (item is LiveCardList) {
                       return LiveCardVApp(
                         item: item.cardData!.smallCardV1!,
                         showFirstFrame: controller.showFirstFrame,
+                        autofocus: autofocus,
                       );
                     }
                     return LiveCardVApp(
                       item: item,
                       showFirstFrame: controller.showFirstFrame,
+                      autofocus: autofocus,
                     );
                   },
                   itemCount: response.length,
@@ -367,7 +390,9 @@ class _LivePageState extends State<LivePage>
                   if (index == listLength) {
                     return Align(
                       alignment: const Alignment(0, -0.3),
-                      child: GestureDetector(
+                      // 包成 TvCard 才进焦点树（原来是纯 GestureDetector，手柄选不中）
+                      child: TvCard(
+                        radius: const BorderRadius.all(Radius.circular(30)),
                         onTap: () => Get.to(const LiveFollowPage()),
                         child: Container(
                           width: 40,
@@ -389,8 +414,8 @@ class _LivePageState extends State<LivePage>
                     padding: const .only(right: 5),
                     child: SizedBox(
                       width: 65,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                      child: TvCard(
+                        radius: const BorderRadius.all(Radius.circular(10)),
                         onTap: () => PageUtils.toLiveRoom(item.roomid),
                         onLongPress: () {
                           Feedback.forLongPress(context);

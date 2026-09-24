@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -21,15 +22,35 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
-class VideoCardV extends StatelessWidget {
+class VideoCardV extends StatefulWidget {
   final BaseRcmdVideoItemModel videoItem;
   final VoidCallback? onRemove;
+
+  /// 首项自动拿焦点：进页面时焦点框要有地方落
+  final bool autofocus;
 
   const VideoCardV({
     super.key,
     required this.videoItem,
     this.onRemove,
+    this.autofocus = false,
   });
+
+  static final shortFormat = DateFormat('M-d');
+  static final longFormat = DateFormat('yy-M-d');
+
+  @override
+  State<VideoCardV> createState() => _VideoCardVState();
+}
+
+class _VideoCardVState extends State<VideoCardV> {
+  /// 手柄长按确定 / Y 键要能打开封面右下角那个「更多」按钮的菜单
+  final _menuKey = GlobalKey<PopupMenuButtonState<dynamic>>();
+
+  BaseRcmdVideoItemModel get videoItem => widget.videoItem;
+
+  /// 只有 av 卡片带「更多」菜单（动态 / 番剧卡没有）
+  bool get _hasMenu => videoItem.goto == 'av';
 
   Future<void> onPushDetail() async {
     switch (videoItem.goto) {
@@ -90,78 +111,84 @@ class VideoCardV extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Card(
-          child: InkWell(
-            onTap: onPushDetail,
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-            borderRadius: const .all(.circular(12)),
-            child: Column(
-              crossAxisAlignment: .start,
-              children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            src: videoItem.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                            borderRadius: const .vertical(top: .circular(12)),
-                          ),
-                          CoverBottomInfo(
-                            left: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+        TvCard(
+          autofocus: widget.autofocus,
+          onTap: onPushDetail,
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          // 长按确定、手柄 Y 键、遥控器菜单键：都进封面右下角那个「更多」
+          onMore: _hasMenu
+              ? () => _menuKey.currentState?.showButtonMenu()
+              : null,
+          surface: tvCardSurface,
+          child: Column(
+            crossAxisAlignment: .start,
+            children: [
+              AspectRatio(
+                aspectRatio: Style.aspectRatio,
+                child: LayoutBuilder(
+                  builder: (context, boxConstraints) {
+                    double maxWidth = boxConstraints.maxWidth;
+                    double maxHeight = boxConstraints.maxHeight;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        NetworkImgLayer(
+                          src: videoItem.cover,
+                          width: maxWidth,
+                          height: maxHeight,
+                          borderRadius: const .vertical(top: .circular(12)),
+                        ),
+                        CoverBottomInfo(
+                          left: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              StatWidget(
+                                type: .play,
+                                value: videoItem.stat.view,
+                                color: Colors.white,
+                              ),
+                              if (videoItem.goto != 'picture') ...[
+                                const SizedBox(width: 6),
                                 StatWidget(
-                                  type: .play,
-                                  value: videoItem.stat.view,
+                                  type: .danmaku,
+                                  value: videoItem.stat.danmu,
                                   color: Colors.white,
                                 ),
-                                if (videoItem.goto != 'picture') ...[
-                                  const SizedBox(width: 6),
-                                  StatWidget(
-                                    type: .danmaku,
-                                    value: videoItem.stat.danmu,
-                                    color: Colors.white,
-                                  ),
-                                ],
                               ],
-                            ),
-                            right: videoItem.duration > 0
-                                ? Text(
-                                    DurationUtils.formatDuration(
-                                      videoItem.duration,
-                                    ),
-                                    style: CoverBottomInfo.textStyle(),
-                                  )
-                                : null,
+                            ],
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                          right: videoItem.duration > 0
+                              ? Text(
+                                  DurationUtils.formatDuration(
+                                    videoItem.duration,
+                                  ),
+                                  style: CoverBottomInfo.textStyle(),
+                                )
+                              : null,
+                        ),
+                      ],
+                    );
+                  },
                 ),
-                content(context),
-              ],
-            ),
+              ),
+              content(context),
+            ],
           ),
         ),
-        if (videoItem.goto == 'av')
+        if (_hasMenu)
           Positioned(
             right: -5,
             bottom: -2,
             width: 29,
             height: 29,
-            child: VideoPopupMenu(
-              iconSize: 17,
-              videoItem: videoItem,
-              onRemove: onRemove,
+            child: TvCardSubAction(
+              child: VideoPopupMenu(
+                buttonKey: _menuKey,
+                iconSize: 17,
+                videoItem: videoItem,
+                onRemove: widget.onRemove,
+              ),
             ),
           ),
       ],
@@ -242,8 +269,8 @@ class VideoCardV extends StatelessWidget {
                       ),
                       text: DateFormatUtils.dateFormat(
                         videoItem.pubdate,
-                        short: shortFormat,
-                        long: longFormat,
+                        short: VideoCardV.shortFormat,
+                        long: VideoCardV.longFormat,
                       ),
                     ),
                   ),
@@ -256,7 +283,4 @@ class VideoCardV extends StatelessWidget {
       ),
     );
   }
-
-  static final shortFormat = DateFormat('M-d');
-  static final longFormat = DateFormat('yy-M-d');
 }
