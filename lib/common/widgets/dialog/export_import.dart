@@ -3,7 +3,10 @@ import 'dart:convert' show utf8, jsonDecode;
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/storage_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
@@ -79,21 +82,26 @@ Future<void> importFromClipBoard<T>(
             );
             result.render(renderer);
           }
-          return AlertDialog(
-            title: Text('是否导入如下$title？'),
-            content: SingleChildScrollView(
-              child: Text.rich(renderer.span!),
+          return TvFocusOnOpen(
+            child: AlertDialog(
+              title: Text('是否导入如下$title？'),
+              content: SingleChildScrollView(
+                child: Text.rich(renderer.span!),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: Get.back,
+                  child: Text(
+                    '取消',
+                    style: TextStyle(color: colorScheme.outline),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Get.back(result: true),
+                  child: const Text('确定'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: Get.back,
-                child: Text('取消', style: TextStyle(color: colorScheme.outline)),
-              ),
-              TextButton(
-                onPressed: () => Get.back(result: true),
-                child: const Text('确定'),
-              ),
-            ],
           );
         },
       );
@@ -150,56 +158,64 @@ void importFromInput<T>(
 
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text('输入$title'),
-      constraints: Style.dialogFixedConstraints,
-      content: TextFormField(
-        key: key,
-        minLines: 4,
-        maxLines: 12,
-        autofocus: true,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          errorMaxLines: 3,
-        ),
-        validator: (value) {
-          if (forceErrorText != null) return forceErrorText;
-          try {
-            json = jsonDecode(value!) as T;
-            return null;
-          } catch (e) {
-            return '解析json失败：$e';
-          }
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(
-              color: ColorScheme.of(context).outline,
+    builder: (context) => TvFocusOnOpen(
+      child: AlertDialog(
+        title: Text('输入$title'),
+        constraints: Style.dialogFixedConstraints,
+        content: TvTextField(
+          builder: (context, node) => TextFormField(
+            key: key,
+            focusNode: node,
+            minLines: 4,
+            maxLines: 12,
+            // 手柄模式下焦点先落在"导航态"上（见 TvTextField），不弹键盘；
+            // 按确定才进编辑态。`autofocus: true` 会和它打架，所以只在
+            // 手柄模式关掉时才保留原来的自动聚焦。
+            autofocus: !Pref.tvFocus,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              errorMaxLines: 3,
             ),
+            validator: (value) {
+              if (forceErrorText != null) return forceErrorText;
+              try {
+                json = jsonDecode(value!) as T;
+                return null;
+              } catch (e) {
+                return '解析json失败：$e';
+              }
+            },
           ),
         ),
-        TextButton(
-          onPressed: () async {
-            if (key.currentState?.validate() == true) {
-              try {
-                await onImport(json);
-                Get.back();
-                SmartDialog.showToast('导入成功');
-                return;
-              } catch (e) {
-                forceErrorText = '导入失败：$e';
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: Text(
+              '取消',
+              style: TextStyle(
+                color: ColorScheme.of(context).outline,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (key.currentState?.validate() == true) {
+                try {
+                  await onImport(json);
+                  Get.back();
+                  SmartDialog.showToast('导入成功');
+                  return;
+                } catch (e) {
+                  forceErrorText = '导入失败：$e';
+                }
+                key.currentState?.validate();
+                forceErrorText = null;
               }
-              key.currentState?.validate();
-              forceErrorText = null;
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -214,55 +230,60 @@ Future<void> showImportExportDialog<T>(
   context: context,
   builder: (context) {
     const style = TextStyle(fontSize: 15);
-    return SimpleDialog(
-      clipBehavior: .hardEdge,
-      title: Text('导入/导出$title'),
-      children: [
-        DialogOption(
-          child: const Text('导出至剪贴板', style: style),
-          onPressed: () {
-            Get.back();
-            exportToClipBoard(onExport: onExport);
-          },
-        ),
-        DialogOption(
-          child: const Text('导出文件至本地', style: style),
-          onPressed: () {
-            Get.back();
-            exportToLocalFile(onExport: onExport, localFileName: localFileName);
-          },
-        ),
-        Divider(
-          height: 1,
-          color: ColorScheme.of(context).outline.withValues(alpha: 0.1),
-        ),
-        DialogOption(
-          child: const Text('输入', style: style),
-          onPressed: () {
-            Get.back();
-            importFromInput<T>(context, title: title, onImport: onImport);
-          },
-        ),
-        DialogOption(
-          child: const Text('从剪贴板导入', style: style),
-          onPressed: () {
-            Get.back();
-            importFromClipBoard<T>(
-              context,
-              title: title,
-              onExport: onExport,
-              onImport: onImport,
-            );
-          },
-        ),
-        DialogOption(
-          child: const Text('从本地文件导入', style: style),
-          onPressed: () {
-            Get.back();
-            importFromLocalFile<T>(onImport: onImport);
-          },
-        ),
-      ],
+    return TvFocusOnOpen(
+      child: SimpleDialog(
+        clipBehavior: .hardEdge,
+        title: Text('导入/导出$title'),
+        children: [
+          DialogOption(
+            child: const Text('导出至剪贴板', style: style),
+            onPressed: () {
+              Get.back();
+              exportToClipBoard(onExport: onExport);
+            },
+          ),
+          DialogOption(
+            child: const Text('导出文件至本地', style: style),
+            onPressed: () {
+              Get.back();
+              exportToLocalFile(
+                onExport: onExport,
+                localFileName: localFileName,
+              );
+            },
+          ),
+          Divider(
+            height: 1,
+            color: ColorScheme.of(context).outline.withValues(alpha: 0.1),
+          ),
+          DialogOption(
+            child: const Text('输入', style: style),
+            onPressed: () {
+              Get.back();
+              importFromInput<T>(context, title: title, onImport: onImport);
+            },
+          ),
+          DialogOption(
+            child: const Text('从剪贴板导入', style: style),
+            onPressed: () {
+              Get.back();
+              importFromClipBoard<T>(
+                context,
+                title: title,
+                onExport: onExport,
+                onImport: onImport,
+              );
+            },
+          ),
+          DialogOption(
+            child: const Text('从本地文件导入', style: style),
+            onPressed: () {
+              Get.back();
+              importFromLocalFile<T>(onImport: onImport);
+            },
+          ),
+        ],
+      ),
     );
   },
 );

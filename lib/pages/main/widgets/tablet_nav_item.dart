@@ -31,6 +31,11 @@ const tabletNavTileRadius = BorderRadius.all(Radius.circular(16));
 /// （blbl 的 `item_sidebar_nav.xml`：10dp 圆角 + 2dp 描边只在聚焦时出现 +
 /// `blbl_focus_scale`）。形状是圆角矩形而不是圆形——这一枚是"一整格 tab"，
 /// 圆形环只留给头像 / 消息 / 搜索那几颗圆按钮。
+///
+/// 环**只框住格子本体**（那 56 高的 [SizedBox]，也就是选中指示条那 72×56 的
+/// 范围），框架的 `tilePadding` 留在环外面：这样描边正好压在指示条的边上、
+/// 12% 底纹就是这一枚自己的背景色（"预选框框住各自的背景色"），放大 4% 多出来
+/// 的 1.4dp 也落在留白里，不会被抽屉视口裁掉两侧。
 class TabletNavItem extends StatefulWidget {
   const TabletNavItem({
     super.key,
@@ -82,7 +87,16 @@ class _TabletNavItemState extends State<TabletNavItem>
     super.dispose();
   }
 
-  /// 这一枚的版面。[focusNode] 为 null 时（手柄模式关掉）由内部控件自己建节点。
+  /// 格子的外圈留白，框架的 `tilePadding` 默认值。
+  ///
+  /// 它留在 [FocusRing] **外面**，于是环只框住 56 高的格子本体——也就是选中
+  /// 指示条那 72×56 的范围，描边恰好压在指示条的边上（见 [build]）；
+  /// 同时它还兼作缩放余量：1.04 倍只多出 1.4dp，5/12 的留白装得下。
+  static const _tilePadding = EdgeInsets.symmetric(vertical: 5, horizontal: 12);
+
+  /// 格子本体：选中指示条 + 图标 + 文字，不含外圈的 [_tilePadding]。
+  ///
+  /// [focusNode] 为 null 时（手柄模式关掉）由内部控件自己建节点。
   Widget _tile(BuildContext context, FocusNode? focusNode) {
     final colorScheme = ColorScheme.of(context);
     final drawerTheme = NavigationDrawerTheme.of(context);
@@ -92,59 +106,56 @@ class _TabletNavItemState extends State<TabletNavItem>
         drawerTheme.indicatorShape ??
         const RoundedRectangleBorder(borderRadius: tabletNavTileRadius);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 12),
-      child: Semantics(
-        selected: widget.selected,
-        container: true,
-        child: SizedBox(
-          height: drawerTheme.tileHeight ?? 56.0,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              focusNode: focusNode,
-              // 焦点视觉由 FocusRing 负责（同 TvCard）
-              focusColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              customBorder: indicatorShape,
-              onTap: widget.onTap,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  NavigationIndicator(
-                    animation: _selected,
-                    // 不传的话指示条会退成 `ColorScheme.secondary`，
-                    // 而抽屉的默认值是 `secondaryContainer`（框架那份 defaults
-                    // 是私有的，拿不到）
-                    color:
-                        drawerTheme.indicatorColor ??
-                        colorScheme.secondaryContainer,
-                    shape: indicatorShape,
-                    width: indicatorSize.width,
-                    height: indicatorSize.height,
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconTheme.merge(
-                        data:
-                            drawerTheme.iconTheme?.resolve(states) ??
-                            const IconThemeData(size: 28),
-                        child: widget.selected
-                            ? widget.selectedIcon
-                            : widget.icon,
-                      ),
-                      const SizedBox(height: 4),
-                      DefaultTextStyle(
-                        style:
-                            drawerTheme.labelTextStyle?.resolve(states) ??
-                            Theme.of(context).textTheme.labelMedium!,
-                        child: Text(widget.label),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+    return Semantics(
+      selected: widget.selected,
+      container: true,
+      child: SizedBox(
+        height: drawerTheme.tileHeight ?? 56.0,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            focusNode: focusNode,
+            // 焦点视觉由 FocusRing 负责（同 TvCard）
+            focusColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            customBorder: indicatorShape,
+            onTap: widget.onTap,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                NavigationIndicator(
+                  animation: _selected,
+                  // 不传的话指示条会退成 `ColorScheme.secondary`，
+                  // 而抽屉的默认值是 `secondaryContainer`（框架那份 defaults
+                  // 是私有的，拿不到）
+                  color:
+                      drawerTheme.indicatorColor ??
+                      colorScheme.secondaryContainer,
+                  shape: indicatorShape,
+                  width: indicatorSize.width,
+                  height: indicatorSize.height,
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconTheme.merge(
+                      data:
+                          drawerTheme.iconTheme?.resolve(states) ??
+                          const IconThemeData(size: 28),
+                      child: widget.selected
+                          ? widget.selectedIcon
+                          : widget.icon,
+                    ),
+                    const SizedBox(height: 4),
+                    DefaultTextStyle(
+                      style:
+                          drawerTheme.labelTextStyle?.resolve(states) ??
+                          Theme.of(context).textTheme.labelMedium!,
+                      child: Text(widget.label),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -154,17 +165,19 @@ class _TabletNavItemState extends State<TabletNavItem>
 
   @override
   Widget build(BuildContext context) {
-    // 手柄模式关掉时一个节点都不多（准则 6「默认零侵入」）
-    if (!Pref.tvFocus) return _tile(context, null);
+    final tile = Pref.tvFocus
+        ? FocusRing(
+            debugLabel: widget.debugLabel,
+            radius: tabletNavTileRadius,
+            // 底纹（blbl 的 `blbl_focus_bg_round`）与顶部标签栏同一档不透明度
+            fillColor: ColorScheme.of(
+              context,
+            ).primary.withValues(alpha: TvFocusSpec.tabFillAlpha),
+            builder: (context, focusNode, _) => _tile(context, focusNode),
+          )
+        // 手柄模式关掉时一个节点都不多（准则 6「默认零侵入」）
+        : _tile(context, null);
 
-    return FocusRing(
-      debugLabel: widget.debugLabel,
-      radius: tabletNavTileRadius,
-      // 底纹（blbl 的 `blbl_focus_bg_round`）与顶部标签栏同一档不透明度
-      fillColor: ColorScheme.of(
-        context,
-      ).primary.withValues(alpha: TvFocusSpec.tabFillAlpha),
-      builder: (context, focusNode, _) => _tile(context, focusNode),
-    );
+    return Padding(padding: _tilePadding, child: tile);
   }
 }

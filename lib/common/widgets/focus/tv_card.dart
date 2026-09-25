@@ -123,7 +123,11 @@ class _TvCardState extends State<TvCard> with SingleTickerProviderStateMixin {
     if (status != AnimationStatus.completed || !_holding) return;
     _fired = true;
     final action = _holdAction;
-    // 环停在满格，同时把动作抛出去；`_fired` 让随后的抬起不再算点击
+    // 环停在满格，同时把动作抛出去；`_fired` 让随后的抬起不再算点击。
+    // 这一次按下到此已经被用掉了：告诉按键层把剩下的重复/多出来的按下
+    // 一起吃掉，否则长按刚打开的菜单会立刻收到一次"确定"，
+    // 直接执行菜单第一项（见 [TvKeys.markPressConsumed]）。
+    TvKeys.markPressConsumed();
     if (mounted) setState(() {});
     action?.call();
   }

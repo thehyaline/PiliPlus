@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:material_ui/material_ui.dart';
@@ -46,59 +47,61 @@ class _DualSliderDialogState extends State<DualSliderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: widget.title,
-      contentPadding: const EdgeInsets.only(
-        top: 20,
-        left: 8,
-        right: 8,
-        bottom: 8,
-      ),
-      content: Column(
-        mainAxisSize: .min,
-        children: [
-          for (var i = 0; i < widget.sliders.length; i++) ...[
-            widget.sliders[i].description,
-            Builder(
-              builder: (context) {
-                return TvSlider(
-                  child: Slider(
-                    value: _tempValues[i],
-                    min: widget.min,
-                    max: widget.max,
-                    divisions: widget.divisions,
-                    label:
-                        '${_tempValues[i].toStringAsFixed(widget.precise)}${widget.suffix}',
-                    onChanged: (double value) {
-                      _tempValues[i] = value.toPrecision(widget.precise);
-                      (context as Element).markNeedsBuild();
-                    },
-                  ),
-                );
-              },
-            ),
+    return TvFocusOnOpen(
+      child: AlertDialog(
+        title: widget.title,
+        contentPadding: const EdgeInsets.only(
+          top: 20,
+          left: 8,
+          right: 8,
+          bottom: 8,
+        ),
+        content: Column(
+          mainAxisSize: .min,
+          children: [
+            for (var i = 0; i < widget.sliders.length; i++) ...[
+              widget.sliders[i].description,
+              Builder(
+                builder: (context) {
+                  return TvSlider(
+                    child: Slider(
+                      value: _tempValues[i],
+                      min: widget.min,
+                      max: widget.max,
+                      divisions: widget.divisions,
+                      label:
+                          '${_tempValues[i].toStringAsFixed(widget.precise)}${widget.suffix}',
+                      onChanged: (double value) {
+                        _tempValues[i] = value.toPrecision(widget.precise);
+                        (context as Element).markNeedsBuild();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: Text(
+              '取消',
+              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+            ),
+          ),
+          TextButton(
+            // 注意：List.unmodifiable 的工厂签名是 raw Iterable，推断结果恒为
+            // List<dynamic>，与 showDialog<List<double>> 的路由期望类型不匹配，
+            // debug 下 pop 会抛断言异常导致弹窗无法关闭。必须显式指定泛型。
+            onPressed: () => Navigator.pop(
+              context,
+              List<double>.unmodifiable(_tempValues),
+            ),
+            child: const Text('确定'),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: Navigator.of(context).pop,
-          child: Text(
-            '取消',
-            style: TextStyle(color: Theme.of(context).colorScheme.outline),
-          ),
-        ),
-        TextButton(
-          // 注意：List.unmodifiable 的工厂签名是 raw Iterable，推断结果恒为
-          // List<dynamic>，与 showDialog<List<double>> 的路由期望类型不匹配，
-          // debug 下 pop 会抛断言异常导致弹窗无法关闭。必须显式指定泛型。
-          onPressed: () => Navigator.pop(
-            context,
-            List<double>.unmodifiable(_tempValues),
-          ),
-          child: const Text('确定'),
-        ),
-      ],
     );
   }
 }

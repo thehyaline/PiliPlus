@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -32,36 +34,42 @@ class SelectDialog<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleMedium = TextTheme.of(context).titleMedium!;
-    return AlertDialog(
-      clipBehavior: Clip.hardEdge,
-      title: Text(title),
-      constraints: subtitleBuilder != null
-          ? const BoxConstraints.tightFor(width: 320)
-          : null,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      content: Material(
-        type: .transparency,
-        child: SingleChildScrollView(
-          child: RadioGroup<T>(
-            onChanged: (v) => Navigator.of(context).pop(v ?? value),
-            groupValue: value,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                values.length,
-                (index) {
-                  final item = values[index];
-                  return RadioListTile<T>(
-                    toggleable: toggleable,
-                    dense: true,
-                    value: item.$1,
-                    title: Text(
-                      item.$2,
-                      style: titleMedium,
-                    ),
-                    subtitle: subtitleBuilder?.call(context, index),
-                  );
-                },
+    return TvFocusOnOpen(
+      child: AlertDialog(
+        clipBehavior: Clip.hardEdge,
+        title: Text(title),
+        constraints: subtitleBuilder != null
+            ? const BoxConstraints.tightFor(width: 320)
+            : null,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        content: Material(
+          type: .transparency,
+          child: SingleChildScrollView(
+            child: RadioGroup<T>(
+              onChanged: (v) => Navigator.of(context).pop(v ?? value),
+              groupValue: value,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  values.length,
+                  (index) {
+                    final item = values[index];
+                    return listTileFocusRing(
+                      debugLabel: '选项',
+                      builder: (focusNode) => RadioListTile<T>(
+                        toggleable: toggleable,
+                        dense: true,
+                        value: item.$1,
+                        focusNode: focusNode,
+                        title: Text(
+                          item.$2,
+                          style: titleMedium,
+                        ),
+                        subtitle: subtitleBuilder?.call(context, index),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),

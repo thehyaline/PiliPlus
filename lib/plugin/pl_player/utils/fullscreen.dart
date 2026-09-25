@@ -6,19 +6,18 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:ffi/ffi.dart' show calloc;
-import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
-import 'package:window_manager/window_manager.dart' show kWindowCaptionHeight;
+import 'package:window_manager/window_manager.dart' show windowManager;
 import 'package:win32/win32.dart' as win32;
 
 bool _isDesktopFullScreen = false;
 
-/// 进入原生全屏时隐藏的任务栏窗口，退出全屏时恢复。
+/// 进入全屏（原生全屏或窗口全屏）时隐藏的任务栏窗口，退出时恢复。
 ///
 /// Windows 只会对覆盖主显示器整屏的窗口自动隐藏主任务栏，副屏任务栏
 /// 不会自动隐藏，会浮在全屏窗口上方（表现为全屏排除了任务栏区域）。
-/// 因此进入原生全屏前主动隐藏所在显示器的任务栏（Shell_TrayWnd /
+/// 因此进入全屏前主动隐藏所在显示器的任务栏（Shell_TrayWnd /
 /// Shell_SecondaryTrayWnd），退出时恢复。
 final List<win32.HWND> _hiddenTaskbars = [];
 
@@ -107,7 +106,8 @@ void _restoreTaskbars() {
   _hiddenTaskbars.clear();
 }
 
-/// 恢复所有任务栏，供应用启动/关闭时兜底调用（覆盖上次异常退出残留的隐藏状态）。
+/// 恢复所有任务栏：应用启动/关闭时兜底调用（覆盖上次异常退出残留的隐藏
+/// 状态），退到托盘时也调用（窗口不可见时不该继续占着任务栏）。
 void restoreAllTaskbars() {
   if (!PlatformUtils.isWindows) return;
   _forEachTaskbar((hwnd) => win32.ShowWindow(hwnd, win32.SW_SHOW));
@@ -167,35 +167,119 @@ void _recordMaximizedState() {
   }
 }
 
-/// 兜底清除窗口上的 WS_CAPTION 样式。
+/// DwmFlush：阻塞到 DWM 完成下一次合成。dwmapi 不存在时保持 null（不阻塞）。
+final int Function()? _dwmFlush = () {
+  try {
+    return DynamicLibrary.open('dwmapi.dll')
+        .lookupFunction<Int32 Function(), int Function()>('DwmFlush');
+  } catch (_) {
+    return null;
+  }
+}();
+
+/// 等「刚剥掉标题栏」这一帧真的合成出去，再改窗口几何。
 ///
-/// media_kit fork 的 ExitNativeFullscreen 已改为恢复样式时不加
-/// WS_CAPTION（utils.cc），此处防御 fork 被上游版本覆盖时旧行为
-/// （`style | WS_OVERLAPPEDWINDOW` 把创建时剥掉的 WS_CAPTION 加回来）
-/// 导致的系统标题栏残留。窗口样式正常时此函数为无操作。
-void _stripCaptionStyle() {
+/// 剥样式和铺满是两次独立的窗口操作，但都落在同一屏帧里的话，DWM 仍可能拿
+/// 着还带标题栏的旧帧去合成新的（整屏）几何——见 setWindowTitleBarVisible。
+/// DwmFlush 返回时这一步已经上屏，之后的几何变化不会再画出标题栏。合成不可用
+/// 时（远程桌面等）直接跳过，最多退回调用前那种一帧的闪动。
+void _flushCompositor() {
+  if (!PlatformUtils.isWindows) return;
+  try {
+    _dwmFlush?.call();
+  } catch (_) {}
+}
+
+/// 显示/隐藏系统标题栏（`WS_CAPTION`）。
+///
+/// 窗口默认带系统标题栏（见 windows/runner/win32_window.cpp）：有标题栏时
+/// 拖动、边框缩放、系统菜单全交回系统；「窗口全屏」与播放器全屏期间剥掉它，
+/// 客户区铺满整窗（边框缩放由 runner 的命中区提供），runner 在
+/// `WM_NCCALCSIZE`、`WM_NCHITTEST`、`WM_NCACTIVATE` 中按同一位判断。
+///
+/// 进全屏的调用方要在**任何改窗口状态的操作之前**先调它（隐藏任务栏、铺满
+/// 显示器都算；[_recordMaximizedState] 这类只读记录在它前面）。这一步之后
+/// 窗口没有非客户区，谁来重摆窗口都画不出标题栏；反过来，只要改窗口状态时
+/// 标题栏还在，DWM 就有机会在整屏矩形上把旧帧的标题栏合成出来一帧——表现为
+/// 进全屏时闪一下系统标题栏（隐藏任务栏会让工作区扩展、系统随之重摆最大化的
+/// 窗口；铺满则是 media_kit 的 EnterNativeFullscreen 里和剥样式同一条
+/// SetWindowPos）。
+void setWindowTitleBarVisible(bool visible) {
+  if (!PlatformUtils.isWindows) return;
   final appWindow = _appWindow();
   if (appWindow == null) return;
   final style = win32.GetWindowLongPtr(appWindow, win32.GWL_STYLE).value;
-  if (style & win32.WS_CAPTION != 0) {
+  if ((style & win32.WS_CAPTION != 0) == visible) return;
+  win32.SetWindowLongPtr(
+    appWindow,
+    win32.GWL_STYLE,
+    visible ? style | win32.WS_CAPTION : style & ~win32.WS_CAPTION,
+  );
+  win32.SetWindowPos(
+    appWindow,
+    null,
+    0,
+    0,
+    0,
+    0,
+    win32.SWP_NOMOVE |
+        win32.SWP_NOSIZE |
+        win32.SWP_NOZORDER |
+        win32.SWP_NOACTIVATE |
+        win32.SWP_FRAMECHANGED,
+  );
+}
+
+/// 进入窗口全屏：窗口铺满所在显示器（连同任务栏区域）且无边框。
+///
+/// 与原生全屏（[enterDesktopFullScreen]）用的是同一套窗口样式处理：
+/// 剥 `WS_OVERLAPPEDWINDOW` 后铺满 `rcMonitor`（对齐 media_kit fork 的
+/// EnterNativeFullscreen），只是不进原生全屏——「窗口全屏」设置开启时
+/// 窗口常驻该状态，播放器的全屏因此不再需要动窗口。
+///
+/// 铺满整屏的普通窗口会被顶层（topmost）的任务栏盖住，这里照旧隐藏
+/// 所在显示器的任务栏；关闭、退出到托盘前由 _restoreTaskbars /
+/// restoreAllTaskbars 恢复。
+Future<void> enterWindowFullScreen() async {
+  if (!PlatformUtils.isWindows) {
+    await windowManager.setFullScreen(true);
+    return;
+  }
+  final appWindow = _appWindow();
+  if (appWindow == null) return;
+  // 剥标题栏放在隐藏任务栏之前，顺序见 setWindowTitleBarVisible。
+  setWindowTitleBarVisible(false);
+  _flushCompositor();
+  // 任务栏仍然要无条件隐藏：窗口已是全屏样式（重复调用，例如从托盘恢复
+  // 显示）时下面的样式那段会提前返回，任务栏却未必还在隐藏状态。
+  _hideTaskbarOnCurrentMonitor();
+  final style = win32.GetWindowLongPtr(appWindow, win32.GWL_STYLE).value;
+  if (style & win32.WS_OVERLAPPEDWINDOW == 0) return;
+  final monitorInfo = calloc<win32.MONITORINFO>();
+  try {
+    monitorInfo.ref.cbSize = sizeOf<win32.MONITORINFO>();
+    final monitor = win32.MonitorFromWindow(
+      appWindow,
+      win32.MONITOR_DEFAULTTONEAREST,
+    );
+    if (!win32.GetMonitorInfo(monitor, monitorInfo)) return;
+    final rect = monitorInfo.ref.rcMonitor;
     win32.SetWindowLongPtr(
       appWindow,
       win32.GWL_STYLE,
-      style & ~win32.WS_CAPTION,
+      style & ~win32.WS_OVERLAPPEDWINDOW,
     );
     win32.SetWindowPos(
       appWindow,
-      null,
-      0,
-      0,
-      0,
-      0,
-      win32.SWP_NOMOVE |
-          win32.SWP_NOSIZE |
-          win32.SWP_NOZORDER |
-          win32.SWP_NOACTIVATE |
-          win32.SWP_FRAMECHANGED,
+      win32.HWND_TOP,
+      rect.left,
+      rect.top,
+      rect.right - rect.left,
+      rect.bottom - rect.top,
+      win32.SWP_NOOWNERZORDER | win32.SWP_FRAMECHANGED,
     );
+  } finally {
+    win32.free(monitorInfo);
   }
 }
 
@@ -280,28 +364,22 @@ void _restoreMaximizedState() {
   }
 }
 
-/// 桌面端自绘标题栏的隐藏开关：原生全屏、桌面画中画期间置为 true。
-final ValueNotifier<bool> desktopCaptionHidden = ValueNotifier(false);
-
-/// Windows 自绘标题栏当前占用的布局高度（标题栏可见时为 32，否则为 0）。
-///
-/// 自绘标题栏是窗口内布局的一部分（见 main.dart 的 builder），
-/// 但它的高度不会体现在 MediaQuery 中，页面计算可用高度时需要减去它。
-double get captionBarHeight {
-  if (!PlatformUtils.isWindows || !Pref.showWindowTitleBar) return 0;
-  if (desktopCaptionHidden.value) return 0;
-  return kWindowCaptionHeight;
-}
-
 @pragma('vm:notify-debugger-on-exception')
 Future<void> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
+  // 窗口全屏（设置开启时）：窗口本身已经铺满显示器，播放器的全屏
+  // 只需要切换应用内布局，不再调用（原生）全屏，见 enterWindowFullScreen。
+  if (Pref.windowFullScreen) return;
   if (!inAppFullScreen && !_isDesktopFullScreen) {
     _isDesktopFullScreen = true;
-    desktopCaptionHidden.value = true;
     if (PlatformUtils.isWindows) {
-      // 记录最大化状态与目标工作区（供退出时确定性恢复），并隐藏
-      // 所在显示器的任务栏，然后铺满显示器。
+      // 记录最大化状态与目标工作区（供退出时确定性恢复，只读不改窗口状态）。
       _recordMaximizedState();
+      // 再剥标题栏，之后才允许动窗口：下面隐藏任务栏（工作区扩展、系统会
+      // 重摆最大化的窗口）、media_kit 的 EnterNativeFullscreen（剥剩余样式
+      // 并铺满显示器）都会改窗口状态，标题栏必须已经不在了，顺序见
+      // setWindowTitleBarVisible。
+      setWindowTitleBarVisible(false);
+      _flushCompositor();
       _hideTaskbarOnCurrentMonitor();
     }
     try {
@@ -355,15 +433,10 @@ Future<void> exitDesktopFullScreen() async {
     ).invokeMethod('Utils.ExitNativeFullscreen');
   } catch (_) {}
   if (PlatformUtils.isWindows) {
-    // 剥掉 media_kit 退出全屏残留的 WS_CAPTION（避免系统标题栏
-    // 闪现/残留），把窗口恢复成进入前为最大化时的状态，再恢复焦点。
-    _stripCaptionStyle();
+    // 把窗口恢复成进入前为最大化时的状态，再恢复焦点。
     _restoreMaximizedState();
     await _focusAppWindow();
   }
-  // 窗口状态恢复完成后再显示自绘标题栏：标题栏重建时 initState 会
-  // 读取最终的 isMaximized 状态，按钮图标与窗口实际状态一致。
-  desktopCaptionHidden.value = false;
 }
 
 List<DeviceOrientation>? _lastOrientation;

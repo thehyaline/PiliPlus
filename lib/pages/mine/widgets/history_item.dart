@@ -8,6 +8,7 @@ import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// “我的”页观看记录板块的横向卡片
@@ -124,6 +125,7 @@ class MineHistoryItem extends StatelessWidget {
     showMenu<void>(
       context: context,
       position: PageUtils.menuPosition(offset),
+      requestFocus: Pref.tvFocus,
       items: buildHistoryItemMenu(item, onDelete),
     );
   }

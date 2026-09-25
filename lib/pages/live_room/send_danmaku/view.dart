@@ -8,7 +8,6 @@ import 'package:PiliPlus/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:PiliPlus/pages/live_emote/controller.dart';
 import 'package:PiliPlus/pages/live_emote/view.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -62,8 +61,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     final isLandscapeLayout = !size.isPortrait && !isFullScreen;
     final panelWidth = LiveRoomController.rightPanelWidth(
       size.width,
-      // 与 view 相同：可用高度需扣除自绘标题栏
-      size.height - captionBarHeight,
+      // 与 view 相同：用窗口内的可用高度
+      size.height,
       MediaQuery.viewPaddingOf(context),
     );
     return ViewSafeArea(

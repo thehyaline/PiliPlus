@@ -1,9 +1,7 @@
-import 'dart:math';
-
 import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/common/widgets/translucent_row.dart';
 import 'package:PiliPlus/http/constants.dart';
@@ -17,7 +15,6 @@ import 'package:PiliPlus/pages/save_panel/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
@@ -25,6 +22,7 @@ import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -139,7 +137,9 @@ class AuthorPanel extends StatelessWidget {
     } else {
       header = Row(spacing: 10, children: children);
     }
-    Widget? moreBtn = isSave
+    // 「遥控器适配」下外部动态卡片不显示「更多」：卡片只要一个焦点
+    // （菜单本身还在，长按确定仍然打得开）
+    Widget? moreBtn = isSave || (!isDetail && Pref.remoteAdaptation)
         ? null
         : SizedBox(
             width: 32,
@@ -241,6 +241,17 @@ class AuthorPanel extends StatelessWidget {
     return header;
   }
 
+  /// 卡片的「更多」菜单。
+  ///
+  /// 和视频卡的「更多」（`VideoPopupMenu.show`）同一个样式：`showMenu` 的浮层
+  /// 菜单，锚在作者栏（那颗「更多」按钮所在的那一行）的中心上——传进来的
+  /// `context` 就是本控件的 build context，它的渲染盒即作者栏。手柄 / 遥控器
+  /// 没有指针位置，锚点只能这么算。`requestFocus` 必须给：不给的话菜单弹出来了、
+  /// 焦点还留在列表上，方向键和确定键全被列表吃掉（看得见、按不着）。
+  ///
+  /// 面板项都是 `PopupMenuItem`：它的 `handleTap` 会**先关菜单再执行 onTap**，
+  /// 所以每一项里不用再写 `Get.back()`——那关掉的是整个页面。
+  /// 项里再 `showDialog` 是安全的（弹出时菜单已经关了）。
   void morePanel(BuildContext context) {
     String? bvid;
     try {
@@ -258,385 +269,258 @@ class AuthorPanel extends StatelessWidget {
       }
     } catch (_) {}
 
-    showModalBottomSheet(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+    final theme = Theme.of(context);
+    final moduleAuthor = item.modules.moduleAuthor!;
+    final error = theme.colorScheme.error;
+    final box = context.findRenderObject();
+    final offset = box is RenderBox && box.hasSize
+        ? box.localToGlobal(box.size.center(Offset.zero))
+        : Offset.zero;
+
+    PopupMenuItem<void> action(
+      String title,
+      IconData icon,
+      VoidCallback onTap, {
+      Color? color,
+    }) => PopupMenuItem<void>(
+      height: 45,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(title, style: TextStyle(fontSize: 13, color: color)),
+        ],
       ),
-      builder: (context1) {
-        final theme = Theme.of(context);
-        final moduleAuthor = item.modules.moduleAuthor!;
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewPaddingOf(context1).bottom,
+    );
+
+    showMenu<void>(
+      context: context,
+      position: PageUtils.menuPosition(offset),
+      requestFocus: Pref.tvFocus,
+      items: [
+        if (bvid != null)
+          action(
+            '稍后再看',
+            Icons.watch_later_outlined,
+            () => UserHttp.toViewLater(bvid: bvid),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: Get.back,
-                borderRadius: Style.bottomSheetRadius,
-                child: SizedBox(
-                  height: 35,
-                  child: Center(
-                    child: Container(
-                      width: 32,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.outline,
-                        borderRadius: const .all(.circular(1.5)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (bvid != null)
-                ListTile(
-                  onTap: () {
-                    Get.back();
-                    UserHttp.toViewLater(bvid: bvid);
-                  },
-                  minLeadingWidth: 0,
-                  leading: const Icon(Icons.watch_later_outlined, size: 19),
-                  title: Text(
-                    '稍后再看',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  SavePanel.toSavePanel(item: item);
+        action(
+          '保存动态',
+          Icons.save_alt,
+          () => SavePanel.toSavePanel(item: item),
+        ),
+        action(
+          '分享动态',
+          Icons.share_outlined,
+          () => ShareUtils.shareText('${HttpString.opusBaseUrl}/${item.idStr}'),
+        ),
+        if ((item.basic!.commentType == 17 || item.basic!.commentType == 11) &&
+            item.modules.moduleDynamic?.major?.blocked == null)
+          action('分享至消息', Icons.forward_to_inbox, () {
+            try {
+              bool isDyn = item.basic!.commentType == 17;
+              String id = isDyn ? item.idStr : item.basic!.ridStr!;
+              int source = isDyn ? 11 : 2;
+              final moduleDynamic = item.modules.moduleDynamic!;
+              final title =
+                  moduleDynamic.desc?.text ??
+                  moduleDynamic.major!.opus!.summary!.text!;
+              String? thumb = isDyn
+                  ? moduleAuthor.face
+                  : moduleDynamic.major?.opus?.pics?.firstOrNull?.url;
+              PageUtils.pmShare(
+                context,
+                content: {
+                  "id": id,
+                  "title": title,
+                  "headline": "",
+                  "source": source,
+                  if (thumb?.isNotEmpty == true) "thumb": thumb,
+                  "author": moduleAuthor.name,
+                  "author_id": moduleAuthor.mid.toString(),
                 },
-                minLeadingWidth: 0,
-                leading: const Icon(Icons.save_alt, size: 19),
-                title: Text('保存动态', style: theme.textTheme.titleSmall!),
-              ),
-              ListTile(
-                title: Text(
-                  '分享动态',
-                  style: theme.textTheme.titleSmall,
-                ),
-                leading: const Icon(Icons.share_outlined, size: 19),
-                onTap: () {
-                  Get.back();
-                  ShareUtils.shareText(
-                    '${HttpString.opusBaseUrl}/${item.idStr}',
-                  );
-                },
-                minLeadingWidth: 0,
-              ),
-              if ((item.basic!.commentType == 17 ||
-                      item.basic!.commentType == 11) &&
-                  item.modules.moduleDynamic?.major?.blocked == null)
-                ListTile(
-                  title: Text(
-                    '分享至消息',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  leading: const Icon(Icons.forward_to_inbox, size: 19),
-                  onTap: () {
-                    Get.back();
-                    try {
-                      bool isDyn = item.basic!.commentType == 17;
-                      String id = isDyn ? item.idStr : item.basic!.ridStr!;
-                      int source = isDyn ? 11 : 2;
-                      final moduleDynamic = item.modules.moduleDynamic!;
-                      final title =
-                          moduleDynamic.desc?.text ??
-                          moduleDynamic.major!.opus!.summary!.text!;
-                      String? thumb = isDyn
-                          ? moduleAuthor.face
-                          : moduleDynamic.major?.opus?.pics?.firstOrNull?.url;
-                      PageUtils.pmShare(
-                        context,
-                        content: {
-                          "id": id,
-                          "title": title,
-                          "headline": "",
-                          "source": source,
-                          if (thumb?.isNotEmpty == true) "thumb": thumb,
-                          "author": moduleAuthor.name,
-                          "author_id": moduleAuthor.mid.toString(),
-                        },
-                      );
-                    } catch (e) {
-                      SmartDialog.showToast(e.toString());
-                    }
-                  },
-                  minLeadingWidth: 0,
-                ),
-              ListTile(
-                title: Text(
-                  '临时屏蔽：${moduleAuthor.name}',
-                  style: theme.textTheme.titleSmall,
-                ),
-                leading: const Icon(Icons.visibility_off_outlined, size: 19),
-                onTap: () {
-                  Get.back();
-                  onBlock?.call();
-                  try {
-                    Get.find<DynamicsController>().tempBannedList.add(
-                      moduleAuthor.mid!,
-                    );
-                    SmartDialog.showToast(
-                      '已临时屏蔽${moduleAuthor.name}(${moduleAuthor.mid!})，重启恢复',
-                    );
-                  } catch (_) {}
-                },
-                minLeadingWidth: 0,
-              ),
-              if (kDebugMode || moduleAuthor.mid == Accounts.main.mid) ...[
-                ListTile(
-                  onTap: () {
-                    Get.back();
-                    RequestUtils.checkCreatedDyn(
-                      id: item.idStr,
-                      isManual: true,
-                    );
-                  },
-                  minLeadingWidth: 0,
-                  leading: const Icon(CustomIcons.shield_published, size: 19),
-                  title: Text('检查动态', style: theme.textTheme.titleSmall!),
-                ),
-                if (onSetTop != null)
-                  ListTile(
-                    onTap: () {
-                      Get.back();
-                      onSetTop!(moduleAuthor.isTop ?? false, item.idStr);
-                    },
-                    minLeadingWidth: 0,
-                    leading: const Icon(Icons.vertical_align_top, size: 19),
-                    title: Text(
-                      '${moduleAuthor.isTop == true ? '取消' : ''}置顶',
-                      style: theme.textTheme.titleSmall!,
-                    ),
-                  ),
-                if (onSetReplySubject != null)
-                  ListTile(
-                    onTap: () async {
-                      Get.back();
-                      final res = await ReplyHttp.replyInteraction(
-                        oid: item.basic!.commentIdStr!,
-                        type: item.basic!.commentType!,
-                      );
-                      if (res case Success(:final response)) {
-                        if (context.mounted) {
-                          showDialog(
-                            context: context,
-                            builder: (context) {
-                              final selection = response.upReplySelection;
-                              final enableSelection = selection.status == 1;
+              );
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
+          }),
+        action('临时屏蔽：${moduleAuthor.name}', Icons.visibility_off_outlined, () {
+          onBlock?.call();
+          try {
+            Get.find<DynamicsController>().tempBannedList.add(
+              moduleAuthor.mid!,
+            );
+            SmartDialog.showToast(
+              '已临时屏蔽${moduleAuthor.name}(${moduleAuthor.mid!})，重启恢复',
+            );
+          } catch (_) {}
+        }),
+        if (kDebugMode || moduleAuthor.mid == Accounts.main.mid) ...[
+          action(
+            '检查动态',
+            CustomIcons.shield_published,
+            () => RequestUtils.checkCreatedDyn(id: item.idStr, isManual: true),
+          ),
+          if (onSetTop != null)
+            action(
+              '${moduleAuthor.isTop == true ? '取消' : ''}置顶',
+              Icons.vertical_align_top,
+              () => onSetTop!(moduleAuthor.isTop ?? false, item.idStr),
+            ),
+          if (onSetReplySubject != null)
+            action('互动设置', Icons.mark_unread_chat_alt_outlined, () async {
+              final res = await ReplyHttp.replyInteraction(
+                oid: item.basic!.commentIdStr!,
+                type: item.basic!.commentType!,
+              );
+              if (res case Success(:final response)) {
+                if (context.mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      final selection = response.upReplySelection;
+                      final enableSelection = selection.status == 1;
 
-                              final reply = response.upReply;
-                              final enableReply = reply.status == 1;
+                      final reply = response.upReply;
+                      final enableReply = reply.status == 1;
 
-                              return SimpleDialog(
-                                clipBehavior: .hardEdge,
-                                contentPadding: const .symmetric(vertical: 12),
-                                children: [
-                                  ListTile(
-                                    dense: true,
-                                    enabled: selection.canModify,
-                                    title: Text(
-                                      '${enableSelection ? '停止' : '开启'}评论精选',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    onTap: () {
-                                      Get.back();
-                                      onSetReplySubject!(
-                                        enableSelection ? 2 : 1,
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    dense: true,
-                                    enabled: reply.canModify,
-                                    title: Text(
-                                      '${enableReply ? '关闭' : '恢复'}评论',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    onTap: () {
-                                      Get.back();
-                                      onSetReplySubject!(enableReply ? 3 : 4);
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        }
-                      } else {
-                        res.toast();
-                      }
-                    },
-                    minLeadingWidth: 0,
-                    leading: const Icon(
-                      Icons.mark_unread_chat_alt_outlined,
-                      size: 19,
-                    ),
-                    title: Text(
-                      '互动设置',
-                      style: theme.textTheme.titleSmall!,
-                    ),
-                  ),
-                if (onSetPubSetting != null)
-                  ListTile(
-                    onTap: () {
-                      Get.back();
-
-                      final isPrivate = moduleAuthor.badgeText != null;
-                      Future<void> onTap() async {
-                        Get.back();
-                        if ((await onSetPubSetting!(
-                          isPrivate,
-                          item.idStr,
-                        )).isSuccess) {
-                          if (context.mounted) {
-                            (context as Element).markNeedsBuild();
-                          }
-                        }
-                      }
-
-                      showDialog(
-                        context: context,
-                        builder: (context) => SimpleDialog(
-                          clipBehavior: Clip.hardEdge,
+                      return TvFocusOnOpen(
+                        child: SimpleDialog(
+                          clipBehavior: .hardEdge,
                           contentPadding: const .symmetric(vertical: 12),
                           children: [
                             ListTile(
                               dense: true,
-                              enabled: isPrivate,
-                              title: const Text(
-                                '所有用户可见',
-                                style: TextStyle(fontSize: 14),
+                              enabled: selection.canModify,
+                              title: Text(
+                                '${enableSelection ? '停止' : '开启'}评论精选',
+                                style: const TextStyle(fontSize: 14),
                               ),
-                              onTap: onTap,
+                              onTap: () {
+                                Get.back();
+                                onSetReplySubject!(enableSelection ? 2 : 1);
+                              },
                             ),
                             ListTile(
                               dense: true,
-                              enabled: !isPrivate,
-                              title: const Text(
-                                '仅自己可见',
-                                style: TextStyle(fontSize: 14),
+                              enabled: reply.canModify,
+                              title: Text(
+                                '${enableReply ? '关闭' : '恢复'}评论',
+                                style: const TextStyle(fontSize: 14),
                               ),
-                              onTap: onTap,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    minLeadingWidth: 0,
-                    leading: const Icon(Icons.visibility, size: 19),
-                    title: Text('可见范围', style: theme.textTheme.titleSmall!),
-                  ),
-                if (onEdit != null)
-                  ListTile(
-                    onTap: () {
-                      Get.back();
-                      onEdit!();
-                    },
-                    minLeadingWidth: 0,
-                    leading: const Icon(Icons.edit_note, size: 19),
-                    title: Text('编辑动态', style: theme.textTheme.titleSmall!),
-                  ),
-                if (onRemove != null)
-                  ListTile(
-                    onTap: () {
-                      Get.back();
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('确定删除该动态?'),
-                          actions: [
-                            TextButton(
-                              onPressed: Get.back,
-                              child: Text(
-                                '取消',
-                                style: TextStyle(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
+                              onTap: () {
                                 Get.back();
-                                onRemove!(item.idStr);
+                                onSetReplySubject!(enableReply ? 3 : 4);
                               },
-                              child: const Text('确定'),
                             ),
                           ],
                         ),
                       );
                     },
-                    minLeadingWidth: 0,
-                    leading: Icon(
-                      Icons.delete_outline,
-                      color: theme.colorScheme.error,
-                      size: 19,
-                    ),
-                    title: Text(
-                      '删除',
-                      style: theme.textTheme.titleSmall!.copyWith(
-                        color: theme.colorScheme.error,
+                  );
+                }
+              } else {
+                res.toast();
+              }
+            }),
+          if (onSetPubSetting != null)
+            action('可见范围', Icons.visibility, () {
+              final isPrivate = moduleAuthor.badgeText != null;
+              Future<void> onTap() async {
+                Get.back();
+                if ((await onSetPubSetting!(
+                  isPrivate,
+                  item.idStr,
+                )).isSuccess) {
+                  if (context.mounted) {
+                    (context as Element).markNeedsBuild();
+                  }
+                }
+              }
+
+              showDialog(
+                context: context,
+                builder: (context) => TvFocusOnOpen(
+                  child: SimpleDialog(
+                    clipBehavior: Clip.hardEdge,
+                    contentPadding: const .symmetric(vertical: 12),
+                    children: [
+                      ListTile(
+                        dense: true,
+                        enabled: isPrivate,
+                        title: const Text(
+                          '所有用户可见',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        onTap: onTap,
                       ),
-                    ),
+                      ListTile(
+                        dense: true,
+                        enabled: !isPrivate,
+                        title: const Text(
+                          '仅自己可见',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        onTap: onTap,
+                      ),
+                    ],
                   ),
-              ],
-              if (Accounts.main.isLogin)
-                ListTile(
-                  title: Text(
-                    '举报',
-                    style: theme.textTheme.titleSmall!.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                  leading: Icon(
-                    Icons.error_outline_outlined,
-                    size: 19,
-                    color: theme.colorScheme.error,
-                  ),
-                  onTap: () {
-                    Get.back();
-                    autoWrapReportDialog(
-                      context,
-                      ReportOptions.dynamicReport,
-                      (reasonType, reasonDesc, banUid) {
-                        if (banUid) {
-                          VideoHttp.relationMod(
-                            mid: moduleAuthor.mid!,
-                            act: 5,
-                            reSrc: 11,
-                          );
-                        }
-                        return UserHttp.dynamicReport(
-                          mid: moduleAuthor.mid!,
-                          dynId: item.idStr,
-                          reasonType: reasonType,
-                          reasonDesc: reasonDesc,
-                        );
-                      },
-                    );
-                  },
-                  minLeadingWidth: 0,
                 ),
-              const Divider(thickness: 0.1, height: 1),
-              ListTile(
-                onTap: Get.back,
-                minLeadingWidth: 0,
-                dense: true,
-                title: Text(
-                  '取消',
-                  style: TextStyle(color: theme.colorScheme.outline),
-                  textAlign: TextAlign.center,
+              );
+            }),
+          if (onEdit != null) action('编辑动态', Icons.edit_note, () => onEdit!()),
+          if (onRemove != null)
+            action('删除', Icons.delete_outline, () {
+              showDialog(
+                context: context,
+                builder: (context) => TvFocusOnOpen(
+                  child: AlertDialog(
+                    title: const Text('确定删除该动态?'),
+                    actions: [
+                      TextButton(
+                        onPressed: Get.back,
+                        child: Text(
+                          '取消',
+                          style: TextStyle(color: error),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Get.back();
+                          onRemove!(item.idStr);
+                        },
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              );
+            }, color: error),
+        ],
+        if (Accounts.main.isLogin)
+          action('举报', Icons.error_outline_outlined, () {
+            autoWrapReportDialog(
+              context,
+              ReportOptions.dynamicReport,
+              (reasonType, reasonDesc, banUid) {
+                if (banUid) {
+                  VideoHttp.relationMod(
+                    mid: moduleAuthor.mid!,
+                    act: 5,
+                    reSrc: 11,
+                  );
+                }
+                return UserHttp.dynamicReport(
+                  mid: moduleAuthor.mid!,
+                  dynId: item.idStr,
+                  reasonType: reasonType,
+                  reasonDesc: reasonDesc,
+                );
+              },
+            );
+          }, color: error),
+      ],
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -36,6 +37,13 @@ const double _kCardRowHeight = 174;
 
 class MinePage extends StatefulWidget {
   const MinePage({super.key, this.showBackBtn = false});
+
+  /// 本页的 TV 焦点区域标签（整页一块区域，见 build 里那个 [TvRegion]）。
+  ///
+  /// 给"按键切页之后把焦点送进新页面"用（主界面底栏/侧栏的交接，
+  /// `main/view.dart` 的 `_tvRegionOf`）：切到「我的」时焦点直接落到页内第一项，
+  /// 而不是留在底栏那一格上再按一次。
+  static const String tvRegion = 'mine-content';
 
   final bool showBackBtn;
 
@@ -120,23 +128,31 @@ class _MediaPageState extends CommonPageState<MinePage>
                 }
               },
               child: onBuild(
-                ListView(
-                  padding: EdgeInsets.only(bottom: bottomPad),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    _buildUserInfo(theme, secondary),
-                    _buildActions(secondary),
-                    Obx(
-                      () => controller.historyState.value is Loading
-                          ? const SizedBox.shrink()
-                          : _buildHistory(theme, secondary),
-                    ),
-                    Obx(
-                      () => controller.loadingState.value is Loading
-                          ? const SizedBox.shrink()
-                          : _buildFav(theme, secondary),
-                    ),
-                  ],
+                // 整页一块焦点区域：① 主界面切到「我的」时焦点有个像样的落点
+                // （见 [MinePage.tvRegion]）；② 页面自己的入口（返回键、
+                // `TvRouteFocusObserver` 的浮空看护）也走 `TvRegions.entryNodeFor`
+                // 的那条"第一个内容区"。列表还没加载出来时区域是空的，
+                // `focusFirst` 会返回 false，调用方自己退到别处。
+                TvRegion(
+                  debugLabel: MinePage.tvRegion,
+                  child: ListView(
+                    padding: EdgeInsets.only(bottom: bottomPad),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _buildUserInfo(theme, secondary),
+                      _buildActions(secondary),
+                      Obx(
+                        () => controller.historyState.value is Loading
+                            ? const SizedBox.shrink()
+                            : _buildHistory(theme, secondary),
+                      ),
+                      Obx(
+                        () => controller.loadingState.value is Loading
+                            ? const SizedBox.shrink()
+                            : _buildFav(theme, secondary),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

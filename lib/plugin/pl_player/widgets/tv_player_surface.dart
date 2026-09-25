@@ -25,6 +25,9 @@ import 'package:material_ui/material_ui.dart';
 ///   * 确定键 = 播放/暂停（对齐 BBLL）；
 ///   * 任何方向键 = 唤起上下栏 + 焦点送到播放/暂停按钮（[onWakeControls]），
 ///     所以"上下栏收着"是这一层唯一会停留的状态，按一下方向键就进控件；
+///   * **进全屏时上下栏已经亮着**（触摸/鼠标刚把它点出来，或者就是从栏里那颗
+///     全屏按钮进的）= 焦点同样固定到播放/暂停按钮上（[_enterFullScreen]）：
+///     用户看到的是同一件事——控制条亮着，预选框就在播放/暂停上。
 ///   * 上下栏自己用进栏锁把落点锁死（`TvEntryLock`），不用在这一层判方向。
 ///
 /// 为什么不缩放：`scale` 保持 1.0。1.04 倍会把整块画面推出视口，
@@ -34,6 +37,7 @@ class TvPlayerSurface extends StatefulWidget {
     super.key,
     required this.enabled,
     required this.fullScreen,
+    required this.showControls,
     required this.onOk,
     required this.onWakeControls,
     required this.child,
@@ -47,6 +51,12 @@ class TvPlayerSurface extends StatefulWidget {
   /// 窗口全屏（`inAppFullScreen`）也是全屏——两种全屏都会让 `isFullScreen`
   /// 为真，这一层只认这一个值。
   final RxBool fullScreen;
+
+  /// 控制条可见性，直接给 `PlPlayerController.showControls`。
+  ///
+  /// 进全屏时要读它：亮着就把焦点固定到播放/暂停按钮上，收着则焦点留在画面
+  /// （见 [_enterFullScreen]）。
+  final RxBool showControls;
 
   /// 确定键：手柄 A / 遥控器确定 / 回车。
   final VoidCallback onOk;
@@ -140,21 +150,62 @@ class _TvPlayerSurfaceState extends State<TvPlayerSurface> {
     super.dispose();
   }
 
-  /// 全屏状态变化：环的画法（[FocusRing.hideRing]）和方向键的语义跟着走；
-  /// **退出全屏**时把焦点交回画面。
+  /// 全屏状态变化：环的画法（[FocusRing.hideRing]）和方向键的语义跟着走。
   ///
-  /// 退出全屏时焦点可能停在控制条上，而控制条这一帧之后就不可聚焦了
-  /// （`PlayerTvOsd` 在非全屏把整层 `ExcludeFocus`），不接一把焦点就悬空——
-  /// 那之后按方向键什么都不会发生（环没了、也没有下一个控件可去）。
+  /// **进全屏**时看上下栏（[_enterFullScreen]）：亮着 → 焦点固定到播放/暂停
+  /// 按钮上；收着 → 什么都不做，焦点留在画面上（全屏下"栏收着"的静息态就是
+  /// 焦点停在画面，按一下方向键才唤栏）。
+  ///
+  /// **退出全屏**时把焦点交回画面：那时焦点可能停在控制条上，而控制条这一帧
+  /// 之后就不可聚焦了（`PlayerTvOsd` 在非全屏把整层 `ExcludeFocus`），不接一把
+  /// 焦点就悬空——那之后按方向键什么都不会发生（环没了、也没有下一个控件可去）。
   void _listenFullScreen() {
     _fullScreen?.cancel();
     _fullScreen = widget.fullScreen.listen((_) {
       if (!mounted) return;
       final full = _full;
       setState(() {});
-      if (full || !widget.enabled) return;
+      if (!widget.enabled) return;
       if (!TvRegions.isCurrentRoute(context)) return;
+      if (full) {
+        _enterFullScreen();
+        return;
+      }
       _node.requestFocus();
+    });
+  }
+
+  /// 进全屏时上下栏正亮着：把焦点固定到播放/暂停按钮上。
+  ///
+  /// 和"收栏时按方向键唤栏"是同一个落点（[onWakeControls] 干的那件事），
+  /// 所以控制条亮着的时候，焦点在哪儿进全屏都一样：播放/暂停。
+  ///
+  /// 上下栏收着时**什么也不做**：那时焦点停在画面这一层才是对的（确定键
+  /// 播放/暂停、方向键唤栏），硬送到控制条里等于把栏一起点亮了。
+  void _enterFullScreen() {
+    if (!widget.showControls.value) return;
+    _focusPlayPause(_maxAttempts);
+  }
+
+  /// 重试上限，和 `TvFocusMemory` 一样"按帧重试几帧"。
+  static const int _maxAttempts = 4;
+
+  /// 把焦点送到播放/暂停按钮（[TvLabels.playerPlayPause]）。
+  ///
+  /// 一帧之后才送：这一帧里按钮多半还不可聚焦——`PlayerTvOsd` 的
+  /// `ExcludeFocus` 跟着全屏状态走，它要等全屏生效后的下一帧才把整层放出
+  /// 焦点树。送不到（按钮还没建出来、层还在重排）就下一帧再问一次，
+  /// 最多 [_maxAttempts] 次；每次重问一遍条件，用户自己收了栏、退了全屏、
+  /// 或者这一页已经被面板盖住就立刻收手。
+  void _focusPlayPause(int remaining) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.enabled || !_full) return;
+      if (!widget.showControls.value) return;
+      if (!TvRegions.isCurrentRoute(context)) return;
+      if (TvRegions.focusAnchor(TvLabels.playerPlayPause)) return;
+      if (remaining > 1) {
+        _focusPlayPause(remaining - 1);
+      }
     });
   }
 

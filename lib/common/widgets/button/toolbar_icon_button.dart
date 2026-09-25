@@ -21,6 +21,7 @@ class ToolbarIconButton extends StatelessWidget {
     // 见 `iconButton`：只是加描边，焦点节点还是 `IconButton` 自己的
     return FocusRing(
       debugLabel: tooltip ?? 'ToolbarIconButton',
+      circle: true,
       builder: (context, focusNode, focused) => SizedBox(
         width: 36,
         height: 36,

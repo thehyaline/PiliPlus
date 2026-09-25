@@ -149,6 +149,7 @@ class ImageGridView extends StatelessWidget {
     showMenu(
       context: context,
       position: PageUtils.menuPosition(offset),
+      requestFocus: Pref.tvFocus,
       items: [
         if (PlatformUtils.isMobile)
           PopupMenuItem(

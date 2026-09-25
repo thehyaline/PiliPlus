@@ -14,6 +14,7 @@ import 'package:PiliPlus/utils/extension/dimension_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -42,6 +43,7 @@ class SearchArchiveGrpc extends StatelessWidget {
       showMenu<void>(
         context: context,
         position: PageUtils.menuPosition(offset),
+        requestFocus: Pref.tvFocus,
         items: [
           PopupMenuItem(
             height: 45,

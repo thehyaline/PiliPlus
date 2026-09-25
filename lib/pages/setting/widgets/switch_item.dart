@@ -1,8 +1,10 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
@@ -104,8 +106,11 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       ),
     );
 
-    Widget child(Widget? trailing) => ListTile(
+    Widget row(Widget? trailing, FocusNode? focusNode) => ListTile(
       contentPadding: widget.contentPadding,
+      focusNode: focusNode,
+      // 焦点视觉由 FocusRing 负责
+      focusColor: focusNode == null ? null : Colors.transparent,
       enabled: widget.onTap == null ? true : val,
       onTap: widget.onTap == null ? switchChange : () => widget.onTap!(context),
       title: Text(widget.title, style: titleStyle),
@@ -116,10 +121,20 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       trailing: trailing,
     );
 
+    /// 整行一个焦点：开关跟着行一起亮（开关自己套了 [TvCardSubAction]，
+    /// 方向键不会停在它上面），按确定就是切开关。
+    Widget wholeRow(Widget? trailing) {
+      if (!Pref.tvFocus) return row(trailing, null);
+      return FocusRing(
+        debugLabel: '设置项',
+        builder: (context, node, _) => row(trailing, node),
+      );
+    }
+
     if (widget.isSplit) {
       return Row(
         children: [
-          Expanded(child: child(null)),
+          Expanded(child: wholeRow(null)),
           SizedBox(
             height: 25,
             child: VerticalDivider(
@@ -135,6 +150,6 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       );
     }
 
-    return child(switchBtn);
+    return wholeRow(switchBtn);
   }
 }

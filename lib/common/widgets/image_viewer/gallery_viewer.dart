@@ -610,6 +610,7 @@ class _GalleryViewerState extends State<GalleryViewer>
     showMenu(
       context: context,
       position: PageUtils.menuPosition(details.globalPosition),
+      requestFocus: Pref.tvFocus,
       items: [
         PopupMenuItem(
           height: 42,

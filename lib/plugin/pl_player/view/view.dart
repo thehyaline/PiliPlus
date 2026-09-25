@@ -881,19 +881,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
-      /// 窗口全屏
-      BottomControlType.windowFullScreen => ComBtn(
-        width: widgetWidth,
-        height: 30,
-        tooltip: '窗口全屏',
-        icon: const Icon(Icons.aspect_ratio, size: 20, color: Colors.white),
-        onTap: () => plPlayerController.triggerFullScreen(
-          status: true,
-          inAppFullScreen: true,
-        ),
-      ),
-
-      /// 全屏
+      /// 全屏：窗口全屏开启时窗口本身已经铺满显示器，这里只切应用内布局
+      /// （见 enterDesktopFullScreen）
       BottomControlType.fullscreen => ComBtn(
         width: widgetWidth,
         height: 30,
@@ -930,10 +919,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .subtitle,
       .speed,
       if (isNotFileSource && flag) .qa,
-      if (!plPlayerController.isDesktopPip &&
-          PlatformUtils.isWindows &&
-          !isFullScreen)
-        .windowFullScreen,
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
@@ -2061,12 +2046,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           }),
       ],
     );
-    // 视频页的手柄播放器模型：整块画面一个焦点（预选框贴着视频内边缘），
-    // 非全屏确定键进全屏、全屏确定键播放/暂停、全屏方向键唤栏 + 聚焦播放/暂停。
-    // 关掉手柄模式 / 直播页时 `TvPlayerSurface` 原样返回，等于没装这一层。
+    // 手柄播放器模型：整块画面一个焦点（预选框贴着视频内边缘），
+    // 非全屏确定键进全屏、全屏确定键播放/暂停、全屏方向键唤栏 + 聚焦播放/暂停；
+    // 进全屏那一刻上下栏亮着的话焦点也直接落在播放/暂停上（`showControls`）。
+    // 关掉手柄模式时 `TvPlayerSurface` 原样返回，等于没装这一层。
     final surface = TvPlayerSurface(
       enabled: tvPlayerMode,
       fullScreen: plPlayerController.isFullScreen,
+      showControls: plPlayerController.showControls,
       onOk: _onSurfaceOk,
       onWakeControls: _onSurfaceWakeControls,
       child: child,
@@ -2090,9 +2077,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   /// 画面上确定键的语义（手柄 A / 遥控器确定 / 回车），见 `TvPlayerSurface`。
   ///
-  /// - 非全屏：进全屏播放。**只做这一件事**——切全屏之后布局要重排
-  ///   （视频页那边还有 150ms 防抖），这时候再去抓控件会抓到一个马上就被拆掉的
-  ///   节点上，焦点反而丢了；焦点先留在画面上，进全屏之后按方向键就进上下栏。
+  /// - 非全屏：进全屏播放。**只做这一件事**——进全屏之后的焦点由
+  ///   `TvPlayerSurface` 统一安排（上下栏亮着就固定到播放/暂停按钮上、
+  ///   收着就留在画面上），这里再插一手只会两处打架。
   /// - 全屏：播放/暂停。这时候焦点停在画面上说明上下栏是收着的（对齐 BBLL：
   ///   收栏状态下确定键就是播放/暂停），要看控制条按方向键
   ///   （[_onSurfaceWakeControls]）。

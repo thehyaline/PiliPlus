@@ -1,5 +1,7 @@
 import 'dart:async' show Completer;
 
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_return.dart';
 import 'package:PiliPlus/common/widgets/scaffold/bottom_sheet.dart';
 import 'package:PiliPlus/common/widgets/scaffold/bottom_sheet_layout.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -30,6 +32,10 @@ class MiniScaffoldState extends State<MiniScaffold>
     with TickerProviderStateMixin {
   PersistentBottomSheetController? _currentBottomSheet;
 
+  /// 面板所在的路由（面板不是路由，是这条路由里的一条 local history entry）。
+  /// 关掉面板之后要把焦点还给这一层上"打开面板时待着的地方"。
+  Route<dynamic>? _route;
+
   void _closeCurrentBottomSheet() {
     if (_currentBottomSheet != null) {
       if (!_currentBottomSheet!.isLocalHistoryEntry) {
@@ -42,6 +48,20 @@ class MiniScaffoldState extends State<MiniScaffold>
         return true;
       }());
     }
+  }
+
+  /// 面板关掉之后把焦点还给"打开面板时待着的那个控件"。
+  ///
+  /// 面板和页面**共用同一个 scope**，框架不会替我们恢复——它只在路由被拆掉的
+  /// 时候做这件事。所以要自己还：等下一帧（那一帧面板才真的从树上下去，
+  /// 现在送焦点会被面板自己抢掉），而且得确认没有新面板开着。
+  void _restoreFocus() {
+    final route = _route;
+    if (route == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _currentBottomSheet != null) return;
+      TvFocusReturn.restore(route);
+    });
   }
 
   PersistentBottomSheetController _buildBottomSheet(
@@ -106,6 +126,7 @@ class MiniScaffoldState extends State<MiniScaffold>
             setState(() {});
           }
         }
+        _restoreFocus();
       },
       onDispose: () {
         doingDispose = true;
@@ -119,7 +140,11 @@ class MiniScaffoldState extends State<MiniScaffold>
       constraints: constraints,
     );
 
-    (Get.routing.route! as ModalRoute).addLocalHistoryEntry(entry);
+    // 面板是往**当前路由**里插的一条 local history entry（不是新路由）。
+    // 优先问 `ModalRoute.of`：`Get.routing.route` 是 GetX 自己记的"当前路由"，
+    // 有弹层叠着的时候不一定指得准。
+    (ModalRoute.of(context) ?? Get.routing.route! as ModalRoute)
+        .addLocalHistoryEntry(entry);
 
     return PersistentBottomSheetController(
       bottomSheet,
@@ -140,6 +165,9 @@ class MiniScaffoldState extends State<MiniScaffold>
     AnimationStyle? sheetAnimationStyle,
   }) {
     _closeCurrentBottomSheet();
+    // 打开面板前记下焦点在哪张卡上：面板关掉时还给它（见 [_restoreFocus]）
+    _route = ModalRoute.of(context);
+    TvFocusReturn.remember(_route);
     final AnimationController controller =
         (transitionAnimationController ??
               BottomSheet.createAnimationController(
@@ -149,7 +177,9 @@ class MiniScaffoldState extends State<MiniScaffold>
           ..forward();
     setState(() {
       _currentBottomSheet = _buildBottomSheet(
-        builder,
+        // 面板自己立一个 scope（[TvPanelScope]）：不立的话它和页面共用一个
+        // scope，焦点还停在底下的卡片上，方向键就在底下那页里转，看着像张画
+        (context) => TvPanelScope(child: builder(context)),
         animationController: controller,
         constraints: constraints,
         enableDrag: enableDrag,

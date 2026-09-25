@@ -29,6 +29,7 @@ abstract final class SettingBoxKey {
       fullScreenSCWidth = 'fullScreenSCWidth',
       tvFocus = 'tvFocus',
       tvLongPressOk = 'tvLongPressOk',
+      remoteAdaptation = 'remoteAdaptation',
       tabSwitchOnFocus = 'tabSwitchOnFocus',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
@@ -165,7 +166,7 @@ abstract final class SettingBoxKey {
       windowSize = 'windowSize',
       windowPosition = 'windowPosition',
       isWindowMaximized = 'isWindowMaximized',
-      showWindowTitleBar = 'showWindowTitleBar',
+      windowFullScreen = 'windowFullScreen',
       desktopVolume = 'desktopVolume',
       showTrayIcon = 'showTrayIcon',
       uiScale = 'uiScale';

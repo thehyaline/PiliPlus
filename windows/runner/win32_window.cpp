@@ -170,13 +170,12 @@ bool Win32Window::Create(const std::wstring& title,
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
 
-  // Remove WS_CAPTION: the title bar is drawn by Flutter (WinUI3 style),
-  // because the native caption icon/title is pinned to the left edge and
-  // gets clipped on displays with large rounded corners.
-  // WS_THICKFRAME/WS_SYSMENU/WS_MINIMIZEBOX/WS_MAXIMIZEBOX are kept, so
-  // resizing, the system menu, the shadow and Win11 rounded corners remain.
+  // 默认是带系统标题栏的普通窗口：拖动、边框缩放、系统菜单、阴影与 Win11
+  // 圆角都由系统负责。开启「窗口全屏」时由 Dart 侧剥掉 WS_CAPTION
+  // （见 fullscreen.dart 的 SetWindowTitleBarVisible），此后客户区铺满整窗、
+  // 边框缩放改由下面的 WM_NCCALCSIZE / WM_NCHITTEST 提供。
   HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW & ~WS_CAPTION,
+      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
@@ -185,20 +184,10 @@ bool Win32Window::Create(const std::wstring& title,
     return false;
   }
 
-  // USER32 re-adds WS_CAPTION when creating an overlapped window (any window
-  // with WS_SYSMENU/WS_THICKFRAME/... is normalized to the full
-  // WS_OVERLAPPEDWINDOW), so strip it again after creation. SWP_FRAMECHANGED
-  // makes the system re-evaluate the non-client area.
-  SetWindowLongPtr(window, GWL_STYLE,
-                   GetWindowLongPtr(window, GWL_STYLE) & ~WS_CAPTION);
-  SetWindowPos(window, nullptr, 0, 0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
-                   SWP_FRAMECHANGED);
-
   UpdateTheme(window);
 
-  // Win11: 显式使用 WinUI3 标准圆角（8px），不依赖系统对无标题栏窗口
-  // 的默认判断；最大化/全屏时系统会自动保持直角。
+  // Win11: 显式使用 WinUI3 标准圆角（8px），带不带系统标题栏都一致，
+  // 不依赖系统对窗口形态的默认判断；最大化/全屏时系统会自动保持直角。
   DWORD corner_preference = DWMWCP_ROUND;
   DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE,
                         &corner_preference, sizeof(corner_preference));
@@ -370,15 +359,24 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_NCACTIVATE:
-      // 标题栏由 Flutter 自绘、非客户区为空（WM_NCCALCSIZE 返回 0），
-      // 跳过默认的边框重绘，避免焦点切出/切回时 DWM 边框闪白。
-      return TRUE;
+      // 无标题栏（「窗口全屏」剥掉了 WS_CAPTION）时非客户区为空、客户区
+      // 铺满整窗：跳过默认的边框重绘，避免焦点切出/切回时 DWM 边框闪白。
+      // 带标题栏时交给系统，让标题栏按钮跟随焦点状态重绘。
+      if (!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION)) {
+        return TRUE;
+      }
+      break;
 
     case WM_ERASEBKGND:
       // 窗口类没有背景画刷，无需擦除。
       return 1;
 
     case WM_NCCALCSIZE:
+      // 带系统标题栏（「窗口全屏」关闭）时客户区由系统计算，标题栏照常
+      // 显示（见 SetWindowTitleBarVisible）。
+      if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION) {
+        break;
+      }
       // WS_CAPTION is removed but WS_THICKFRAME still reserves a non-client
       // border (a ~7px empty strip on top plus thin lines on the other
       // edges). Let the client area fill the whole window; edge resize
@@ -386,6 +384,10 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_NCHITTEST: {
+      // 带系统标题栏时命中测试（标题栏拖动、系统菜单、边框缩放）交给系统。
+      if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION) {
+        break;
+      }
       // 客户区占满窗口后 DefWindowProc 不再提供边缘缩放命中区
       // （全部返回 HTCLIENT），这里按系统边框宽度手动返回。鼠标在
       // Flutter 视图子窗口上时由该子窗口的命中测试走同一逻辑
@@ -474,14 +476,19 @@ void Win32Window::UpdateTheme(HWND const window) {
 }
 
 LRESULT HitTestResizeBorder(HWND hwnd, POINT pt) {
+  const LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  // 带系统标题栏时（「窗口全屏」关闭，见 SetWindowTitleBarVisible）缩放、
+  // 拖动、系统菜单全部由系统负责，这里不再提供命中区。
+  if (style & WS_CAPTION) {
+    return HTCLIENT;
+  }
+  // 全屏样式（media_kit 原生全屏 / 窗口全屏都会剥掉 WS_OVERLAPPEDWINDOW）
+  // 下窗口铺满整屏、不可缩放，屏幕边缘不应有缩放命中区，否则碰一下边缘
+  // 就会把全屏窗口拽小。
+  if (!(style & WS_OVERLAPPEDWINDOW)) {
+    return HTCLIENT;
+  }
   if (IsZoomed(hwnd)) {
-    // media_kit 原生全屏期间窗口保持“最大化”且铺满整屏（rcMonitor），
-    // 是合法状态：鼠标碰屏幕边缘不应触发下面的钳制，否则全屏会被
-    // 拽回工作区、露出任务栏。全屏的标志是样式不含 WS_OVERLAPPEDWINDOW
-    // （media_kit 进出全屏时剥/还该位）。
-    if (!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW)) {
-      return HTCLIENT;
-    }
     // 最大化时窗口铺满工作区，边缘不应再响应缩放。media_kit 原生全屏
     // 退出后窗口可能停留在“最大化 + 整屏矩形”的卡死状态（盖住任务栏），
     // 这里顺带钳回工作区，让边缘缩放恢复。
@@ -513,13 +520,6 @@ LRESULT HitTestResizeBorder(HWND hwnd, POINT pt) {
                            GetSystemMetrics(SM_CXPADDEDBORDER)) *
                               dpi_ratio +
                           0.5));
-  // 右上角为自绘窗口按钮区（3 × 46 + 16 内边距，逻辑像素，
-  // 见 lib/common/widgets/window_caption.dart），交还客户端处理。
-  const double window_scale = GetDpiForWindow(hwnd) / 96.0;
-  if (pt.x >= rc.right - static_cast<LONG>(154 * window_scale) &&
-      pt.y < rc.top + static_cast<LONG>(32 * window_scale)) {
-    return HTCLIENT;
-  }
   // 与系统边框行为一致，命中区同时覆盖窗口外侧一圈。
   const bool left = pt.x >= rc.left - frame && pt.x < rc.left + frame;
   const bool right = pt.x < rc.right + frame && pt.x >= rc.right - frame;

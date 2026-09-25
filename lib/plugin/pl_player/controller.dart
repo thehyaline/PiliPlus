@@ -211,7 +211,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   Future<void> exitDesktopPip() {
     isDesktopPip = false;
-    desktopCaptionHidden.value = false;
     return Future.wait([
       windowManager.setMinimumSize(const Size(400, 700)),
       windowManager.setBounds(_lastWindowBounds),
@@ -224,7 +223,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (isFullScreen.value) return;
 
     isDesktopPip = true;
-    desktopCaptionHidden.value = true;
 
     _lastWindowBounds = await windowManager.getBounds();
 

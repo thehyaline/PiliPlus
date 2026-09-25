@@ -12,6 +12,7 @@ import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HistoryItem extends StatelessWidget {
@@ -169,6 +170,7 @@ class HistoryItem extends StatelessWidget {
     showMenu<void>(
       context: context,
       position: PageUtils.menuPosition(offset),
+      requestFocus: Pref.tvFocus,
       items: buildHistoryItemMenu(item, () => onDelete(item.kid!, business)),
     );
   }

@@ -14,7 +14,9 @@ import 'package:material_ui/material_ui.dart';
 /// 按键会先经过这里（`FocusManager` 从 `primaryFocus` 沿祖先链向上派发），
 /// 没吃掉的键继续往上走，方向键/确定键这些默认行为完全不受影响。
 ///
-/// 放在这里的只有四类：
+/// 放在这里的只有五类：
+/// - 长按确定"用掉"的那一次按下剩下的按键（见 [TvKeys.markPressConsumed]）：
+///   长按是在按键还按着的时候触发的，之后的按键重复不能算成又一次"确定"；
 /// - 返回（手柄 B / 遥控器 Select）：复用 [appBack]，和 Esc、鼠标侧键同一套语义；
 /// - 切换分栏（L1/R1、`[` `]`）：交给当前页面声明的
 ///   [TvSectionSwitcher]，页面没声明就交给焦点所在的标签栏
@@ -47,6 +49,12 @@ class TvShortcuts extends StatelessWidget {
 /// 供测试和其它层复用的按键处理：返回 true 表示这个键已消费。
 KeyEventResult handleTvKey(FocusNode node, KeyEvent event) {
   if (!Pref.tvFocus) return KeyEventResult.ignored;
+
+  // 长按确定已经用掉的那一次按下：剩下的重复/多出来的按下全部作废。
+  // 这一层比 `WidgetsApp` 自带的 `Shortcuts` 深，确定键先到这里——
+  // 吃掉就不会变成 `ActivateIntent`，刚被长按打开的菜单也就不会
+  // 立刻执行第一项（图文=保存动态的截图面板、视频=稍后再看）。
+  if (TvKeys.isConsumedPress(event)) return KeyEventResult.handled;
 
   if (TvKeys.isBack(event)) {
     if (TvKeys.isFirstPress(event)) {

@@ -152,6 +152,7 @@ class WhisperSessionItem extends StatelessWidget {
             ? (details) => showMenu(
                 context: context,
                 position: PageUtils.menuPosition(details.globalPosition),
+                requestFocus: Pref.tvFocus,
                 items: <PopupMenuEntry<Never>>[
                   PopupMenuItem(
                     height: 42,

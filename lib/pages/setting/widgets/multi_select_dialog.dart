@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -29,55 +31,61 @@ class _MultiSelectDialogState<T> extends State<MultiSelectDialog<T>> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AlertDialog(
-      clipBehavior: Clip.hardEdge,
-      title: Text(widget.title),
-      contentPadding: const EdgeInsets.only(top: 12),
-      content: Material(
-        type: .transparency,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: widget.values.entries.map((i) {
-              return Builder(
-                builder: (context) {
-                  bool isChecked = _tempValues.contains(i.key);
-                  return CheckboxListTile(
-                    dense: true,
-                    value: isChecked,
-                    title: Text(
-                      i.value,
-                      style: theme.textTheme.titleMedium!,
-                    ),
-                    onChanged: (value) {
-                      isChecked
-                          ? _tempValues.remove(i.key)
-                          : _tempValues.add(i.key);
-                      (context as Element).markNeedsBuild();
-                    },
-                  );
-                },
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-      actionsPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(
-              color: theme.colorScheme.outline,
+    return TvFocusOnOpen(
+      child: AlertDialog(
+        clipBehavior: Clip.hardEdge,
+        title: Text(widget.title),
+        contentPadding: const EdgeInsets.only(top: 12),
+        content: Material(
+          type: .transparency,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: widget.values.entries.map((i) {
+                return Builder(
+                  builder: (context) {
+                    bool isChecked = _tempValues.contains(i.key);
+                    return listTileFocusRing(
+                      debugLabel: '多选行',
+                      builder: (focusNode) => CheckboxListTile(
+                        dense: true,
+                        value: isChecked,
+                        focusNode: focusNode,
+                        title: Text(
+                          i.value,
+                          style: theme.textTheme.titleMedium!,
+                        ),
+                        onChanged: (value) {
+                          isChecked
+                              ? _tempValues.remove(i.key)
+                              : _tempValues.add(i.key);
+                          (context as Element).markNeedsBuild();
+                        },
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
             ),
           ),
         ),
-        TextButton(
-          onPressed: () => Get.back(result: _tempValues),
-          child: const Text('确定'),
-        ),
-      ],
+        actionsPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: Text(
+              '取消',
+              style: TextStyle(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: _tempValues),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     );
   }
 }

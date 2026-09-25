@@ -194,8 +194,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     // 全屏后，退出全屏时窗口仍处于"最大化"但边界停留在整屏
     // rcMonitor（遮住任务栏）。样式恢复时把窗口重新钳制到监视器
     // 工作区，与 SC_MAXIMIZE 的处理保持一致。
-    // 注意窗口样式不含 WS_CAPTION，不能用 WS_OVERLAPPEDWINDOW
-    // 判断“非全屏”样式（该掩码要求 WS_CAPTION 位）。
+    // 用 WS_THICKFRAME|WS_SYSMENU 而不是 WS_OVERLAPPEDWINDOW 判断普通窗口
+    // 样式：「窗口全屏」开关会决定 WS_CAPTION 位在不在，掩码里带哪个位不是
+    // 这个分支该关心的事。
     MONITORINFO monitor_info{};
     monitor_info.cbSize = sizeof(monitor_info);
     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);

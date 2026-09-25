@@ -476,7 +476,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
-    maxHeight = size.height - captionBarHeight;
+    maxHeight = size.height;
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * videoDetailController.uiScale,
       height: maxHeight * videoDetailController.uiScale,

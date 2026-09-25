@@ -1,3 +1,5 @@
+import 'dart:collection' show HashMap;
+
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:material_ui/material_ui.dart';
@@ -76,7 +78,15 @@ class FocusRing extends StatefulWidget {
   final bool ringOnPrimaryFocus;
 
   final BorderRadius radius;
+
+  /// 聚焦时内容放大的倍数。
+  ///
+  /// 环画在控件边界**之内**，所以放大是"往外顶"：控件要是紧贴某个容器的裁剪
+  /// 边（ `Clip.hardEdge` 的抽屉、列表视口），顶出去的那一点就会被切掉一条。
+  /// 两种解法：在那个位置上留余量（`TabletNavItem` 的 `tilePadding`、抽屉头部
+  /// 给头像留的那 4dp），或者这里传 1.0 不放大。
   final double scale;
+
   final double borderWidth;
 
   /// 把预选框画成**圆形**（内切于控件矩形）而不是圆角矩形。
@@ -133,7 +143,12 @@ class _FocusRingState extends State<FocusRing> {
       ..canRequestFocus = widget.canRequestFocus && widget.enabled;
     _applyKeyHandler(node, null);
     node.addListener(_handleFocusChange);
+    TvFocusRings.add(node);
     FocusManager.instance.addListener(_syncRing);
+    // 输入源一换（鼠标点一下 / 按一下手柄）就得立刻收放：只听 `FocusManager`
+    // 的焦点变化是不够的，已经画着的环要等下一次焦点变化才消失，
+    // 看着就是"鼠标点了环还在"。
+    FocusManager.instance.addHighlightModeListener(_onHighlightMode);
     _focused = _isFocused;
     _showRing = _wantRing && widget.enabled && FocusRing.highlightEnabled;
   }
@@ -142,8 +157,13 @@ class _FocusRingState extends State<FocusRing> {
   void didUpdateWidget(FocusRing oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.focusNode != oldWidget.focusNode) {
+      // 旧节点也要撤登记（这时 `_node` 已经是新节点了；`_internalNode` 只在
+      // 旧 `focusNode` 为 null 时建过，所以它就是旧节点）
+      final oldNode = oldWidget.focusNode ?? _internalNode;
+      if (oldNode != null) TvFocusRings.remove(oldNode);
       _node.removeListener(_handleFocusChange);
       widget.focusNode?.addListener(_handleFocusChange);
+      TvFocusRings.add(_node);
       _focused = _isFocused;
     }
     _applyKeyHandler(_node, oldWidget.onKeyEvent);
@@ -179,13 +199,20 @@ class _FocusRingState extends State<FocusRing> {
   @override
   void dispose() {
     FocusManager.instance.removeListener(_syncRing);
+    FocusManager.instance.removeHighlightModeListener(_onHighlightMode);
     final node = _internalNode ?? widget.focusNode;
-    node?.removeListener(_handleFocusChange);
+    if (node != null) {
+      node.removeListener(_handleFocusChange);
+      TvFocusRings.remove(node);
+    }
     // 只撤我们自己挂上去的那个，别动别人的（见 [_applyKeyHandler]）
     if (widget.onKeyEvent != null) node?.onKeyEvent = null;
     _internalNode?.dispose();
     super.dispose();
   }
+
+  /// `highlightMode` 变了（按键 ↔ 鼠标）——不关心具体变成什么，重算一次就够。
+  void _onHighlightMode(FocusHighlightMode mode) => _syncRing();
 
   void _handleFocusChange() {
     final focused = _isFocused;
@@ -276,6 +303,11 @@ class _FocusRingState extends State<FocusRing> {
 ///
 /// 这些按钮是共享控件（`userAvatar` / `msgBadge` / 侧栏的搜索按钮同时出现在
 /// 手机顶栏、平板抽屉、「我的」页头部），环加在这里四处就一致了。
+///
+/// 放大（1.04 倍）照旧：它是焦点框的通用逻辑，这几颗和别的控件一样会弹一下。
+/// 代价是环会顶出控件边界 4%，所以**紧贴容器裁剪边的位置得留余量**——平板抽屉
+/// 里头像就在抽屉最上沿，`_sideBar()` 的头部因此留了 4dp（见
+/// `docs/tv_focus.md` 的「主界面导航栏（平板抽屉）」）。
 Widget circularFocusRing({
   required String debugLabel,
   required Widget Function(FocusNode? focusNode) builder,
@@ -286,4 +318,69 @@ Widget circularFocusRing({
     circle: true,
     builder: (_, focusNode, _) => builder(focusNode),
   );
+}
+
+/// 给**自己内部造 `ListTile`** 的控件套焦点环（`RadioListTile`、
+/// `CheckboxListTile`、`OrderedCheckboxListTile`——设置页里那一堆单选/多选行）。
+///
+/// 这类控件只有 `focusNode` 一个口子，没有 `focusColor`：节点递进去之后，框架
+/// 自带的那层 `focusColor` 底纹照样会画，和焦点环叠成两层（普通 `ListTile` 靠
+/// `focusColor: Colors.transparent` 压掉，见 `popup_item.dart`）。所以这里顺手
+/// 改一下 `Theme.focusColor` —— 视觉统一交给 [FocusRing]。
+///
+/// [builder] 收到的是 [FocusRing] 持有的那一个节点；`Pref.tvFocus` 关掉时把
+/// `null` 递进去、环也不套（准则 6「默认零侵入」）。
+Widget listTileFocusRing({
+  required String debugLabel,
+  required Widget Function(FocusNode? focusNode) builder,
+}) {
+  if (!Pref.tvFocus) return builder(null);
+  return FocusRing(
+    debugLabel: debugLabel,
+    builder: (context, focusNode, _) => Theme(
+      data: Theme.of(context).copyWith(focusColor: Colors.transparent),
+      child: builder(focusNode),
+    ),
+  );
+}
+
+/// "这个焦点节点自己会画环"的登记处。
+///
+/// [FocusRing] 建出来的时候把自己的节点登记进来、销毁时撤掉，
+/// `TvFocusOverlay`（全局兜底环）靠它决定"要不要让位"——不让位的话焦点停在
+/// 卡片上会里外两个框。
+///
+/// 判定用的是 `hasFocus` 的语义：焦点落在**子树里**时祖先节点也算"有环"
+/// （`TvNavDestination` / `TvTextField` 那类"外壳画环、落点在里面"的控件正是
+/// 靠这一条工作的），所以只登记外层那一个节点就够。
+///
+/// 不挂 `Pref.tvFocus`：开关是**画不画**的事（两边都读
+/// [FocusRing.highlightEnabled]），登记本身一个字节都不影响行为。
+abstract final class TvFocusRings {
+  /// 节点 → 登记次数：同一个节点可能被两层 [FocusRing] 借用（见
+  /// [FocusRing.builder] 的用法），撤一次不算撤。
+  static final Map<FocusNode, int> _counts = HashMap<FocusNode, int>.identity();
+
+  static void add(FocusNode node) =>
+      _counts.update(node, (count) => count + 1, ifAbsent: () => 1);
+
+  static void remove(FocusNode node) {
+    final count = _counts[node];
+    if (count == null) return;
+    if (count > 1) {
+      _counts[node] = count - 1;
+    } else {
+      _counts.remove(node);
+    }
+  }
+
+  /// [node] 自己或者它的某个祖先是不是已经有环了。
+  static bool covers(FocusNode? node) {
+    if (node == null || _counts.isEmpty) return false;
+    if (_counts.containsKey(node)) return true;
+    for (final ancestor in node.ancestors) {
+      if (_counts.containsKey(ancestor)) return true;
+    }
+    return false;
+  }
 }

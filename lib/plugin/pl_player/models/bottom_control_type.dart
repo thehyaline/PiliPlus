@@ -6,7 +6,6 @@ enum BottomControlType {
   episode,
   subtitle,
   speed,
-  windowFullScreen,
   fullscreen,
   viewPoints,
   superResolution,

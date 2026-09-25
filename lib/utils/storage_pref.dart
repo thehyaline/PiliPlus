@@ -1004,8 +1004,9 @@ abstract final class Pref {
 
   /// 手柄/遥控器模式：长按确定、栏目切换键等 10-foot 行为的总开关。
   ///
-  /// 视频播放页的"手柄播放器模型"（整块画面是一个焦点、全屏下上下栏的入口锁、
-  /// 上下栏收起时确定键 = 播放暂停）也挂在它下面，见 `isPlayerTvMode`。
+  /// 播放页的"手柄播放器模型"（整块画面是一个焦点、全屏下上下栏的入口锁、
+  /// 上下栏收起时确定键 = 播放暂停）也挂在它下面——视频页和直播页一样，
+  /// 见 `isPlayerTvMode`。
   /// 焦点框的显示本身由 FocusManager.highlightMode 控制，
   /// 触屏设备上即使本项为 true 也不会出现焦点框。
   static bool get tvFocus =>
@@ -1014,6 +1015,16 @@ abstract final class Pref {
   /// 长按确定是否打开「更多」菜单
   static bool get tvLongPressOk =>
       _setting.get(SettingBoxKey.tvLongPressOk, defaultValue: true);
+
+  /// 「遥控器适配」：动态卡片退回"一条内容一个焦点"。
+  ///
+  /// 遥控器上没有长按、没有指针，卡片里那些点赞/评论/转发按钮只能靠方向键
+  /// 一个个扫过去，一条动态要按七八次才能走过——所以开启后外部动态卡片
+  /// （详情页不受影响）里的小按钮全部隐藏、卡片内部不再有任何焦点，
+  /// 方向键只在卡片之间跳，确定键直接进视频 / 动态详情。
+  /// 默认关：手柄用户有的就是奔着那些按钮来的。
+  static bool get remoteAdaptation =>
+      _setting.get(SettingBoxKey.remoteAdaptation, defaultValue: false);
 
   /// 焦点落到顶部标签栏的某个标签上时，是否立刻切到那一栏。
   ///
@@ -1027,8 +1038,10 @@ abstract final class Pref {
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);
 
-  static bool get showWindowTitleBar =>
-      _setting.get(SettingBoxKey.showWindowTitleBar, defaultValue: true);
+  /// 窗口全屏：开启时窗口铺满所在显示器（无边框、隐藏任务栏），播放器的
+  /// 全屏按钮因此只切应用内布局；默认关闭，就是带系统标题栏的普通窗口。
+  static bool get windowFullScreen =>
+      _setting.get(SettingBoxKey.windowFullScreen, defaultValue: false);
 
   static double get desktopVolume =>
       _setting.get(SettingBoxKey.desktopVolume, defaultValue: 1.0);

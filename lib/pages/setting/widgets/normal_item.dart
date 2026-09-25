@@ -1,4 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class NormalItem extends StatefulWidget {
@@ -42,8 +44,11 @@ class _NormalItemState extends State<NormalItem> {
         ),
       );
     }
-    return ListTile(
+    Widget tile(FocusNode? focusNode) => ListTile(
       contentPadding: widget.contentPadding,
+      focusNode: focusNode,
+      // 焦点视觉由 FocusRing 负责
+      focusColor: focusNode == null ? null : Colors.transparent,
       onTap: widget.onTap == null
           ? null
           : () => widget.onTap!(context, refresh),
@@ -54,6 +59,14 @@ class _NormalItemState extends State<NormalItem> {
       subtitle: subtitle,
       leading: widget.leading,
       trailing: widget.getTrailing?.call(theme),
+    );
+
+    // 没有 onTap 的行（版本号、状态说明这类）按下去也没动作，不进焦点树，
+    // 免得手柄停在上面白按一下。
+    if (!Pref.tvFocus || widget.onTap == null) return tile(null);
+    return FocusRing(
+      debugLabel: '设置项',
+      builder: (context, node, _) => tile(node),
     );
   }
 

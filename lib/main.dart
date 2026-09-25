@@ -4,13 +4,14 @@ import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/back_detector.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_overlay.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_route_focus.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_shortcuts.dart';
 import 'package:PiliPlus/common/widgets/hover_reset.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
-import 'package:PiliPlus/common/widgets/window_caption.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
@@ -52,7 +53,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:window_manager/window_manager.dart'
-    hide WindowCaption, calcWindowPosition;
+    hide calcWindowPosition;
 
 WebViewEnvironment? webViewEnvironment;
 
@@ -118,6 +119,9 @@ void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
   // 窗口/应用可见性变化时复位悬停状态，消除"幽灵悬浮"高亮
   HoverReset.ensureRegistered();
+  // 输入源跟踪：鼠标点击 → 焦点跟过去 + 收起预选框，按键/手柄 → 预选框回来。
+  // 桌面和 Android TV 都要（手柄在两边的语义一样），所以不放进平台分支。
+  TvInputMode.init();
   try {
     MediaKit.ensureInitialized();
   } catch (e) {
@@ -222,7 +226,15 @@ void main() async {
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       final bounds = await calcWindowBounds(Pref.windowSize);
       await windowManager.setBounds(bounds);
-      if (Pref.isWindowMaximized) await windowManager.maximize();
+      if (Pref.windowFullScreen) {
+        // 窗口全屏：铺满所在显示器、隐藏任务栏（见 fullscreen.dart）。
+        // 播放器的全屏按钮在这种情况下只切应用内布局，不再动窗口。
+        await enterWindowFullScreen();
+      } else {
+        // 窗口化（默认）：窗口创建即带系统标题栏，这里只是确保位状态。
+        setWindowTitleBarVisible(true);
+        if (Pref.isWindowMaximized) await windowManager.maximize();
+      }
       await windowManager.show();
       await windowManager.focus();
     });
@@ -352,17 +364,6 @@ class MyApp extends StatelessWidget {
         child: child!,
       );
     }
-    // Windows 使用自绘标题栏替代原生标题栏（见 window_caption.dart），
-    // 置于 Navigator 之上、所有路由共用；原生窗口已移除 WS_CAPTION。
-    if (PlatformUtils.isWindows && Pref.showWindowTitleBar) {
-      child = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const WindowCaption(),
-          Expanded(child: child),
-        ],
-      );
-    }
     if (PlatformUtils.isDesktop) {
       child = MouseRegion(
         // 鼠标移出窗口时复位悬停高亮，兜底 MouseTracker 未收到
@@ -376,7 +377,19 @@ class MyApp extends StatelessWidget {
     }
     // 手柄/遥控器键位层：在 Navigator 之上，只吃返回/分栏/媒体键，
     // 其余按键照常往上走（见 tv_shortcuts.dart）
-    return TvShortcuts(child: child);
+    return Stack(
+      fit: StackFit.expand,
+      // 环画在控件边界内侧、越界的那 1px 交给 [TvFocusOverlay] 自己出圈，
+      // 这一层不裁（屏边上的返回键描边会贴到屏幕边缘外沿）
+      clipBehavior: Clip.none,
+      children: [
+        TvShortcuts(child: child),
+        // 焦点环兜底层：最上面一层，没自己画环的控件（框架生成的返回键、各处裸
+        // IconButton……）焦点停上去时在这里补框。放在 Stack 最后是为了盖住
+        // `FlutterSmartDialog` 注入的弹层（它在外层，见 `FlutterSmartDialog.init`）
+        const Positioned.fill(child: TvFocusOverlay()),
+      ],
+    );
   }
 
   /// from [DynamicColorBuilderState.initPlatformState]

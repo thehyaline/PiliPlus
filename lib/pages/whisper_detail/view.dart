@@ -25,6 +25,7 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -197,6 +198,7 @@ class _WhisperDetailPageState
     showMenu(
       context: context,
       position: PageUtils.menuPosition(offset),
+      requestFocus: Pref.tvFocus,
       items: [
         if (isOwner)
           PopupMenuItem(

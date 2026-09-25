@@ -177,6 +177,92 @@ abstract final class TvRegions {
     return true;
   }
 
+  /// 这个节点是不是某个已登记区域的 scope。
+  ///
+  /// 看护循环用它分类"焦点现在浮在哪儿"（浮在区域上 / 路由自己在的 scope 上 /
+  /// 面板上），三者的处理完全不同。
+  static bool isRegion(FocusNode node) {
+    for (final entry in _scopes.values) {
+      if (identical(entry.node, node)) return true;
+    }
+    return false;
+  }
+
+  /// 把焦点送进**这个**区域里的第一个可见项（刚才聚焦的项被销毁、焦点浮到区域
+  /// 自己身上时用）。区域空着返回 false。
+  static bool focusFirstInScope(FocusScopeNode node) {
+    if (!isCurrentRoute(node.context)) return false;
+    final first = _firstVisibleOf(node);
+    if (first == null) return false;
+    first.requestFocus();
+    return true;
+  }
+
+  /// 把焦点送到"屏幕上这个点底下的那个控件"（鼠标/触摸板点击用）。
+  ///
+  /// 不做真正的 hit-test，按几何来：遍历整棵焦点树，取**面积最小**的那个包含
+  /// 这一点的节点。最小面积 = 最内层，所以卡片里的子按钮、滑块、开关都会被
+  /// 正确命中；`ExcludeFocus` 包起来的卡内子动作（点赞、更多…）因为
+  /// `canRequestFocus == false` 自动落选，和"一个卡片一个焦点"的约定一致。
+  ///
+  /// 不要求 `!skipTraversal`：播放器画面、输入框这些"不参与方向键遍历"的叶子
+  /// 也得能接住点击——点一下视频再按方向键，起点就是画面。
+  ///
+  /// 返回是否真的移动了焦点（点在空白处就不动，免得把焦点从别处抢走）。
+  static bool focusAt(Offset position) {
+    FocusNode? best;
+    var bestArea = double.infinity;
+    for (final node in FocusManager.instance.rootScope.descendants) {
+      if (node is FocusScopeNode || !node.canRequestFocus) continue;
+      // 被盖住的路由、offstage 的旧页、保持存活但已经收走的项都不算
+      if (!isCurrentRoute(node.context) || !isPainted(node)) continue;
+      final rect = node.rect;
+      if (!rect.contains(position)) continue;
+      final area = rect.width * rect.height;
+      if (area < bestArea) {
+        bestArea = area;
+        best = node;
+      }
+    }
+    best?.requestFocus();
+    return best != null;
+  }
+
+  /// 这个节点现在会不会被画出来。
+  ///
+  /// 先看它还挂不挂在焦点树上；再看尺寸是不是有限值（没布局过的连一帧都没画过，
+  /// 见 [_firstVisible]）；最后排掉 `Offstage`（`TabBarView` 切走的那些栏、
+  /// `Visibility` 保留状态的那种）——它们还挂在树上、矩形也是旧的，点它们等于
+  /// 把焦点送进看不见的地方。
+  ///
+  /// 给"按坐标找落点"（[focusAt]）和"归还焦点"（`TvFocusReturn`）用。
+  /// 只接普通节点，scope 节点不算。
+  static bool isPainted(FocusNode node) {
+    // 还在焦点树上吗——`context` **当不了依据**：框架只在 `attach` 时写它、
+    // `detach` 时不清，而那个 element 常常已经被列表复用给同位置的**另一个**
+    // 节点了（没给 Key 的 `Column` / `ListView` 是按位置匹配的），于是
+    // "有 context、矩形有限、还在屏幕里"全是假象；真把焦点送过去，它打在
+    // 一个不接线的节点上什么也不会发生，`TvFocusReturn` 还会当成"归还成功"
+    // 而收手（预选框就永远浮着了）。挂在树上的非 scope 节点必有一个 scope 祖先，
+    // 摘下来的没有（框架 `detach` 里会把 `_parent` 置空）。
+    if (node.nearestScope == null) return false;
+    final context = node.context;
+    if (context == null || !context.mounted) return false;
+    final rect = node.rect;
+    if (!rect.width.isFinite || !rect.height.isFinite) return false;
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    var painted = true;
+    context.visitAncestorElements((element) {
+      final widget = element.widget;
+      if (widget is Offstage && widget.offstage) {
+        painted = false;
+        return false;
+      }
+      return true;
+    });
+    return painted;
+  }
+
   /// 进入 [route] 时预选框该落在哪儿；给不出像样的落点时返回 null。
   ///
   /// 换页时框架只把焦点交给路由自己的 scope，页面里一个控件都没选中，
@@ -266,20 +352,23 @@ abstract final class TvRegions {
   }
 
   /// 区域里第一个**看得见**的可聚焦项；区域是空的（懒加载还没建出来）返回 null。
-  static FocusNode? _firstVisibleOf(FocusScopeNode node) {
-    final nodes = node.traversalDescendants;
-    if (nodes.isEmpty) return null;
-    return _firstVisible(nodes, node.rect);
-  }
+  static FocusNode? _firstVisibleOf(FocusScopeNode node) =>
+      _firstVisible(node.traversalDescendants, node.rect);
 
   /// 序列里第一个"落在 [area] 里"的节点；一个都看不见时退而取第一个。
   ///
   /// 不挑看得见的会踩两类坑：列表滚过之后树序第一项在视口**上面**（预选框画在
   /// 屏幕外，看着还是"焦点丢了"）；被 `Offstage` / `KeepAlive` 留住的旧页
   /// （`TabBarView` 里切走的那些）区域还登记着，但项都已经不在屏幕上。
+  ///
+  /// 兜底只兜"画在屏幕外、但还有布局"的项：`rect` 不是有限值的连一帧都不会画
+  /// 出来（`KeepAlive` 把切走的栏收走之后就是这样，连尺寸都是 NaN），选中它就是
+  /// 真的把焦点弄丢了——这时宁可返回 null，让调用方接着去下一块区域找。
   static FocusNode? _firstVisible(Iterable<FocusNode> nodes, Rect area) {
     FocusNode? first;
     for (final node in nodes) {
+      final rect = node.rect;
+      if (!rect.width.isFinite || !rect.height.isFinite) continue;
       first ??= node;
       if (_visibleIn(node, area)) return node;
     }
@@ -292,6 +381,8 @@ abstract final class TvRegions {
     FocusNode? notInTopBar;
     for (final node in nodes) {
       if (_inTopBar(node)) continue;
+      final rect = node.rect;
+      if (!rect.width.isFinite || !rect.height.isFinite) continue;
       notInTopBar ??= node;
       if (_visibleIn(node, screen)) return node;
     }

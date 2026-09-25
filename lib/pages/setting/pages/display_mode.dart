@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -94,11 +95,15 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
                 ),
                 itemBuilder: (context, index) {
                   final DisplayMode mode = modes[index];
-                  return RadioListTile<DisplayMode>(
-                    value: mode,
-                    title: mode == DisplayMode.auto
-                        ? const Text('自动')
-                        : Text('$mode${mode == active ? '  [系统]' : ''}'),
+                  return listTileFocusRing(
+                    debugLabel: '帧率选项',
+                    builder: (focusNode) => RadioListTile<DisplayMode>(
+                      value: mode,
+                      focusNode: focusNode,
+                      title: mode == DisplayMode.auto
+                          ? const Text('自动')
+                          : Text('$mode${mode == active ? '  [系统]' : ''}'),
+                    ),
                   );
                 },
               ),

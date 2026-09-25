@@ -1,5 +1,6 @@
 import 'dart:math' show max;
 
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/gestures.dart' show HorizontalDragGestureRecognizer;
@@ -76,25 +77,29 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (enableSlide) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          _maxWidth = constraints.maxWidth;
-          return AnimatedBuilder(
-            animation: _animController,
-            builder: (context, child) {
-              return Align(
-                alignment: AlignmentDirectional.topStart,
-                heightFactor: 1 - _animController.value,
-                child: child,
-              );
-            },
-            child: buildPage(theme),
-          );
-        },
-      );
-    }
-    return buildPage(theme);
+    // 面板是"盖在视频页上的一层"，焦点要么自己送进来，要么就停在底下那页的
+    // 按钮上（手柄"点开了却选不了"）。`PublishRoute` 那边已经包了一层，这里再
+    // 兜一次底：这套面板不从 `PublishRoute` 进来的时候也照样能用。
+    // 重复套不冲突——两次都是"送到这一层 scope 的第一项"，目标一致；
+    // `Pref.tvFocus` 关掉时 `TvFocusOnOpen` 是空操作。
+    final page = TvFocusOnOpen(child: buildPage(theme));
+    if (!enableSlide) return page;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _maxWidth = constraints.maxWidth;
+        return AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) {
+            return Align(
+              alignment: AlignmentDirectional.topStart,
+              heightFactor: 1 - _animController.value,
+              child: child,
+            );
+          },
+          child: page,
+        );
+      },
+    );
   }
 
   Widget buildPage(ThemeData theme);
