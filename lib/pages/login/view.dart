@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/dial_prefix.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
@@ -551,7 +552,8 @@ class _LoginPageState extends State<LoginPage> {
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: TabBar(
+                  child: TvTabBar(
+                    regionLabel: 'login-tabbar-landscape',
                     isScrollable: true,
                     dividerHeight: 0,
                     tabs: const [
@@ -593,7 +595,8 @@ class _LoginPageState extends State<LoginPage> {
       body: Column(
         children: [
           if (!isLandscape)
-            TabBar(
+            TvTabBar(
+              regionLabel: 'login-tabbar',
               tabs: const [
                 Tab(icon: Icon(Icons.password), text: '密码'),
                 Tab(icon: Icon(Icons.sms_outlined), text: '短信'),

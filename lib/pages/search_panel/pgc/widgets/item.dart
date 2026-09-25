@@ -1,11 +1,9 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SearchPgcItem extends StatelessWidget {
@@ -20,16 +18,10 @@ class SearchPgcItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     const TextStyle style = TextStyle(fontSize: 13);
-    void onLongPress() => imageSaveDialog(
-      title: item.title.map((item) => item.text).join(),
-      cover: item.cover,
-    );
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: () => PageUtils.viewPgc(seasonId: item.seasonId),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Style.safeSpace,

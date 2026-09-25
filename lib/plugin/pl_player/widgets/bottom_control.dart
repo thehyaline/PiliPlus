@@ -7,6 +7,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/tv_seek_bar.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -52,6 +53,9 @@ class BottomControl extends StatelessWidget {
         : colorScheme.primary;
     final thumbGlowColor = primary.withAlpha(80);
     final bufferedBarColor = primary.withValues(alpha: 0.4);
+    // 手柄播放器模型：焦点落在**进度指示器**上，预选框画成 thumb 外面的一圈。
+    // 这一栏只有视频页用（直播页自带下栏、也没有进度条），不用再分直播
+    final focusOnThumb = isPlayerTvMode();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
@@ -67,10 +71,14 @@ class BottomControl extends StatelessWidget {
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: [
-                    Obx(
-                      () => TvSeekBar(
-                        host: _ControllerSeekBarHost(controller, onSeek),
-                        child: ProgressBar(
+                    TvSeekBar(
+                      host: _ControllerSeekBarHost(controller, onSeek),
+                      focusOnThumb: focusOnThumb,
+                      // 进度条要等 TvSeekBar 自己的 build 才构造（`builder`），
+                      // 所以位置/缓冲/时长必须在这个 Obx **里面**读：读到外面
+                      // GetX 会抛 "improper use of a GetX"（进度条也就不再跟着走）
+                      builder: (context, focused) => Obx(
+                        () => ProgressBar(
                           progress: controller.progress,
                           buffered: controller.buffered.value,
                           total: controller.duration.value,
@@ -82,6 +90,8 @@ class BottomControl extends StatelessWidget {
                           barHeight: 3.5,
                           thumbRadius: 7,
                           thumbGlowRadius: 25,
+                          thumbFocusRing: focused,
+                          thumbFocusRingColor: primary,
                           onDragStart: onDragStart,
                           onDragUpdate: onDragUpdate,
                           onSeek: onSeek,

@@ -296,6 +296,7 @@ class _DynamicDetailPageState
     return SizedBox(
       height: 40,
       child: DynTabBar(
+        regionLabel: 'dynamics-detail-tabbar',
         padding: .zero,
         // isScrollable: true,
         indicatorSize: .tab,

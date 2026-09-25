@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -107,7 +108,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: TabBar(
+                            child: TvTabBar(
+                              regionLabel: 'pgc-timeline-tabbar',
                               isScrollable: true,
                               tabAlignment: TabAlignment.start,
                               dividerHeight: 0,
@@ -258,7 +260,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                           return Column(
                             children: [
                               ViewSafeArea(
-                                child: TabBar(
+                                child: TvTabBar(
+                                  regionLabel: 'pgc-index-tabbar',
                                   tabs: titles
                                       .map((title) => Tab(text: title))
                                       .toList(),

@@ -1002,10 +1002,10 @@ abstract final class Pref {
   static bool get isWindowMaximized =>
       _setting.get(SettingBoxKey.isWindowMaximized, defaultValue: false);
 
-  static bool get keyboardControl =>
-      _setting.get(SettingBoxKey.keyboardControl, defaultValue: true);
-
   /// 手柄/遥控器模式：长按确定、栏目切换键等 10-foot 行为的总开关。
+  ///
+  /// 视频播放页的"手柄播放器模型"（整块画面是一个焦点、全屏下上下栏的入口锁、
+  /// 上下栏收起时确定键 = 播放暂停）也挂在它下面，见 `isPlayerTvMode`。
   /// 焦点框的显示本身由 FocusManager.highlightMode 控制，
   /// 触屏设备上即使本项为 true 也不会出现焦点框。
   static bool get tvFocus =>
@@ -1014,6 +1014,15 @@ abstract final class Pref {
   /// 长按确定是否打开「更多」菜单
   static bool get tvLongPressOk =>
       _setting.get(SettingBoxKey.tvLongPressOk, defaultValue: true);
+
+  /// 焦点落到顶部标签栏的某个标签上时，是否立刻切到那一栏。
+  ///
+  /// [tvFocus] 的子行为（对齐 blbl 的 `tabSwitchFollowsFocus`）：手柄只需要
+  /// 左右移动就能把整条标签栏扫一遍，不用"移过去再按确定"。代价是扫过去时
+  /// 每一栏都会开始加载（PGC 时间表、历史、直播分区这些页面会连着一串请求），
+  /// 不想这样就把这一项关掉——关掉之后焦点照样有预选框，只是要按确定才切。
+  static bool get tabSwitchOnFocus =>
+      _setting.get(SettingBoxKey.tabSwitchOnFocus, defaultValue: true);
 
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);

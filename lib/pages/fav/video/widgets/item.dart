@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
@@ -26,14 +25,7 @@ class FavVideoItem extends StatelessWidget {
       debugLabel: '收藏-视频',
       onTap: onTap,
       // 长按确定 / Y 键自动跟着这个长按走（触摸那边就是它）
-      onLongPress:
-          onLongPress ??
-          (onTap == null
-              ? null
-              : () => imageSaveDialog(
-                  title: item.title,
-                  cover: item.cover,
-                )),
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         child: Row(

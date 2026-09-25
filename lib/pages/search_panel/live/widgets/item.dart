@@ -1,11 +1,9 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/video_card/cover_bottom_info.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LiveItem extends StatelessWidget {
@@ -23,15 +21,9 @@ class LiveItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    void onLongPress() => imageSaveDialog(
-      title: liveItem.title.map((item) => item.text).join(),
-      cover: liveItem.cover,
-    );
     return Card(
       child: InkWell(
         onTap: () => PageUtils.toLiveRoom(liveItem.roomid),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         borderRadius: const .all(.circular(12)),
         child: Column(
           crossAxisAlignment: .start,

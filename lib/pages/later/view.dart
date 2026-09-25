@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -113,7 +114,8 @@ class _LaterPageState extends State<LaterPage>
             body: ViewSafeArea(
               child: Column(
                 children: [
-                  TabBar(
+                  TvTabBar(
+                    regionLabel: 'later-tabbar',
                     // isScrollable: true,
                     // tabAlignment: TabAlignment.start,
                     controller: _tabController,

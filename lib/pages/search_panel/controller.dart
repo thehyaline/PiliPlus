@@ -81,6 +81,18 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     return response.list;
   }
 
+  /// 接口搜索结果的分页会漂移，同一条数据可能同时出现在相邻两页的边界上，
+  /// 追加分页数据时按此判重
+  @override
+  Object? getItemKey(T item) => switch (item) {
+    SearchVideoItemModel e => e.bvid ?? e.aid,
+    SearchPgcItemModel e => e.seasonId ?? e.mediaId,
+    SearchLiveItemModel e => e.roomid ?? e.uid,
+    SearchUserItemModel e => e.mid,
+    SearchArticleItemModel e => e.id,
+    _ => null,
+  };
+
   @override
   bool customHandleResponse(bool isRefresh, Success<R> response) {
     if (isRefresh) {

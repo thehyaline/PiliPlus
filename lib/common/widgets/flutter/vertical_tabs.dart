@@ -7,7 +7,12 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole, lerpDouble;
 
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
@@ -860,6 +865,11 @@ class _TabBarScrollController extends ScrollController {
 ///  * [TabController], which coordinates tab selection between a [VerticalTabBar] and a [TabBarView].
 ///  * https://m3.material.io/components/tabs/overview, the Material 3
 ///     tab bar specification.
+/// 竖排的标签栏（仓库内的 fork，见 `vertical_tabs.dart` 顶部说明）。
+///
+/// 手柄那套是后加的，和横排的 `TvTabBar` 保持一致：每个标签一个自己的
+/// [FocusNode]、[FocusRing] 预选框、"焦点即切换"、整条栏作为一个 [TvRegion]，
+/// 于是 ↑/↓ 走标签、←/→ 出栏（方向正好和横排相反），L1/R1 也能切栏。
 class VerticalTabBar extends StatefulWidget {
   /// Creates a Material Design primary tab bar.
   ///
@@ -907,6 +917,9 @@ class VerticalTabBar extends StatefulWidget {
     this.tabAlignment,
     this.textScaler,
     this.indicatorAnimation,
+    required this.regionLabel,
+    this.switchOnFocus,
+    this.onFocusTab,
   }) : _isPrimary = true,
        assert(indicator != null || (indicatorWeight > 0.0));
 
@@ -962,8 +975,20 @@ class VerticalTabBar extends StatefulWidget {
     this.tabAlignment,
     this.textScaler,
     this.indicatorAnimation,
+    required this.regionLabel,
+    this.switchOnFocus,
+    this.onFocusTab,
   }) : _isPrimary = false,
        assert(indicator != null || (indicatorWeight > 0.0));
+
+  /// 焦点区域标签，见 `TvRegion.debugLabel`。**同一个页面里要唯一**。
+  final String regionLabel;
+
+  /// 焦点落到标签上时是否立刻切过去；不传则实时读 `Pref.tabSwitchOnFocus`。
+  final bool? switchOnFocus;
+
+  /// 覆写"焦点即切换"的动作；不传则用 `TabController.animateTo`。
+  final ValueChanged<int>? onFocusTab;
 
   /// Typically a list of two or more [VerticalTab] widgets.
   ///
@@ -1386,7 +1411,8 @@ class VerticalTabBar extends StatefulWidget {
   State<VerticalTabBar> createState() => _VerticalTabBarState();
 }
 
-class _VerticalTabBarState extends State<VerticalTabBar> {
+class _VerticalTabBarState extends State<VerticalTabBar>
+    implements TvTabBarHandle {
   ScrollController? _scrollController;
   TabController? _controller;
   _IndicatorPainter? _indicatorPainter;
@@ -1614,6 +1640,11 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
 
   @override
   void dispose() {
+    _tvEntryLock.dispose();
+    for (final node in _tvNodes) {
+      node.dispose();
+    }
+    _tvNodes.clear();
     _indicatorPainter!.dispose();
     if (_controllerIsValid) {
       _controller!.animation!.removeListener(_handleTabControllerAnimationTick);
@@ -1624,6 +1655,95 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
     // We don't own the _controller Animation, so it's not disposed here.
     super.dispose();
   }
+
+  // ---- 手柄 / 遥控器适配（对齐横排的 `TvTabBar`）----
+
+  final List<FocusNode> _tvNodes = [];
+
+  /// 进栏锁，见 [TvTabEntryLock]（竖排这里就是 ←/→ 从内容区进栏）。
+  late final TvTabEntryLock _tvEntryLock = TvTabEntryLock(
+    nodes: () => _tvNodes,
+    selected: () => _tvController?.index,
+  );
+
+  /// 这一栏的 `TabController`（支持 `DefaultTabController`）。
+  TabController? get _tvController {
+    final controller = widget.controller;
+    if (controller != null) return controller;
+    if (!mounted) return null;
+    return DefaultTabController.maybeOf(context);
+  }
+
+  FocusNode? _tvNodeAt(int index) {
+    if (!Pref.tvFocus) return null;
+    if (index < 0 || index >= widget.tabs.length) return null;
+    while (_tvNodes.length <= index) {
+      final i = _tvNodes.length;
+      _tvNodes.add(
+        FocusNode(debugLabel: '${widget.regionLabel}[$i]')
+          ..addListener(() => _handleTvTabFocus(i)),
+      );
+    }
+    return _tvNodes[index];
+  }
+
+  void _handleTvTabFocus(int index) {
+    if (!mounted) return;
+    if (!_tvNodes[index].hasFocus) {
+      _tvEntryLock.onBlurred();
+      return;
+    }
+    // 从栏外进来：落点锁在当前选中的那一栏（见 [TvTabEntryLock]）
+    if (_tvEntryLock.shouldLandOnSelected(index)) {
+      final target = _tvController?.index;
+      if (target != null) focusTab(target);
+      return;
+    }
+    if (!(widget.switchOnFocus ?? Pref.tabSwitchOnFocus)) return;
+    final onFocusTab = widget.onFocusTab;
+    if (onFocusTab != null) {
+      onFocusTab(index);
+      return;
+    }
+    final controller = _tvController;
+    if (controller == null || controller.index == index) return;
+    controller.animateTo(index);
+  }
+
+  @override
+  void focusTab(int index) => _tvNodeAt(index)?.requestFocus();
+
+  @override
+  bool switchBy(int offset) {
+    final controller = _tvController;
+    if (controller == null) return false;
+    final target = controller.index + offset;
+    if (target < 0 || target >= controller.length) return false;
+    controller.animateTo(target);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) focusTab(target);
+    });
+    return true;
+  }
+
+  FocusNode? buildTabFocusNode(int index) => _tvNodeAt(index);
+
+  Widget buildTabShell(int index, Widget child) {
+    final node = _tvNodeAt(index);
+    if (node == null) return child;
+    return FocusRing(
+      focusNode: node,
+      radius: TvFocusSpec.tabRadius,
+      fillColor: ColorScheme.of(
+        context,
+      ).primary.withValues(alpha: TvFocusSpec.tabFillAlpha),
+      debugLabel: '${widget.regionLabel}[$index]',
+      builder: (_, _, _) => child,
+    );
+  }
+
+  Widget buildTabBarRoot(Widget child) =>
+      TvRegion(debugLabel: widget.regionLabel, child: child);
 
   int get maxTabIndex => _indicatorPainter!.maxTabIndex;
 
@@ -1965,6 +2085,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
             return _defaults.overlayColor?.resolve(effectiveStates);
           });
       wrappedTabs[index] = InkWell(
+        focusNode: buildTabFocusNode(index),
         mouseCursor: effectiveMouseCursor,
         onTap: () {
           _handleTap(index);
@@ -1992,6 +2113,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
         ),
       );
       wrappedTabs[index] = MergeSemantics(child: wrappedTabs[index]);
+      wrappedTabs[index] = buildTabShell(index, wrappedTabs[index]);
       if (!widget.isScrollable && effectiveTabAlignment == TabAlignment.fill) {
         wrappedTabs[index] = Expanded(child: wrappedTabs[index]);
       }
@@ -2077,11 +2199,13 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
       tabBar = Padding(padding: widget.padding!, child: tabBar);
     }
 
-    return MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: widget.textScaler ?? tabBarTheme.textScaler),
-      child: tabBar,
+    return buildTabBarRoot(
+      MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: widget.textScaler ?? tabBarTheme.textScaler),
+        child: tabBar,
+      ),
     );
   }
 }

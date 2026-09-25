@@ -8,6 +8,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_section_switcher.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
@@ -70,7 +71,6 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
@@ -1385,25 +1385,21 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       case _LayoutMode.almostSquare:
         child = childWhenDisabledAlmostSquare;
     }
-    // 手柄模式（Pref.tvFocus）也要装上这个按键层：两个开关是并列的，
-    // 关掉"键盘控制"的人照样能用手柄/遥控器
-    if (videoDetailController.plPlayerController.keyboardControl ||
-        Pref.tvFocus) {
-      child = PlayerFocus(
-        plPlayerController: videoDetailController.plPlayerController,
-        introController: introController,
-        onSendDanmaku: videoDetailController.showShootDanmakuSheet,
-        canPlay: () {
-          if (videoDetailController.autoPlay) {
-            return true;
-          }
-          handlePlay();
-          return false;
-        },
-        onSkipSegment: videoDetailController.onSkipSegment,
-        child: child,
-      );
-    }
+    // 键盘控制（`PlayerFocus` 里的桌面键位表）现在常开，没有开关了
+    child = PlayerFocus(
+      plPlayerController: videoDetailController.plPlayerController,
+      introController: introController,
+      onSendDanmaku: videoDetailController.showShootDanmakuSheet,
+      canPlay: () {
+        if (videoDetailController.autoPlay) {
+          return true;
+        }
+        handlePlay();
+        return false;
+      },
+      onSkipSegment: videoDetailController.onSkipSegment,
+      child: child,
+    );
     // L1/R1 切栏：简介 / 评论 / 播放列表。
     // 只有一栏时不接键，让 L1/R1 放行给别人（对齐首页，见 `TvSectionSwitcher`）
     final tabCount = videoDetailController.tabCtr.length;
@@ -1440,9 +1436,28 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       );
     }
 
+    /// 点某一栏 / 焦点落到某一栏之后的共同动作：把对应的区块滚回顶部。
+    void animToTop(int value) {
+      if (onTap != null) {
+        onTap();
+        return;
+      }
+      final text = tabs[value];
+      if (videoDetailController.isFileSource ||
+          text == '简介' ||
+          text == '相关视频') {
+        videoDetailController.introScrollCtr?.animToTop();
+      } else if (text.startsWith('评论')) {
+        _videoReplyController.animateToTop();
+      }
+    }
+
     Widget tabBar() {
       final flag = !needIndicator || tabs.length == 1;
-      return TabBar(
+      return TvTabBar(
+        // 手柄：切栏之后的焦点落点（L1/R1 → `_switchTab`）。
+        // 区域里只有标签，所以"第 n 个"就是第 n 栏
+        regionLabel: VideoDetailPageV.tvTabBarRegion,
         padding: .zero,
         dividerHeight: 0,
         labelPadding: .zero,
@@ -1454,26 +1469,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             TabBarTheme.of(context).labelStyle?.copyWith(fontSize: 13) ??
             const TextStyle(fontSize: 13),
         onTap: (value) {
-          void animToTop() {
-            if (onTap != null) {
-              onTap();
-              return;
-            }
-            String text = tabs[value];
-            if (videoDetailController.isFileSource ||
-                text == '简介' ||
-                text == '相关视频') {
-              videoDetailController.introScrollCtr?.animToTop();
-            } else if (text.startsWith('评论')) {
-              _videoReplyController.animateToTop();
-            }
+          if (flag || !videoDetailController.tabCtr.indexIsChanging) {
+            animToTop(value);
           }
-
-          if (flag) {
-            animToTop();
-          } else if (!videoDetailController.tabCtr.indexIsChanging) {
-            animToTop();
-          }
+        },
+        // 焦点落到别的栏上：和点它一样（切栏 + 把对应区块滚到顶）。
+        // 停在当前栏上不动：从下面按 ↑ 上来不该把页面滚回顶部。
+        onFocusTab: (value) {
+          if (videoDetailController.tabCtr.index == value) return;
+          videoDetailController.tabCtr.animateTo(value);
+          animToTop(value);
         },
         tabs: tabs.map((text) {
           if (text == '评论') {
@@ -1516,12 +1521,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   alignment: .centerLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                    // 手柄：切栏之后的焦点落点（L1/R1 → `_switchTab`）。
-                    // 区域里只有标签，所以"第 n 个"就是第 n 栏
-                    child: TvRegion(
-                      debugLabel: VideoDetailPageV.tvTabBarRegion,
-                      child: tabBar(),
-                    ),
+                    child: tabBar(),
                   ),
                 ),
               ),

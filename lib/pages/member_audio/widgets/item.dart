@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
@@ -8,7 +7,6 @@ import 'package:PiliPlus/models/common/stat_type.dart';
 import 'package:PiliPlus/models_new/space/space_audio/item.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberAudioItem extends StatelessWidget {
@@ -20,7 +18,6 @@ class MemberAudioItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasStat = item.statistic != null;
-    void onLongPress() => imageSaveDialog(title: item.title, cover: item.cover);
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -30,8 +27,6 @@ class MemberAudioItem extends StatelessWidget {
           oid: item.id!,
           from: PlaylistSource.MEM_SPACE,
         ),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Style.safeSpace,

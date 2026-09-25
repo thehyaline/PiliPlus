@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/avatars.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/action_panel.dart';
@@ -60,7 +59,7 @@ class DynamicPanel extends StatelessWidget {
       onSetReplySubject: onSetReplySubject,
     );
 
-    void showMore() => _imageSaveDialog(context, authorWidget.morePanel);
+    void showMore() => authorWidget.morePanel(context);
 
     final child = TvCard(
       debugLabel: '动态',
@@ -140,71 +139,6 @@ class DynamicPanel extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: child,
       ),
-    );
-  }
-
-  void _imageSaveDialog(
-    BuildContext context,
-    Function(BuildContext) morePanel,
-  ) {
-    String? title;
-    String? cover;
-    String? bvid;
-    late final major = item.modules.moduleDynamic?.major;
-    switch (item.type) {
-      case 'DYNAMIC_TYPE_AV':
-        if (major?.archive case final archive?) {
-          title = archive.title;
-          cover = archive.cover;
-          bvid = archive.bvid;
-        }
-        break;
-      case 'DYNAMIC_TYPE_UGC_SEASON':
-        if (major?.ugcSeason case final ugcSeason?) {
-          title = ugcSeason.title;
-          cover = ugcSeason.cover;
-          bvid = ugcSeason.bvid;
-        }
-        break;
-      case 'DYNAMIC_TYPE_PGC' || 'DYNAMIC_TYPE_PGC_UNION':
-        if (major?.pgc case final pgc?) {
-          title = pgc.title;
-          cover = pgc.cover;
-        }
-        break;
-      case 'DYNAMIC_TYPE_LIVE_RCMD':
-        if (major?.liveRcmd case final liveRcmd?) {
-          title = liveRcmd.title;
-          cover = liveRcmd.cover;
-        }
-        break;
-      case 'DYNAMIC_TYPE_LIVE':
-        if (major?.live case final live?) {
-          title = live.title;
-          cover = live.cover;
-        }
-        break;
-      case 'DYNAMIC_TYPE_COURSES_SEASON':
-        if (major?.courses case final courses?) {
-          title = courses.title;
-          cover = courses.cover;
-        }
-        break;
-      case 'DYNAMIC_TYPE_SUBSCRIPTION_NEW':
-        if (major?.subscriptionNew?.liveRcmd?.content?.livePlayInfo
-            case final livePlayInfo?) {
-          title = livePlayInfo.title;
-          cover = livePlayInfo.cover;
-        }
-        break;
-      default:
-        morePanel(context);
-        return;
-    }
-    imageSaveDialog(
-      title: title,
-      cover: cover,
-      bvid: bvid,
     );
   }
 

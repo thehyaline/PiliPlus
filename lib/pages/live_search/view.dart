@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
@@ -70,7 +71,8 @@ class _LiveSearchPageState extends State<LiveSearchPage> {
             opacity: _controller.hasData.value ? 1 : 0,
             child: Column(
               children: [
-                TabBar(
+                TvTabBar(
+                  regionLabel: 'live-search-tabbar',
                   controller: _controller.tabController,
                   tabs: [
                     Obx(

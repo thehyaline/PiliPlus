@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -28,10 +27,11 @@ class SearchVideoCardV extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      bvid: videoItem.bvid,
-      title: videoItem.title,
-      cover: videoItem.cover,
+    // 封面上的 ⋮ 已经拿掉：触摸长按、桌面右键都从这儿弹同一个菜单
+    void openMenu() => VideoPopupMenu.show(
+      context: context,
+      videoItem: videoItem,
+      onRemove: onRemove,
     );
     final theme = Theme.of(context);
     return Stack(
@@ -39,8 +39,8 @@ class SearchVideoCardV extends StatelessWidget {
       children: [
         Card(
           child: InkWell(
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+            onLongPress: openMenu,
+            onSecondaryTap: PlatformUtils.isMobile ? null : openMenu,
             onTap: onTap,
             borderRadius: const .all(.circular(12)),
             child: Column(
@@ -126,17 +126,6 @@ class SearchVideoCardV extends StatelessWidget {
                 content(theme),
               ],
             ),
-          ),
-        ),
-        Positioned(
-          right: -5,
-          bottom: -2,
-          width: 29,
-          height: 29,
-          child: VideoPopupMenu(
-            iconSize: 17,
-            videoItem: videoItem,
-            onRemove: onRemove,
           ),
         ),
       ],

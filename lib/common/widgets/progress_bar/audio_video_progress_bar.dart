@@ -43,6 +43,8 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
+    this.thumbFocusRing = false,
+    this.thumbFocusRingColor,
   });
 
   /// The elapsed playing time of the media.
@@ -173,6 +175,23 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
+  /// 在进度指示器（thumb）外面套一圈焦点环。
+  ///
+  /// 手柄播放器模型下"当前进度指示器 = 一个焦点"，这圈环就是它的预选框。
+  /// 画在 thumb 外面（[thumbFocusRingGap] 的空隙 + 1.5 描边），**故意不撑高
+  /// 控件**：高度一变，聚焦/失焦时整条控制条都会跳一下。多出来的部分由调用方
+  /// 的内边距兜住（和 [thumbGlowRadius] 的画法一样）。
+  final bool thumbFocusRing;
+
+  /// 焦点环的颜色；不传则用 [thumbColor]。
+  final Color? thumbFocusRingColor;
+
+  /// thumb 与焦点环之间的空隙。
+  static const double thumbFocusRingGap = 4.0;
+
+  /// 焦点环描边宽度（对齐 `TvFocusSpec.playerBorderWidth`）。
+  static const double thumbFocusRingWidth = 1.5;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
     return RenderProgressBar(
@@ -192,6 +211,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
+      thumbFocusRing: thumbFocusRing,
+      thumbFocusRingColor: thumbFocusRingColor,
     );
   }
 
@@ -216,7 +237,9 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbColor = thumbColor
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
-      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar;
+      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
+      ..thumbFocusRing = thumbFocusRing
+      ..thumbFocusRingColor = thumbFocusRingColor;
   }
 
   @override
@@ -262,6 +285,15 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..add(ColorProperty('thumbColor', thumbColor))
       ..add(ColorProperty('thumbGlowColor', thumbGlowColor))
       ..add(DoubleProperty('thumbGlowRadius', thumbGlowRadius))
+      ..add(
+        FlagProperty(
+          'thumbFocusRing',
+          value: thumbFocusRing,
+          ifTrue: 'true',
+          ifFalse: 'false',
+          showName: true,
+        ),
+      )
       ..add(
         FlagProperty(
           'thumbCanPaintOutsideBar',
@@ -341,6 +373,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
+    this._thumbFocusRing = false,
+    this._thumbFocusRingColor,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
@@ -614,6 +648,24 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     markNeedsPaint();
   }
 
+  /// 给 thumb 套一圈焦点环（手柄播放器模型下"进度指示器 = 一个焦点"）。
+  bool get thumbFocusRing => _thumbFocusRing;
+  bool _thumbFocusRing;
+  set thumbFocusRing(bool value) {
+    if (_thumbFocusRing == value) return;
+    _thumbFocusRing = value;
+    markNeedsPaint();
+  }
+
+  /// 焦点环颜色；null 表示跟 thumbColor 走。
+  Color? get thumbFocusRingColor => _thumbFocusRingColor;
+  Color? _thumbFocusRingColor;
+  set thumbFocusRingColor(Color? value) {
+    if (_thumbFocusRingColor == value) return;
+    _thumbFocusRingColor = value;
+    markNeedsPaint();
+  }
+
   // The smallest that this widget would ever want to be.
   static const _minDesiredWidth = 100.0;
 
@@ -750,6 +802,17 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (_userIsDraggingThumb && _paintThumbGlow) {
       final thumbGlowPaint = Paint()..color = thumbGlowColor;
       canvas.drawCircle(center, thumbGlowRadius, thumbGlowPaint);
+    }
+    if (_thumbFocusRing) {
+      // 焦点环画在 thumb 外面；和 thumbGlow 一样允许溢出轨道的矩形
+      canvas.drawCircle(
+        center,
+        thumbRadius + ProgressBar.thumbFocusRingGap,
+        Paint()
+          ..color = _thumbFocusRingColor ?? thumbColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = ProgressBar.thumbFocusRingWidth,
+      );
     }
     canvas.drawCircle(center, thumbRadius, thumbPaint);
   }

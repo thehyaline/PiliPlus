@@ -3,6 +3,7 @@ import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_memory.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -123,7 +124,8 @@ class _HistoryPageState extends State<HistoryPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ?_buildPauseTip,
-                    TabBar(
+                    TvTabBar(
+                      regionLabel: 'history-tabbar',
                       controller: _historyController.tabController,
                       onTap: (index) {
                         if (!_historyController

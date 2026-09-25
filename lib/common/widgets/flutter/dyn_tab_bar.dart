@@ -2,13 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:flutter/rendering.dart' show RenderFlex, FlexParentData;
 import 'package:material_ui/material_ui.dart';
 
-class DynTabBar extends TabBar {
+/// 最后一栏右对齐的动态页标签栏。手柄那套（焦点框、焦点即切换、L1/R1）
+/// 继承自 [TvTabBar]。
+class DynTabBar extends TvTabBar {
   const DynTabBar({
     super.key,
     required super.tabs,
+    required super.regionLabel,
     super.controller,
     super.scrollController,
     super.isScrollable,
@@ -45,7 +49,7 @@ class DynTabBar extends TabBar {
   State<TabBar> createState() => _DynTabBarState();
 }
 
-class _DynTabBarState extends TabBarState {
+class _DynTabBarState extends TvTabBarState {
   @override
   void applyFillAlignment(index, wrappedTabs, effectiveTabAlignment) {
     return;

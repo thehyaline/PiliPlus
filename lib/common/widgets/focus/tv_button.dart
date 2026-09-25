@@ -45,6 +45,10 @@ class TvButton extends StatelessWidget {
       radius: TvFocusSpec.playerRadius,
       borderWidth: TvFocusSpec.playerBorderWidth,
       scale: TvFocusSpec.playerScale,
+      // 播放器控件的预选框是**圆形**的（对齐电视端"圆形预选框"的手感）：
+      // 播放器按钮都是 30~42 见方的小方块，圆角矩形看着像在框一个按钮，
+      // 圆形看着像在"Hover 这一颗"。视频页和直播页一致。
+      circle: true,
       // 没有确定键行为就没什么可停的（例如占位用的空按钮）
       canRequestFocus: onTap != null,
       onKeyEvent: (node, event) {

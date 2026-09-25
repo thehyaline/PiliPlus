@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
@@ -10,7 +9,6 @@ import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
@@ -73,17 +71,9 @@ class VideoCardVMemberHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      title: videoItem.title,
-      cover: videoItem.cover,
-      aid: videoItem.param,
-      bvid: videoItem.bvid,
-    );
     return Card(
       child: InkWell(
         onTap: onPushDetail,
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         borderRadius: const .all(.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

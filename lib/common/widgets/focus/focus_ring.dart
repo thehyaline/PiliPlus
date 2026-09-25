@@ -25,9 +25,13 @@ class FocusRing extends StatefulWidget {
     this.canRequestFocus = true,
     this.enabled = true,
     this.showRing = false,
+    this.hideRing = false,
     this.radius = TvFocusSpec.radius,
     this.scale = TvFocusSpec.scale,
     this.borderWidth = TvFocusSpec.borderWidth,
+    this.circle = false,
+    this.ringOnPrimaryFocus = false,
+    this.fillColor,
     this.overlay,
     this.onKeyEvent,
     this.onFocusChange,
@@ -54,9 +58,40 @@ class FocusRing extends StatefulWidget {
   /// （见 `TvTextField`）。
   final bool showRing;
 
+  /// 有焦点也不画环（描边、缩放、底纹都不会出现）。
+  ///
+  /// 给"焦点停在这里只是个落脚点"用：播放器**全屏**时上下栏收起来之后焦点停在
+  /// 画面上（那时候确定键是播放/暂停、方向键唤起上下栏），但画面不该被框起来——
+  /// 全屏下它已经不是"一个整体焦点"了（见 `TvPlayerSurface`）。
+  /// 想彻底不进焦点树用 [enabled] / [canRequestFocus]，不是这个。
+  final bool hideRing;
+
+  /// 只在**焦点自己**停在这个节点上时画环，焦点落在里面的子节点上时不画。
+  ///
+  /// 默认（false）用的是 `hasFocus`——焦点在子树里时祖先节点也算"有焦点"。
+  /// 这对小控件是想要的（按钮和它内部的 `InkWell` 本来就是同一个节点），
+  /// 但对"一大片容器"就成了同屏两个预选框：播放器画面那一层是整块视频，
+  /// 焦点进到底部控制条之后它仍然 `hasFocus`，于是画面一圈、按钮一圈
+  /// （见 `TvPlayerSurface`）。
+  final bool ringOnPrimaryFocus;
+
   final BorderRadius radius;
   final double scale;
   final double borderWidth;
+
+  /// 把预选框画成**圆形**（内切于控件矩形）而不是圆角矩形。
+  ///
+  /// 播放器控件在手柄播放器模型下的规格（对齐电视端"圆形预选框"的手感）：
+  /// 播放器按钮大多是 30~42 见方的小方块，圆角矩形看着像在框一个按钮，
+  /// 圆形看着像在"Hover 这一颗"。此时 [radius] 不起作用。
+  final bool circle;
+
+  /// 聚焦时垫在内容**底下**的一层底色（预选框的"底纹"）。
+  ///
+  /// 和描边不同，它画在 [builder] 内容的下面：标签文字不会被染上颜色，
+  /// 看着像这个格子亮了起来（blbl 的 `blbl_focus_bg_round.xml`）。
+  /// 传一个低不透明度的主题色即可，例如 `TvTabBar`。
+  final Color? fillColor;
 
   /// 聚焦时叠在内容之上的额外绘制层（例如长按进度环）。
   final Widget? overlay;
@@ -95,11 +130,11 @@ class _FocusRingState extends State<FocusRing> {
       _internalNode = FocusNode(debugLabel: widget.debugLabel);
     }
     final node = _node
-      ..canRequestFocus = widget.canRequestFocus && widget.enabled
-      ..onKeyEvent = widget.onKeyEvent
-      ..addListener(_handleFocusChange);
+      ..canRequestFocus = widget.canRequestFocus && widget.enabled;
+    _applyKeyHandler(node, null);
+    node.addListener(_handleFocusChange);
     FocusManager.instance.addListener(_syncRing);
-    _focused = node.hasFocus;
+    _focused = _isFocused;
     _showRing = _wantRing && widget.enabled && FocusRing.highlightEnabled;
   }
 
@@ -109,9 +144,9 @@ class _FocusRingState extends State<FocusRing> {
     if (widget.focusNode != oldWidget.focusNode) {
       _node.removeListener(_handleFocusChange);
       widget.focusNode?.addListener(_handleFocusChange);
-      _focused = _node.hasFocus;
+      _focused = _isFocused;
     }
-    _node.onKeyEvent = widget.onKeyEvent;
+    _applyKeyHandler(_node, oldWidget.onKeyEvent);
     final canRequestFocus = widget.canRequestFocus && widget.enabled;
     if (_node.canRequestFocus != canRequestFocus) {
       _node.canRequestFocus = canRequestFocus;
@@ -122,18 +157,38 @@ class _FocusRingState extends State<FocusRing> {
     _syncRing();
   }
 
+  /// 只在**真的传了** [FocusRing.onKeyEvent] 时才动节点的按键处理。
+  ///
+  /// 节点不一定是我们的：`TvTabBar` 把 `InkWell` 自己的节点借给 [FocusRing]
+  /// 用，调用方也可能递进来一个已经配好 `onKeyEvent` 的外部节点。`Focus` 的
+  /// `onKeyEvent` getter 会回退去读节点上的值，所以写了 null 一般也不会立刻
+  /// 出问题——但那是巧合。"不传"就该是"不动别人的"。
+  void _applyKeyHandler(
+    FocusNode node,
+    KeyEventResult Function(FocusNode, KeyEvent)? old,
+  ) {
+    final handler = widget.onKeyEvent;
+    if (handler != null) {
+      node.onKeyEvent = handler;
+    } else if (old != null) {
+      // 我们先前挂过一个，现在撤掉
+      node.onKeyEvent = null;
+    }
+  }
+
   @override
   void dispose() {
     FocusManager.instance.removeListener(_syncRing);
-    (_internalNode ?? widget.focusNode)
-      ?..removeListener(_handleFocusChange)
-      ..onKeyEvent = null;
+    final node = _internalNode ?? widget.focusNode;
+    node?.removeListener(_handleFocusChange);
+    // 只撤我们自己挂上去的那个，别动别人的（见 [_applyKeyHandler]）
+    if (widget.onKeyEvent != null) node?.onKeyEvent = null;
     _internalNode?.dispose();
     super.dispose();
   }
 
   void _handleFocusChange() {
-    final focused = _node.hasFocus;
+    final focused = _isFocused;
     if (focused != _focused) {
       _focused = focused;
       widget.onFocusChange?.call(focused);
@@ -141,13 +196,29 @@ class _FocusRingState extends State<FocusRing> {
     _syncRing();
   }
 
-  bool get _wantRing => _focused || widget.showRing;
+  /// 这个节点现在算不算"有焦点"——见 [FocusRing.ringOnPrimaryFocus]。
+  ///
+  /// 焦点在子树里移动时 `hasFocus` 不变，所以 [FocusManager] 的监听
+  /// （[_syncRing]）是必须的：`hasPrimaryFocus` 会在那里被重新求值。
+  bool get _isFocused =>
+      widget.ringOnPrimaryFocus ? _node.hasPrimaryFocus : _node.hasFocus;
+
+  bool get _wantRing =>
+      !widget.hideRing && (_isFocused || widget.showRing);
 
   void _syncRing() {
     final showRing = _wantRing && widget.enabled && FocusRing.highlightEnabled;
     if (showRing == _showRing || !mounted) return;
     setState(() => _showRing = showRing);
   }
+
+  /// 焦点框的形状——`shape` 和 `borderRadius` 互斥，圆形的圆角交给内切圆去算。
+  BoxDecoration _decoration({Color? color, Border? border}) => BoxDecoration(
+    shape: widget.circle ? BoxShape.circle : BoxShape.rectangle,
+    borderRadius: widget.circle ? null : widget.radius,
+    color: color,
+    border: border,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -162,14 +233,24 @@ class _FocusRingState extends State<FocusRing> {
         // （`loose` 会把紧约束放宽，调用方靠 `Expanded`/`SizedBox` 撑开的宽度就没了）
         fit: StackFit.passthrough,
         children: [
+          // 底纹垫在内容下面，所以标签文字不会被染色
+          if (widget.fillColor case final fill?)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: TvFocusSpec.duration,
+                  curve: Curves.easeOut,
+                  decoration: _decoration(color: _showRing ? fill : null),
+                ),
+              ),
+            ),
           widget.builder(context, _node, _showRing),
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedContainer(
                 duration: TvFocusSpec.duration,
                 curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  borderRadius: widget.radius,
+                decoration: _decoration(
                   border: Border.all(
                     width: widget.borderWidth,
                     color: _showRing ? colorScheme.primary : Colors.transparent,
@@ -184,4 +265,25 @@ class _FocusRingState extends State<FocusRing> {
       ),
     );
   }
+}
+
+/// 给"本身就是圆的"控件加**圆形**预选框（头像 / 消息 / 搜索这类圆按钮，
+/// 见 `docs/tv_focus.md` 的「主界面导航栏」）。圆角矩形那一档直接用 [FocusRing]。
+///
+/// [builder] 收到的是 [FocusRing] 持有的那一个节点，交给内部的可聚焦控件
+/// （`InkWell` / `IconButton` 都接受 `focusNode`）。`Pref.tvFocus` 关掉时把
+/// `null` 直接递进去、**[FocusRing] 也不建**——准则 6「默认零侵入」，节点一个不多。
+///
+/// 这些按钮是共享控件（`userAvatar` / `msgBadge` / 侧栏的搜索按钮同时出现在
+/// 手机顶栏、平板抽屉、「我的」页头部），环加在这里四处就一致了。
+Widget circularFocusRing({
+  required String debugLabel,
+  required Widget Function(FocusNode? focusNode) builder,
+}) {
+  if (!Pref.tvFocus) return builder(null);
+  return FocusRing(
+    debugLabel: debugLabel,
+    circle: true,
+    builder: (_, focusNode, _) => builder(focusNode),
+  );
 }

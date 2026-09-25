@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -32,10 +31,10 @@ class VideoCardHMemberVideo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    void onLongPress() => imageSaveDialog(
-      title: videoItem.title,
-      cover: videoItem.cover,
-      bvid: videoItem.bvid,
+    // 封面上的 ⋮ 已经拿掉：触摸长按、桌面右键都从这儿弹同一个菜单
+    void openMenu() => VideoPopupMenu.show(
+      context: context,
+      videoItem: videoItem,
     );
     return Material(
       type: MaterialType.transparency,
@@ -43,8 +42,8 @@ class VideoCardHMemberVideo extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           InkWell(
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+            onLongPress: openMenu,
+            onSecondaryTap: PlatformUtils.isMobile ? null : openMenu,
             onTap:
                 onTap ??
                 () {
@@ -191,16 +190,6 @@ class VideoCardHMemberVideo extends StatelessWidget {
                   content(context, theme),
                 ],
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            right: 12,
-            width: 29,
-            height: 29,
-            child: VideoPopupMenu(
-              iconSize: 17,
-              videoItem: videoItem,
             ),
           ),
         ],

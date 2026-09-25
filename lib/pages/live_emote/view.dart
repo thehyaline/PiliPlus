@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/custom_tooltip.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -186,7 +187,8 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                     height: 1,
                     color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
-                  TabBar(
+                  TvTabBar(
+                    regionLabel: 'live-emote-panel-tabbar',
                     controller: _emotePanelController.tabController,
                     padding: const EdgeInsets.only(right: 60),
                     dividerColor: Colors.transparent,

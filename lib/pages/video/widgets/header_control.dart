@@ -6,6 +6,8 @@ import 'dart:typed_data' show Uint8List;
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/marquee.dart';
@@ -55,6 +57,7 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/storage_utils.dart';
 import 'package:PiliPlus/utils/subtitle_utils.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:battery_plus/battery_plus.dart';
@@ -350,6 +353,19 @@ class HeaderControlState extends State<HeaderControl>
   late final horizontalScreen = videoDetailCtr.horizontalScreen;
 
   Box setting = GStorage.setting;
+
+  /// 返回键的焦点节点。
+  ///
+  /// 它同时是 [TvLabels.playerBack] 锚点：手柄模式下焦点**进到上栏**时落点锁在
+  /// 返回键上（`TvEntryLock`），那个判断发生在播放器那一层，拿不到这个 State。
+  late final FocusNode _backNode = FocusNode(debugLabel: 'PlayerBack');
+
+  @override
+  void dispose() {
+    TvRegions.unregisterAnchor(TvLabels.playerBack, _backNode);
+    _backNode.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -1733,6 +1749,11 @@ class HeaderControlState extends State<HeaderControl>
   Widget build(BuildContext context) {
     final isFullScreen = this.isFullScreen;
     final isFSOrPip = isFullScreen || plPlayerController.isDesktopPip;
+    // 上栏入口锚点：焦点进到上栏里时落点锁在返回键上（`TvEntryLock`）。
+    // 登记写在 build 里、重复登记会被跳过；手柄模式关掉时没人会用它
+    if (Pref.tvFocus) {
+      TvRegions.registerAnchor(TvLabels.playerBack, _backNode);
+    }
     final showFSActionItem =
         !isFileSource && plPlayerController.showFSActionItem && isFSOrPip;
     showCurrTimeIfNeeded(isFullScreen);
@@ -1808,16 +1829,28 @@ class HeaderControlState extends State<HeaderControl>
             SizedBox(
               width: btnWidth,
               height: btnHeight,
-              child: IconButton(
-                tooltip: '返回',
-                style: btnStyle,
-                icon: const Icon(
-                  FontAwesomeIcons.arrowLeft,
-                  size: 15,
-                  color: Colors.white,
+              // 播放器里少数几个自带焦点环的按钮：它是上栏的入口落点
+              // （手柄模式下的返回键语义就是"退出播放器"，bbll 的返回键
+              // 干脆不可聚焦，这里反过来把它当成上栏的默认落点）
+              child: FocusRing(
+                focusNode: _backNode,
+                debugLabel: 'PlayerBack',
+                radius: TvFocusSpec.playerRadius,
+                borderWidth: TvFocusSpec.playerBorderWidth,
+                scale: TvFocusSpec.playerScale,
+                circle: true,
+                builder: (context, focusNode, focused) => IconButton(
+                  focusNode: focusNode,
+                  tooltip: '返回',
+                  style: btnStyle,
+                  icon: const Icon(
+                    FontAwesomeIcons.arrowLeft,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  onPressed: () =>
+                      plPlayerController.onPopInvokedWithResult(false, null),
                 ),
-                onPressed: () =>
-                    plPlayerController.onPopInvokedWithResult(false, null),
               ),
             ),
             if (!plPlayerController.isDesktopPip &&

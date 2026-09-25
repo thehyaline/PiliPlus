@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
@@ -55,7 +56,8 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
       children: [
         SizedBox(
           height: 45,
-          child: TabBar(
+          child: TvTabBar(
+            regionLabel: 'live-contribution-rank-tabbar',
             controller: _tabController,
             tabs: LiveContributionRankType.values
                 .map((e) => Tab(text: e.title))

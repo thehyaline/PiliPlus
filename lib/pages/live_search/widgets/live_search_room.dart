@@ -1,9 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/live/live_search/room_item.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
@@ -17,15 +15,9 @@ class LiveCardVSearch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      title: item.title,
-      cover: item.cover,
-    );
     return Card(
       child: InkWell(
         onTap: () => PageUtils.toLiveRoom(item.roomid),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         borderRadius: const .all(.circular(12)),
         child: Column(
           crossAxisAlignment: .start,

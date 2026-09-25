@@ -226,15 +226,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     } else {
       child = childWhenDisabled;
     }
-    // 同视频页：手柄模式和"键盘控制"两个开关并列
-    if (plPlayerController.keyboardControl || Pref.tvFocus) {
-      child = PlayerFocus(
-        plPlayerController: plPlayerController,
-        onSendDanmaku: _liveRoomController.onSendDanmaku,
-        onRefresh: _liveRoomController.queryLiveUrl,
-        child: child,
-      );
-    }
+    // 同视频页：键盘控制常开，这一层总是装上
+    child = PlayerFocus(
+      plPlayerController: plPlayerController,
+      onSendDanmaku: _liveRoomController.onSendDanmaku,
+      onRefresh: _liveRoomController.queryLiveUrl,
+      child: child,
+    );
     return Theme(
       data: ThemeUtils.darkTheme,
       child: child,

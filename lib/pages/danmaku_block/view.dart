@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -54,7 +55,8 @@ class _DanmakuBlockPageState extends State<DanmakuBlockPage> {
       appBar: AppBar(title: const Text('弹幕屏蔽')),
       body: Column(
         children: [
-          TabBar(
+          TvTabBar(
+            regionLabel: 'dm-block-tabbar',
             controller: _controller.tabController,
             tabs: DmBlockType.values
                 .map(

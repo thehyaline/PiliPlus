@@ -268,12 +268,6 @@ List<SettingsGroup> get playSettings => [
         setKey: SettingBoxKey.enableLongShowControl,
         defaultVal: false,
       ),
-      const SwitchModel(
-        title: '启用键盘控制',
-        leading: Icon(Icons.keyboard_alt_outlined),
-        setKey: SettingBoxKey.keyboardControl,
-        defaultVal: true,
-      ),
       if (PlatformUtils.isDesktop)
         SwitchModel(
           title: '最小化时暂停/还原时播放',

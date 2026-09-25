@@ -422,7 +422,10 @@ List<SettingsGroup> get styleSettings => [
         title: '手柄/遥控器模式',
         subtitle:
             '为方向键、确定键、返回键做适配：卡片只有一个焦点、'
-            '焦点框跟随按键、长按确定打开更多。触摸操作不受影响',
+            '焦点框跟随按键、长按确定打开更多。'
+            '播放页另有一套语义：窗口下整块视频是一个焦点（无法进到播放器控件里），'
+            '确定键进全屏；全屏时上下栏收起后确定键是播放/暂停、'
+            '方向键唤起上下栏并把焦点送回播放/暂停按钮。触摸操作不受影响',
         leading: Icon(MdiIcons.gamepadOutline),
         setKey: SettingBoxKey.tvFocus,
         defaultVal: true,
@@ -433,6 +436,15 @@ List<SettingsGroup> get styleSettings => [
         subtitle: '关闭后长按确定与短按相同',
         leading: Icon(Icons.more_horiz_outlined),
         setKey: SettingBoxKey.tvLongPressOk,
+        defaultVal: true,
+      ),
+      SwitchModel(
+        title: '标签跟随焦点切换',
+        subtitle:
+            '开启后顶部标签栏的预选框左右移动就会切栏目，不用再按确定；'
+            '关闭后预选框照样会显示，但要按确定才切',
+        leading: Icon(Icons.swap_horiz_outlined),
+        setKey: SettingBoxKey.tabSwitchOnFocus,
         defaultVal: true,
       ),
     ],

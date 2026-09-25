@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/search_bar_width.dart';
@@ -162,7 +163,8 @@ class _SearchResultPageState extends State<SearchResultPage>
                             constraints.maxWidth - 2 * Style.safeSpace,
                           )
                     : 8.0;
-                return TabBar(
+                return TvTabBar(
+                  regionLabel: 'search-result-tabbar',
                   overlayColor: const WidgetStatePropertyAll(
                     Colors.transparent,
                   ),

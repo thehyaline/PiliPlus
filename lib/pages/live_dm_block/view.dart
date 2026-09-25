@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -29,7 +30,8 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
   @override
   Widget build(BuildContext context) {
     padding = MediaQuery.viewPaddingOf(context);
-    Widget tabBar = TabBar(
+    Widget tabBar = TvTabBar(
+      regionLabel: 'live-dm-block-tabbar',
       controller: _controller.tabController,
       tabs: const [
         Tab(text: '关键词'),

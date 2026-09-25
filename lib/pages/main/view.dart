@@ -6,12 +6,14 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/main_layout.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliPlus/pages/main/widgets/tablet_nav_item.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
@@ -447,35 +449,39 @@ class _MainAppState extends PopScopeState<MainApp>
                               : _colorScheme.onSurfaceVariant,
                         );
                   }),
+                  // 焦点环和这条选中指示条共用同一个圆角（见 TabletNavItem）
+                  indicatorShape: const RoundedRectangleBorder(
+                    borderRadius: tabletNavTileRadius,
+                  ),
                 ),
                 child: Obx(
-                  () => NavigationDrawer(
-                    /// apply `lib/scripts/navigation_drawer.patch`
-                    flex: 5,
-                    backgroundColor: Colors.transparent,
-                    onDestinationSelected: _mainController.setIndex,
-                    selectedIndex: _mainController.selectedIndex.value,
-                    header: Expanded(flex: 4, child: userAndSearchVertical()),
-                    tilePadding: const .symmetric(
-                      vertical: 5,
-                      horizontal: 12,
-                    ),
-                    indicatorShape: const RoundedRectangleBorder(
-                      borderRadius: .all(.circular(16)),
-                    ),
-                    children: _mainController.navigationBars
-                        .map(
-                          (e) => NavigationDrawerDestination(
-                            label: Text(e.label),
+                  () {
+                    final selectedIndex = _mainController.selectedIndex.value;
+                    return NavigationDrawer(
+                      /// apply `lib/scripts/navigation_drawer.patch`
+                      flex: 5,
+                      backgroundColor: Colors.transparent,
+                      header: Expanded(
+                        flex: 4,
+                        child: userAndSearchVertical(),
+                      ),
+                      // 导航项是自己搭的，不是 NavigationDrawerDestination：
+                      // 后者内部那个 `InkWell` 自己建焦点节点、外面拿不到，
+                      // 焦点预选框就画不出来（见 TabletNavItem）
+                      children: [
+                        for (final (index, e)
+                            in _mainController.navigationBars.indexed)
+                          TabletNavItem(
+                            label: e.label,
                             icon: _buildIcon(type: e),
-                            selectedIcon: _buildIcon(
-                              type: e,
-                              selected: true,
-                            ),
+                            selectedIcon: _buildIcon(type: e, selected: true),
+                            selected: index == selectedIndex,
+                            debugLabel: 'tablet-nav-${e.name}',
+                            onTap: () => _mainController.setIndex(index),
                           ),
-                        )
-                        .toList(),
-                  ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -608,18 +614,32 @@ class _MainAppState extends PopScopeState<MainApp>
         userAvatar(colorScheme: _colorScheme, mainController: _mainController),
         const SizedBox(height: 8),
         msgBadge(_mainController),
-        IconButton(
-          tooltip: '搜索',
-          icon: const Icon(
-            Icons.search_outlined,
-            semanticLabel: '搜索',
-          ),
-          onPressed: () => Get.toNamed(
-            '/search',
-            parameters: _mainController.homeController.searchParams,
-          ),
-        ),
+        _searchButton(),
       ],
     );
+  }
+
+  /// 搜索按钮（形状和上面那两颗一样：圆形预选框）。
+  ///
+  /// 手机竖屏顶栏那份 `searchBar` 是整条输入框，不走这里。
+  Widget _searchButton() {
+    /// [focusNode] 是 [circularFocusRing] 递进来的那一个；手柄模式关掉时
+    /// 它是 null，`IconButton` 自己建节点（和改动前一样）。
+    Widget build(FocusNode? focusNode) {
+      return IconButton(
+        focusNode: focusNode,
+        tooltip: '搜索',
+        icon: const Icon(
+          Icons.search_outlined,
+          semanticLabel: '搜索',
+        ),
+        onPressed: () => Get.toNamed(
+          '/search',
+          parameters: _mainController.homeController.searchParams,
+        ),
+      );
+    }
+
+    return circularFocusRing(debugLabel: '搜索', builder: build);
   }
 }

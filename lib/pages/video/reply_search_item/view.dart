@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
@@ -68,7 +69,8 @@ class _ReplySearchPageState extends State<ReplySearchPage> {
       body: ViewSafeArea(
         child: Column(
           children: [
-            TabBar(
+            TvTabBar(
+              regionLabel: 'reply-search-tabbar',
               controller: _controller.tabController,
               tabs: const [
                 Tab(text: '视频'),

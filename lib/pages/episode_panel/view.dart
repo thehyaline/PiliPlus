@@ -4,7 +4,7 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -28,7 +28,6 @@ import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -217,7 +216,8 @@ class _EpisodePanelState extends State<EpisodePanel>
         children: [
           _buildToolbar(theme),
           if (_isMulti)
-            TabBar(
+            TvTabBar(
+              regionLabel: 'episode-panel-tabbar',
               controller: _tabController,
               padding: const EdgeInsets.only(right: 60),
               isScrollable: true,
@@ -368,7 +368,6 @@ class _EpisodePanelState extends State<EpisodePanel>
   }) {
     late String title;
     String? cover;
-    String? bvid;
     num? duration;
     int? pubdate;
     int? view;
@@ -386,7 +385,6 @@ class _EpisodePanelState extends State<EpisodePanel>
         break;
       case ugc.EpisodeItem item:
         title = item.title!;
-        bvid = item.bvid;
         if (item.arc case final arc?) {
           cover = arc.pic;
           duration = arc.duration;
@@ -402,7 +400,6 @@ class _EpisodePanelState extends State<EpisodePanel>
         }
         break;
       case pgc.EpisodeItem item:
-        bvid = item.bvid;
         title = item.showTitle ?? item.title!;
         cover = item.cover;
         if (item.from == 'pugv') {
@@ -416,12 +413,6 @@ class _EpisodePanelState extends State<EpisodePanel>
         break;
     }
     late final Color primary = theme.colorScheme.primary;
-
-    void onLongPress() {
-      if (cover?.isNotEmpty == true) {
-        imageSaveDialog(title: title, cover: cover, bvid: bvid);
-      }
-    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
@@ -457,8 +448,6 @@ class _EpisodePanelState extends State<EpisodePanel>
                 }
               });
             },
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             child: Padding(
               padding: const .symmetric(
                 horizontal: Style.safeSpace,

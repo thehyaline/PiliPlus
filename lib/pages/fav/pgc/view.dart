@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/pages/fav/pgc/child_view.dart';
 import 'package:PiliPlus/pages/fav/pgc/controller.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -46,7 +47,8 @@ class _FavPgcPageState extends State<FavPgcPage>
         Row(
           children: [
             Expanded(
-              child: TabBar(
+              child: TvTabBar(
+                regionLabel: 'fav-pgc-tabbar',
                 overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                 splashFactory: NoSplash.splashFactory,
                 isScrollable: true,

@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
@@ -83,7 +84,8 @@ class _LiveAreaPageState extends State<LiveAreaPage> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TabBar(
+                  TvTabBar(
+                    regionLabel: 'live-area-tabbar',
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
                     controller: _controller.tabController,

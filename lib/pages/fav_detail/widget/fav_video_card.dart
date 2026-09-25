@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -40,19 +39,13 @@ class FavVideoCardH extends StatelessWidget {
     late final enableMultiSelect = ctr?.enableMultiSelect.value ?? false;
     final colorScheme = ColorScheme.of(context);
 
-    final onLongPress = isSort || enableMultiSelect
-        ? null
-        : isOwner && !enableMultiSelect
+    final onLongPress = !isSort && !enableMultiSelect && isOwner
         ? () {
             ctr!
               ..enableMultiSelect.value = true
               ..onSelect(item);
           }
-        : () => imageSaveDialog(
-            title: item.title,
-            cover: item.cover,
-            bvid: item.bvid,
-          );
+        : null;
 
     return Material(
       type: MaterialType.transparency,

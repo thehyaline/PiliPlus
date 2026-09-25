@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/video_card/cover_bottom_info.dart';
 import 'package:PiliPlus/http/live.dart';
@@ -41,19 +40,19 @@ class _LiveCardVAppState extends State<LiveCardVApp> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    void onLongPress() => imageSaveDialog(
-      title: item.title,
-      cover: widget.showFirstFrame ? item.systemCover : item.cover,
-    );
+    // 封面上的 ⋮ 已经拿掉：触摸长按、桌面右键、手柄 Y / 遥控器菜单键
+    // 都从这儿进反馈菜单
+    final VoidCallback? menuAction = _hasFeedback
+        ? () => _showFeedback(context)
+        : null;
     return Stack(
       children: [
         TvCard(
           autofocus: widget.autofocus,
           onTap: () => PageUtils.toLiveRoom(item.roomid),
-          onLongPress: onLongPress,
-          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-          // 长按确定、手柄 Y 键、遥控器菜单键：都进封面右下角那个「更多」
-          onMore: _hasFeedback ? () => _showFeedback(context) : null,
+          onLongPress: menuAction,
+          onSecondaryTap: PlatformUtils.isMobile ? null : menuAction,
+          onMore: menuAction,
           surface: tvCardSurface,
           child: Column(
             crossAxisAlignment: .start,
@@ -81,24 +80,6 @@ class _LiveCardVAppState extends State<LiveCardVApp> {
             ],
           ),
         ),
-        if (_hasFeedback)
-          Positioned(
-            right: -5,
-            bottom: -2,
-            width: 29,
-            height: 29,
-            child: TvCardSubAction(
-              child: IconButton(
-                padding: .zero,
-                onPressed: () => _showFeedback(context),
-                icon: Icon(
-                  Icons.more_vert_outlined,
-                  size: 17,
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

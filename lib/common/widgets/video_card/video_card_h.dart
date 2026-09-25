@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -38,17 +37,16 @@ class VideoCardH extends StatefulWidget {
 }
 
 class _VideoCardHState extends State<VideoCardH> {
-  /// 手柄长按确定 / Y 键要能打开「更多」按钮的菜单
-  final _menuKey = GlobalKey<PopupMenuButtonState<dynamic>>();
-
   HorizontalVideoModel get videoItem => widget.videoItem;
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      bvid: videoItem.bvid,
-      title: videoItem.title,
-      cover: videoItem.cover,
+    // 封面上的 ⋮ 已经拿掉：触摸长按、桌面右键、手柄 Y / 遥控器菜单键
+    // 都从这儿弹同一个菜单
+    void openMenu() => VideoPopupMenu.show(
+      context: context,
+      videoItem: videoItem,
+      onRemove: widget.onRemove,
     );
     final theme = Theme.of(context);
     return Stack(
@@ -98,10 +96,9 @@ class _VideoCardHState extends State<VideoCardH> {
                   );
                 }
               },
-          onLongPress: onLongPress,
-          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-          // 长按确定、手柄 Y 键、遥控器菜单键：都进右侧那个「更多」
-          onMore: () => _menuKey.currentState?.showButtonMenu(),
+          onLongPress: openMenu,
+          onSecondaryTap: PlatformUtils.isMobile ? null : openMenu,
+          onMore: openMenu,
           child: Padding(
             padding: const .symmetric(
               horizontal: Style.safeSpace,
@@ -176,20 +173,6 @@ class _VideoCardHState extends State<VideoCardH> {
                 const SizedBox(width: 10),
                 content(theme),
               ],
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 0,
-          right: 12,
-          width: 29,
-          height: 29,
-          child: TvCardSubAction(
-            child: VideoPopupMenu(
-              buttonKey: _menuKey,
-              iconSize: 17,
-              videoItem: videoItem,
-              onRemove: widget.onRemove,
             ),
           ),
         ),

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models_new/space/space/tab2.dart';
@@ -55,7 +56,8 @@ class _MemberContributeState extends State<MemberContribute>
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TabBar(
+              TvTabBar(
+                regionLabel: 'member-contribute-tabbar',
                 overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                 splashFactory: NoSplash.splashFactory,
                 padding: const EdgeInsets.symmetric(horizontal: 8),

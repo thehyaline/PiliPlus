@@ -1,7 +1,9 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_section_switcher.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
@@ -49,6 +51,9 @@ class _HomePageState extends CommonPageState<HomePage>
   /// 旧栏的视频，所以必须把焦点接走。新栏已经接过手柄适配（有 `TvRegion`）就送
   /// 进它的第一张卡；还没有（分区/番剧/影视）或者它还停在很下面、首项没被懒加载
   /// 构建出来时，把焦点放到 TabBar 上：看得见，按 ↓ 还能进新栏的列表。
+  ///
+  /// `TvTabBar` 自己也能切栏（L1/R1 → [TvTabBars]），但这里是**页面自己声明**的，
+  /// 优先走这条：只有首页知道"切完还得把焦点送进新栏"。
   void _switchTab(int offset) {
     final tabController = _homeController.tabController;
     if (tabController.indexIsChanging) return;
@@ -68,30 +73,26 @@ class _HomePageState extends CommonPageState<HomePage>
     super.build(context);
     Widget tabBar;
     if (_homeController.tabs.length > 1) {
-      tabBar = TvRegion(
-        debugLabel: _tabBarRegion,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: SizedBox(
-            height: 42,
-            width: double.infinity,
-            child: TabBar(
-              controller: _homeController.tabController,
-              tabs: _homeController.tabs
-                  .map((e) => Tab(text: e.label))
-                  .toList(),
-              isScrollable: true,
-              dividerColor: Colors.transparent,
-              dividerHeight: 0,
-              splashBorderRadius: Style.mdRadius,
-              tabAlignment: TabAlignment.center,
-              onTap: (_) {
-                feedBack();
-                if (!_homeController.tabController.indexIsChanging) {
-                  _homeController.animateToTop();
-                }
-              },
-            ),
+      tabBar = Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: SizedBox(
+          height: 42,
+          width: double.infinity,
+          child: TvTabBar(
+            regionLabel: _tabBarRegion,
+            controller: _homeController.tabController,
+            tabs: _homeController.tabs.map((e) => Tab(text: e.label)).toList(),
+            isScrollable: true,
+            dividerColor: Colors.transparent,
+            dividerHeight: 0,
+            splashBorderRadius: Style.mdRadius,
+            tabAlignment: TabAlignment.center,
+            onTap: (_) {
+              feedBack();
+              if (!_homeController.tabController.indexIsChanging) {
+                _homeController.animateToTop();
+              }
+            },
           ),
         ),
       );
@@ -225,109 +226,132 @@ class _HomePageState extends CommonPageState<HomePage>
   }
 }
 
+/// 头像（"我的"入口）。
+///
+/// 手柄模式下外面套一层**圆形**预选框（`circularFocusRing`，见方法末尾）：
+/// 头像本身就是圆的，环自然也该是圆的（blbl 那边是 `ShapeableImageView` +
+/// `shapeAppearanceOverlay=Circular`，焦点描边贴着圆边）。
+///
+/// 触摸屏幕 / 手柄模式关掉时看不到这个环，结构退回成改动前那样。
 Widget userAvatar({
   required ColorScheme colorScheme,
   required MainController mainController,
 }) {
-  return Semantics(
-    label: "我的",
-    child: Obx(
-      () {
-        if (mainController.accountService.isLogin.value) {
-          return Stack(
-            clipBehavior: .none,
-            children: [
-              NetworkImgLayer(
-                type: .avatar,
-                width: 34,
-                height: 34,
-                src: mainController.accountService.face.value,
-              ),
-              Positioned.fill(
-                child: Material(
-                  type: .transparency,
-                  child: InkWell(
-                    onTap: mainController.toMemberPage,
-                    splashColor: colorScheme.primaryContainer.withValues(
-                      alpha: 0.3,
+  /// [focusNode] 是 [circularFocusRing] 递进来的那一个；手柄模式关掉时它是
+  /// null，`InkWell` / `IconButton` 自己建节点（和改动前一样）。
+  Widget build(FocusNode? focusNode) {
+    return Semantics(
+      label: "我的",
+      child: Obx(
+        () {
+          if (mainController.accountService.isLogin.value) {
+            return Stack(
+              clipBehavior: .none,
+              children: [
+                NetworkImgLayer(
+                  type: .avatar,
+                  width: 34,
+                  height: 34,
+                  src: mainController.accountService.face.value,
+                ),
+                Positioned.fill(
+                  child: Material(
+                    type: .transparency,
+                    child: InkWell(
+                      focusNode: focusNode,
+                      onTap: mainController.toMemberPage,
+                      splashColor: colorScheme.primaryContainer.withValues(
+                        alpha: 0.3,
+                      ),
+                      customBorder: const CircleBorder(),
                     ),
-                    customBorder: const CircleBorder(),
                   ),
                 ),
-              ),
-              Positioned(
-                right: -4,
-                bottom: -4,
-                child: Obx(
-                  () => MineController.anonymity.value
-                      ? IgnorePointer(
-                          child: Container(
-                            padding: const .all(2),
-                            decoration: BoxDecoration(
-                              shape: .circle,
-                              color: colorScheme.secondaryContainer,
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Obx(
+                    () => MineController.anonymity.value
+                        ? IgnorePointer(
+                            child: Container(
+                              padding: const .all(2),
+                              decoration: BoxDecoration(
+                                shape: .circle,
+                                color: colorScheme.secondaryContainer,
+                              ),
+                              child: Icon(
+                                size: 14,
+                                MdiIcons.incognito,
+                                color: colorScheme.onSecondaryContainer,
+                              ),
                             ),
-                            child: Icon(
-                              size: 14,
-                              MdiIcons.incognito,
-                              color: colorScheme.onSecondaryContainer,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ),
+              ],
+            );
+          }
+          return SizedBox(
+            width: 38,
+            height: 38,
+            child: IconButton(
+              focusNode: focusNode,
+              tooltip: '点击登录',
+              style: IconButton.styleFrom(
+                padding: .zero,
+                backgroundColor: colorScheme.onInverseSurface,
               ),
-            ],
+              onPressed: mainController.toMemberPage,
+              icon: Icon(
+                Icons.person_rounded,
+                size: 22,
+                color: colorScheme.primary,
+              ),
+            ),
           );
-        }
-        return SizedBox(
-          width: 38,
-          height: 38,
-          child: IconButton(
-            tooltip: '点击登录',
-            style: IconButton.styleFrom(
-              padding: .zero,
-              backgroundColor: colorScheme.onInverseSurface,
-            ),
-            onPressed: mainController.toMemberPage,
-            icon: Icon(
-              Icons.person_rounded,
-              size: 22,
-              color: colorScheme.primary,
-            ),
-          ),
-        );
-      },
-    ),
-  );
+        },
+      ),
+    );
+  }
+
+  return circularFocusRing(debugLabel: '头像', builder: build);
 }
 
+/// 未读消息入口。形状和 [userAvatar] 一样：圆形预选框。
 Widget msgBadge(MainController mainController) {
-  return Obx(
-    () {
-      if (mainController.accountService.isLogin.value) {
-        final count = mainController.msgUnReadCount.value;
-        final isNumBadge = mainController.msgBadgeMode == .number;
-        return IconButton(
-          tooltip: '消息',
-          onPressed: () {
-            mainController
-              ..clearUnreadMsg()
-              ..lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
-            Get.toNamed('/whisper');
-          },
-          icon: Badge(
-            isLabelVisible:
-                mainController.msgBadgeMode != .hidden && count != null,
-            alignment: isNumBadge
-                ? const Alignment(0.0, -0.85)
-                : const Alignment(1.0, -0.85),
-            label: isNumBadge && count != null ? Text(count) : null,
-            child: const Icon(Icons.notifications_none),
-          ),
-        );
-      }
-      return const SizedBox.shrink();
-    },
-  );
+  /// [focusNode] 见 [userAvatar]。
+  Widget build(FocusNode? focusNode) {
+    return Obx(
+      () {
+        if (mainController.accountService.isLogin.value) {
+          final count = mainController.msgUnReadCount.value;
+          final isNumBadge = mainController.msgBadgeMode == .number;
+          return IconButton(
+            focusNode: focusNode,
+            tooltip: '消息',
+            onPressed: () {
+              mainController
+                ..clearUnreadMsg()
+                ..lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
+              Get.toNamed('/whisper');
+            },
+            icon: Badge(
+              isLabelVisible:
+                  mainController.msgBadgeMode != .hidden && count != null,
+              alignment: isNumBadge
+                  ? const Alignment(0.0, -0.85)
+                  : const Alignment(1.0, -0.85),
+              label: isNumBadge && count != null ? Text(count) : null,
+              child: const Icon(Icons.notifications_none),
+            ),
+          );
+        }
+        // 没登录时这一格是空的：节点没人接，也不会进焦点遍历
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  return circularFocusRing(debugLabel: '消息', builder: build);
 }

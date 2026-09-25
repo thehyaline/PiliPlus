@@ -53,6 +53,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/tv_player_osd.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_player_surface.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
@@ -1389,6 +1390,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       fontSize: 12,
     );
     final isLive = plPlayerController.isLive;
+    // 手柄播放器模型（`isPlayerTvMode`，视频页和直播页一样）：非全屏整块画面
+    // 是一个焦点、确定键进全屏；全屏下焦点能进上下栏，上下栏收起来时确定键是
+    // 播放/暂停、方向键唤栏。直播页和视频页的差别只在上下栏各自装了什么控件。
+    final tvPlayerMode = isPlayerTvMode();
 
     final child = Stack(
       fit: StackFit.passthrough,
@@ -1631,6 +1636,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 showControls: plPlayerController.showControls,
                 onFocusInOsd: (value) =>
                     plPlayerController.tvFocusInControls = value,
+                // 手柄播放器模型：非全屏时 OSD 不进焦点树（那种状态下播放器
+                // 只有"整块画面"一个焦点，确定键进全屏）；全屏时正常可聚焦
+                videoMode: tvPlayerMode,
+                fullScreen: plPlayerController.isFullScreen,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1640,13 +1649,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       isFullScreen: isFullScreen,
                       removeSafeArea: plPlayerController.removeSafeArea,
                       isLive: plPlayerController.isLive,
-                      child: plPlayerController.isDesktopPip
-                          ? GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onPanStart: (_) => windowManager.startDragging(),
-                              child: widget.headerControl,
-                            )
-                          : widget.headerControl,
+                      child: TvRegion(
+                        debugLabel: TvLabels.playerOsdTop,
+                        child: TvEntryLock(
+                          region: TvLabels.playerOsdTop,
+                          entry: TvLabels.playerBack,
+                          enabled: tvPlayerMode,
+                          child: plPlayerController.isDesktopPip
+                              ? GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  onPanStart: (_) =>
+                                      windowManager.startDragging(),
+                                  child: widget.headerControl,
+                                )
+                              : widget.headerControl,
+                        ),
+                      ),
                     ),
                     AppBarAni(
                       isTop: false,
@@ -1654,22 +1672,27 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       isFullScreen: isFullScreen,
                       removeSafeArea: plPlayerController.removeSafeArea,
                       isLive: plPlayerController.isLive,
-                      // 「确定键进控制条」的落点：视频页正好是进度条，
-                      // 直播页正好是播放/暂停按钮（两边第一个可聚焦控件）
+                      // 进栏落点：锁在播放/暂停按钮上（`TvEntryLock`）——两页的
+                      // 下栏第一个控件都是播放/暂停，锚点就是这个按钮登记的
                       child: TvRegion(
                         debugLabel: TvLabels.playerOsdBar,
-                        child:
-                            widget.bottomControl ??
-                            BottomControl(
-                              maxWidth: maxWidth,
-                              isFullScreen: isFullScreen,
-                              controller: plPlayerController,
-                              videoDetailController: videoDetailController,
-                              buildBottomControl: () => buildBottomControl(
-                                videoDetailController,
-                                maxWidth > maxHeight,
+                        child: TvEntryLock(
+                          region: TvLabels.playerOsdBar,
+                          entry: TvLabels.playerPlayPause,
+                          enabled: tvPlayerMode,
+                          child:
+                              widget.bottomControl ??
+                              BottomControl(
+                                maxWidth: maxWidth,
+                                isFullScreen: isFullScreen,
+                                controller: plPlayerController,
+                                videoDetailController: videoDetailController,
+                                buildBottomControl: () => buildBottomControl(
+                                  videoDetailController,
+                                  maxWidth > maxHeight,
+                                ),
                               ),
-                            ),
+                        ),
                       ),
                     ),
                   ],
@@ -2038,6 +2061,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           }),
       ],
     );
+    // 视频页的手柄播放器模型：整块画面一个焦点（预选框贴着视频内边缘），
+    // 非全屏确定键进全屏、全屏确定键播放/暂停、全屏方向键唤栏 + 聚焦播放/暂停。
+    // 关掉手柄模式 / 直播页时 `TvPlayerSurface` 原样返回，等于没装这一层。
+    final surface = TvPlayerSurface(
+      enabled: tvPlayerMode,
+      fullScreen: plPlayerController.isFullScreen,
+      onOk: _onSurfaceOk,
+      onWakeControls: _onSurfaceWakeControls,
+      child: child,
+    );
     if (PlatformUtils.isDesktop) {
       return Obx(
         () => MouseRegion(
@@ -2048,11 +2081,39 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           onHover: (_) => plPlayerController.controls = true,
           onExit: (_) => plPlayerController.controls =
               widget.videoDetailController?.showSteinEdgeInfo.value ?? false,
-          child: child,
+          child: surface,
         ),
       );
     }
-    return child;
+    return surface;
+  }
+
+  /// 画面上确定键的语义（手柄 A / 遥控器确定 / 回车），见 `TvPlayerSurface`。
+  ///
+  /// - 非全屏：进全屏播放。**只做这一件事**——切全屏之后布局要重排
+  ///   （视频页那边还有 150ms 防抖），这时候再去抓控件会抓到一个马上就被拆掉的
+  ///   节点上，焦点反而丢了；焦点先留在画面上，进全屏之后按方向键就进上下栏。
+  /// - 全屏：播放/暂停。这时候焦点停在画面上说明上下栏是收着的（对齐 BBLL：
+  ///   收栏状态下确定键就是播放/暂停），要看控制条按方向键
+  ///   （[_onSurfaceWakeControls]）。
+  void _onSurfaceOk() {
+    if (!plPlayerController.isFullScreen.value) {
+      plPlayerController.triggerFullScreen();
+      return;
+    }
+    plPlayerController.onDoubleTapCenter();
+  }
+
+  /// 全屏下画面上的方向键：亮起上下栏，并把焦点送到播放/暂停按钮。
+  ///
+  /// 顺序不能反：控制条外面是 `ExcludeFocus(excluding: !showControls)`，
+  /// 这一帧里播放/暂停按钮还不可聚焦，得等这帧跑完再送焦点。
+  void _onSurfaceWakeControls() {
+    plPlayerController.controls = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      TvRegions.focusAnchor(TvLabels.playerPlayPause);
+    });
   }
 
   Widget get _videoWidget {

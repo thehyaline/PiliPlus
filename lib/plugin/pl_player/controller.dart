@@ -343,7 +343,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final showViewPoints = Pref.showViewPoints;
   late final showFsScreenshotBtn = Pref.showFsScreenshotBtn;
   late final showFsLockBtn = Pref.showFsLockBtn;
-  late final keyboardControl = Pref.keyboardControl;
   late final uiScale = Pref.uiScale;
 
   late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/draggable_sheet/dyn.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/marquee.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
@@ -21,6 +22,8 @@ import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:collection/collection.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -68,9 +71,32 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
   @override
   bool get isPortrait => widget.isPortrait;
 
+  /// 返回键的焦点节点。
+  ///
+  /// 它同时是 [TvLabels.playerBack] 锚点：手柄模式下焦点**进到上栏**时落点锁在
+  /// 返回键上（`TvEntryLock`），那个判断发生在播放器那一层，拿不到这个 State。
+  late final FocusNode _backNode = FocusNode(debugLabel: 'PlayerBack');
+
+  @override
+  void dispose() {
+    TvRegions.unregisterAnchor(TvLabels.playerBack, _backNode);
+    _backNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isFullScreen = this.isFullScreen;
+    final showBack = isFullScreen || plPlayerController.isDesktopPip;
+    // 上栏入口锚点：手柄模式下焦点进到上栏里时落点锁在返回键上（`TvEntryLock`）。
+    // 直播页的返回键只有全屏 / 桌面画中画才有，所以锚点跟着它走：不在树上时
+    // 撤销登记，进栏锁退化成几何寻焦（否则会锁到一个已经离树的节点上，
+    // `focusAnchor` 检查出 `context` 为空、什么都不做，方向键反而卡住）。
+    if (Pref.tvFocus && showBack) {
+      TvRegions.registerAnchor(TvLabels.playerBack, _backNode);
+    } else {
+      TvRegions.unregisterAnchor(TvLabels.playerBack, _backNode);
+    }
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     Widget child;
@@ -122,10 +148,11 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       ),
       child: Row(
         children: [
-          if (isFullScreen || plPlayerController.isDesktopPip)
+          if (showBack)
             ComBtn(
               height: btnHeight,
               tooltip: '返回',
+              focusNode: _backNode,
               icon: const Icon(FontAwesomeIcons.arrowLeft, size: 15),
               onTap: () {
                 if (plPlayerController.isDesktopPip) {

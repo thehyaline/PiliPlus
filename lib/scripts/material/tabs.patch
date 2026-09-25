@@ -1,8 +1,7 @@
 diff --git a/lib/src/tabs.dart b/lib/src/tabs.dart
-index 8a0d078..20e79f3 100644
---- a/lib/src/tabs.dart
-+++ b/lib/src/tabs.dart
-@@ -9,7 +9,7 @@ import 'dart:math' as math;
+--- a/lib/src/tabs.dart	2026-09-25 18:33:52.525028700 +0800
++++ b/lib/src/tabs.dart	2026-09-25 18:33:52.555523100 +0800
+@@ -9,7 +9,7 @@
  import 'dart:ui' show SemanticsRole, lerpDouble;
  
  import 'package:flutter/foundation.dart';
@@ -11,7 +10,7 @@ index 8a0d078..20e79f3 100644
  import 'package:flutter/rendering.dart';
  import 'package:flutter/widgets.dart';
  
-@@ -352,9 +352,13 @@ class _TabStyle extends AnimatedWidget {
+@@ -352,9 +352,13 @@
    }
  }
  
@@ -25,7 +24,7 @@ index 8a0d078..20e79f3 100644
  class _TabLabelBarRenderer extends RenderFlex {
    _TabLabelBarRenderer({
      required super.direction,
-@@ -472,6 +476,8 @@ class _DividerPainter extends CustomPainter {
+@@ -472,6 +476,8 @@
    }
  }
  
@@ -34,7 +33,7 @@ index 8a0d078..20e79f3 100644
  // A ChangeNotifier for triggering repaints when async resources load.
  class _IndicatorPainterNotifier extends ChangeNotifier {
    void notify() {
-@@ -482,6 +488,8 @@ class _IndicatorPainterNotifier extends ChangeNotifier {
+@@ -482,6 +488,8 @@
    String toString() => describeIdentity(this);
  }
  
@@ -43,7 +42,7 @@ index 8a0d078..20e79f3 100644
  class _IndicatorPainter extends CustomPainter {
    factory _IndicatorPainter({
      required TabController controller,
-@@ -504,7 +512,7 @@ class _IndicatorPainter extends CustomPainter {
+@@ -504,7 +512,7 @@
      ///
      /// The notifier is to trigger a repaint when asynchronous resources,
      /// like images in the indicator [Decoration], are finished loading.
@@ -52,7 +51,7 @@ index 8a0d078..20e79f3 100644
        controller: controller,
        indicator: indicator,
        indicatorSize: indicatorSize,
-@@ -522,7 +530,7 @@ class _IndicatorPainter extends CustomPainter {
+@@ -522,7 +530,7 @@
      );
    }
  
@@ -61,7 +60,7 @@ index 8a0d078..20e79f3 100644
      required this.controller,
      required this.indicator,
      required this.indicatorSize,
-@@ -1590,6 +1598,8 @@ class TabBar extends StatefulWidget implements PreferredSizeWidget {
+@@ -1590,6 +1598,8 @@
    State<TabBar> createState() => _TabBarState();
  }
  
@@ -70,7 +69,7 @@ index 8a0d078..20e79f3 100644
  class _TabBarState extends State<TabBar> {
    TabBarScrollController? _internalScrollController;
    TabController? _controller;
-@@ -1744,6 +1754,38 @@ class _TabBarState extends State<TabBar> {
+@@ -1744,6 +1754,38 @@
      }
    }
  
@@ -109,7 +108,7 @@ index 8a0d078..20e79f3 100644
    void _initIndicatorPainter() {
      final ThemeData theme = Theme.of(context);
      final TabBarThemeData tabBarTheme = TabBarTheme.of(context);
-@@ -1759,7 +1801,7 @@ class _TabBarState extends State<TabBar> {
+@@ -1759,7 +1801,7 @@
  
      _indicatorPainter = !_controllerIsValid
          ? null
@@ -118,7 +117,7 @@ index 8a0d078..20e79f3 100644
              controller: _controller!,
              indicator: _getIndicator(indicatorSize),
              indicatorSize: indicatorSize,
-@@ -1987,6 +2029,7 @@ class _TabBarState extends State<TabBar> {
+@@ -1987,6 +2029,7 @@
    }
  
    bool _debugTabAlignmentIsValid(TabAlignment tabAlignment) {
@@ -126,7 +125,7 @@ index 8a0d078..20e79f3 100644
      assert(() {
        if (widget.isScrollable && tabAlignment == TabAlignment.fill) {
          throw FlutterError('$tabAlignment is only valid for non-scrollable tab bars.');
-@@ -2000,6 +2043,28 @@ class _TabBarState extends State<TabBar> {
+@@ -2000,6 +2043,45 @@
      return true;
    }
  
@@ -152,21 +151,47 @@ index 8a0d078..20e79f3 100644
 +    );
 +  }
 +
++  // PiliPlus: 手柄/遥控器适配的扩展点，默认实现等价于改动前。
++
++  /// 每个标签 `InkWell` 的焦点节点；返回 null 时由 `InkWell` 自建。
++  ///
++  /// 暴露出来才能给单个标签挂 `FocusRing`、才能"把焦点送到第 n 个标签"。
++  FocusNode? buildTabFocusNode(int index) => null;
++
++  /// 把每个标签的 `InkWell` 包一层。
++  ///
++  /// 调用点紧跟在 `MergeSemantics` 之后、`applyFillAlignment` **之前**：
++  /// 这时 `wrappedTabs[index]` 的盒子就是标签格子本身（标签 + `labelPadding`），
++  /// 而且在 `Expanded` 包进来之前（包错了就不是格子而是等分槽）。
++  Widget buildTabShell(int index, Widget child) => child;
++
++  /// 把整条标签栏包一层（焦点区域）。
++  Widget buildTabBarRoot(Widget child) => child;
++
    @override
    Widget build(BuildContext context) {
      assert(debugCheckHasMaterialLocalizations(context));
-@@ -2155,9 +2220,7 @@ class _TabBarState extends State<TabBar> {
+@@ -2118,6 +2200,7 @@
+         return _defaults.overlayColor?.resolve(effectiveStates);
+       });
+       wrappedTabs[index] = InkWell(
++        focusNode: buildTabFocusNode(index),
+         mouseCursor: effectiveMouseCursor,
+         onTap: () {
+           _handleTap(index);
+@@ -2155,9 +2238,8 @@
          ),
        );
        wrappedTabs[index] = MergeSemantics(child: wrappedTabs[index]);
 -      if (!widget.isScrollable && effectiveTabAlignment == TabAlignment.fill) {
 -        wrappedTabs[index] = Expanded(child: wrappedTabs[index]);
 -      }
++      wrappedTabs[index] = buildTabShell(index, wrappedTabs[index]);
 +      applyFillAlignment(index, wrappedTabs, effectiveTabAlignment);
      }
  
      Widget tabBar = Semantics(
-@@ -2175,7 +2238,7 @@ class _TabBarState extends State<TabBar> {
+@@ -2175,7 +2257,7 @@
            labelStyle: widget.labelStyle,
            unselectedLabelStyle: widget.unselectedLabelStyle,
            defaults: _defaults,
@@ -175,7 +200,30 @@ index 8a0d078..20e79f3 100644
              onPerformLayout: _saveTabOffsets,
              mainAxisSize: effectiveTabAlignment == TabAlignment.fill
                  ? MainAxisSize.max
-@@ -2274,8 +2337,17 @@ class TabBarView extends StatefulWidget {
+@@ -2236,13 +2318,15 @@
+       tabBar = Padding(padding: widget.padding!, child: tabBar);
+     }
+ 
+-    return Material(
+-      type: MaterialType.transparency,
+-      child: MediaQuery(
+-        data: MediaQuery.of(
+-          context,
+-        ).copyWith(textScaler: widget.textScaler ?? tabBarTheme.textScaler),
+-        child: tabBar,
++    return buildTabBarRoot(
++      Material(
++        type: MaterialType.transparency,
++        child: MediaQuery(
++          data: MediaQuery.of(
++            context,
++          ).copyWith(textScaler: widget.textScaler ?? tabBarTheme.textScaler),
++          child: tabBar,
++        ),
+       ),
+     );
+   }
+@@ -2274,8 +2358,17 @@
      this.dragStartBehavior = DragStartBehavior.start,
      this.viewportFraction = 1.0,
      this.clipBehavior = Clip.hardEdge,
@@ -193,7 +241,7 @@ index 8a0d078..20e79f3 100644
    /// This widget's selection and animation state.
    ///
    /// If [TabController] is not provided, then the value of [DefaultTabController.of]
-@@ -2577,6 +2649,9 @@ class _TabBarViewState extends State<TabBarView> {
+@@ -2577,6 +2670,9 @@
          dragStartBehavior: widget.dragStartBehavior,
          clipBehavior: widget.clipBehavior,
          controller: _pageController,

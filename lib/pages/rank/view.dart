@@ -45,7 +45,16 @@ class _RankPageState extends State<RankPage>
   }
 
   Widget _buildTab(ThemeData theme) {
+    // 切栏：首页那种 `onTap` 只管"点当前的栏就回到顶部"，真正换栏要连
+    // `tabIndex` 一起改，所以焦点那一路也走同一个函数
+    void select(int index) {
+      _rankController
+        ..tabIndex.value = index
+        ..tabController.animateTo(index);
+    }
+
     return VerticalTabBar(
+      regionLabel: 'rank-tabbar',
       dividerWidth: 0,
       isScrollable: true,
       indicatorWeight: 3,
@@ -57,10 +66,13 @@ class _RankPageState extends State<RankPage>
         if (!_rankController.tabController.indexIsChanging) {
           _rankController.animateToTop();
         } else {
-          _rankController
-            ..tabIndex.value = index
-            ..tabController.animateTo(index);
+          select(index);
         }
+      },
+      // 焦点落到别的栏上就等于点它；停在当前栏上不动
+      onFocusTab: (index) {
+        if (_rankController.tabController.index == index) return;
+        select(index);
       },
     );
   }

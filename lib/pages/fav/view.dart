@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
@@ -130,7 +131,8 @@ class _FavPageState extends State<FavPage> with SingleTickerProviderStateMixin {
       body: ViewSafeArea(
         child: Column(
           children: [
-            TabBar(
+            TvTabBar(
+              regionLabel: 'fav-tabbar',
               controller: _tabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,

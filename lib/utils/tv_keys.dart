@@ -16,6 +16,17 @@ abstract final class TvKeys {
     LogicalKeyboardKey.space,
   };
 
+  /// 确定但**不含空格**：手柄 A、遥控器确定(DPAD_CENTER)、键盘回车。
+  ///
+  /// 播放器里空格是"播放/暂停"，和"确定"是两件事（[ok] 里的空格只给
+  /// `ActivateIntent` 那条路用），要自己接确定键的场景统一用这一份。
+  static final confirm = <LogicalKeyboardKey>{
+    LogicalKeyboardKey.enter,
+    LogicalKeyboardKey.numpadEnter,
+    LogicalKeyboardKey.select,
+    LogicalKeyboardKey.gameButtonA,
+  };
+
   /// 返回：手柄 B、遥控器返回、键盘 Esc。
   /// （Android 的 KEYCODE_BACK 由系统直接 popRoute，不会到达框架）
   static final back = <LogicalKeyboardKey>{
@@ -80,6 +91,8 @@ abstract final class TvKeys {
   };
 
   static bool isOk(KeyEvent event) => ok.contains(event.logicalKey);
+  static bool isConfirm(KeyEvent event) =>
+      confirm.contains(event.logicalKey);
   static bool isBack(KeyEvent event) => back.contains(event.logicalKey);
   static bool isMore(KeyEvent event) => more.contains(event.logicalKey);
   static bool isDpad(KeyEvent event) => dpad.contains(event.logicalKey);

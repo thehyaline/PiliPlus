@@ -2,7 +2,6 @@ import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
@@ -11,7 +10,6 @@ import 'package:PiliPlus/models_new/media_list/media_list.dart';
 import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -161,12 +159,6 @@ class _MediaListPanelState extends State<MediaListPanel>
     bool isCurr,
     bool showDelBtn,
   ) {
-    void onLongPress() => imageSaveDialog(
-      title: item.title,
-      cover: item.cover,
-      aid: item.aid,
-      bvid: item.bvid,
-    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: SizedBox(
@@ -182,8 +174,6 @@ class _MediaListPanelState extends State<MediaListPanel>
               Get.back();
               widget.onChangeEpisode(item);
             },
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             child: Stack(
               clipBehavior: Clip.none,
               children: [

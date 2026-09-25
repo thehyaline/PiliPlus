@@ -4,6 +4,7 @@ import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/back_detector.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_route_focus.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_shortcuts.dart';
 import 'package:PiliPlus/common/widgets/hover_reset.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
@@ -316,6 +317,8 @@ class MyApp extends StatelessWidget {
       navigatorObservers: [
         routeObserver,
         FlutterSmartDialog.observer,
+        // 换页之后把预选框送进新页面（见 `TvRouteFocusObserver`）
+        tvRouteFocusObserver,
       ],
       scrollBehavior: PlatformUtils.isDesktop
           ? const CustomScrollBehavior()

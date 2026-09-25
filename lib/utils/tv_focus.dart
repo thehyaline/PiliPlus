@@ -1,3 +1,4 @@
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:material_ui/material_ui.dart' show BorderRadius, Radius;
 
@@ -52,7 +53,42 @@ abstract final class TvFocusSpec {
   /// 比画面上的快进/快退（`Pref.fastForBackwardDuration`，默认 15 秒）小，
   /// 用来精确对时间点；按住不放会跟着系统重复一路累加。
   static const seekStep = Duration(seconds: 5);
+
+  /// 播放器「画面」大焦点的预选框。
+  ///
+  /// 和控件那套（[playerRadius] / [playerBorderWidth] / [playerScale]）分开：
+  /// 画面是整块视频，缩放会把画面推出视口，圆角也不该跟着按钮那套走
+  /// （blbl 的 `blbl_focus_bg_round.xml` 用的是 10dp 圆角）。
+  /// 描边画在视频边界**内侧**，所以贴着内边距、不会被视口裁掉。
+  static const surfaceRadius = BorderRadius.all(Radius.circular(10));
+  static const surfaceBorderWidth = 2.0;
+
+  /// 顶部标签栏预选框的圆角。
+  ///
+  /// 标签格子只有 ~42 高、彼此紧挨着，卡片那套（[radius]，12）在这个高度上
+  /// 看着偏圆；对齐 blbl 的 `blbl_focus_bg_round.xml`（10dp）。
+  static const tabRadius = BorderRadius.all(Radius.circular(10));
+
+  /// 标签预选框底纹的不透明度（用主题色打这个透明度）。
+  ///
+  /// 底纹画在标签文字**底下**（见 [FocusRing.fillColor]），所以可以比描边明显
+  /// 一点，但不能压过"当前选中的那一栏"的指示条——调的时候看着指示条调。
+  static const tabFillAlpha = 0.12;
 }
+
+/// 播放器是不是按"手柄播放器模型"走。**视频页和直播页一样**（对齐 BBLL）。
+///
+/// 这是 [Pref.tvFocus] 的一部分，没有单独的开关。打开后播放器整套语义都换掉：
+/// - 非全屏：整块画面 = 一个焦点，播放器里的控件一个都进不了焦点树，
+///   确定键 = 进全屏（见 `TvPlayerSurface`）；
+/// - 全屏：焦点可以进上下栏；上下栏收起来时焦点停在画面上、环也不画，
+///   确定键 = 播放/暂停，方向键 = 唤栏 + 焦点送到播放/暂停按钮；
+///   进上栏锁到返回键、进下栏锁到播放/暂停（见 `TvEntryLock`）。
+///
+/// 页面里判断一律用它，别在调用点上再分直播/视频：两页的差别全在上下栏
+/// 各自的内容里（直播页没有进度条、快进被 `isLive` 短路），而这一套只谈
+/// "焦点停在哪、确定键干什么"，那部分两页是一致的。
+bool isPlayerTvMode() => Pref.tvFocus;
 
 /// 播放器各层共享的 `TvRegions` 标签。
 ///
@@ -65,11 +101,41 @@ abstract final class TvLabels {
   /// 而不是停在一个已经看不见的按钮上。
   static const playerSurface = 'player-surface';
 
+  /// 播放器**页面那一层**（`PlayerFocus` 的节点，焦点锚点）。
+  ///
+  /// 画面那一层（[playerSurface]）被从树上拿掉时，焦点落到这里。
+  /// 播放器不是一直都在的：`videoState` 还没就绪、`autoPlay` 关着、
+  /// 切布局（画中画/横屏/几乎方屏）、拉流失败重试……这些时候
+  /// `PLVideoPlayer` 会被换成 `SizedBox.shrink()`。
+  /// 焦点正停在里面时，框架只会把焦点向上交给某个 scope（最后是根 scope），
+  /// 那之后就**按方向键什么都不会发生**——环没了，也没有下一个控件可去
+  /// （那个 scope 的矩形覆盖整页）。所以画面消失前得把焦点主动交给还活着的这一层。
+  static const playerPage = 'player-page';
+
   /// 播放器 OSD 整层（顶部信息栏 + 底部控制条）。
   static const playerOsd = 'player-osd';
 
+  /// 顶部信息栏（返回、投屏、设置……）。
+  ///
+  /// 焦点**进到这一栏**里时落点锁在返回键上（见 `TvEntryLock`）。
+  static const playerOsdTop = 'player-osd-top';
+
   /// 底部控制条。
   ///
-  /// 「确定键进控制条」的落点：视频页是进度条，直播页是播放/暂停按钮。
+  /// 焦点进到这一栏里时落点锁在播放/暂停按钮上（见 `TvEntryLock`）。
   static const playerOsdBar = 'player-osd-bar';
+
+  /// 底部控制条的播放/暂停按钮（焦点**锚点**）。
+  ///
+  /// 进下栏时的固定落点，也是全屏下按方向键时"焦点回到哪儿"的答案。
+  static const playerPlayPause = 'player-play-pause';
+
+  /// 顶部信息栏的返回按钮（焦点**锚点**）。
+  ///
+  /// 进上栏时的固定落点（bbll 的返回键是刻意不可聚焦的，这里反过来
+  /// 拿它当上栏入口：手柄用户进上栏十有八九是想退出去）。
+  ///
+  /// 两页的返回键**都**登记这个锚点，但直播页的返回键只在全屏 / 桌面画中画
+  /// 才有——那正是手柄模式下焦点能进上栏的时候，非全屏时上栏整层不可聚焦。
+  static const playerBack = 'player-back';
 }

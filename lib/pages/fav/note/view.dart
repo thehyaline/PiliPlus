@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/pages/fav/note/child_view.dart';
 import 'package:PiliPlus/pages/fav/note/controller.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -43,7 +44,8 @@ class _FavNotePageState extends State<FavNotePage>
         Row(
           children: [
             Expanded(
-              child: TabBar(
+              child: TvTabBar(
+                regionLabel: 'fav-note-tabbar',
                 overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                 splashFactory: NoSplash.splashFactory,
                 isScrollable: true,

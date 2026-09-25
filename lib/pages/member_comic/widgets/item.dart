@@ -1,8 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -18,7 +16,6 @@ class MemberComicItem extends StatelessWidget {
       fontSize: 13,
       color: theme.colorScheme.onSurfaceVariant,
     );
-    void onLongPress() => imageSaveDialog(title: item.title, cover: item.cover);
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -30,8 +27,6 @@ class MemberComicItem extends StatelessWidget {
             },
           );
         },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Style.safeSpace,

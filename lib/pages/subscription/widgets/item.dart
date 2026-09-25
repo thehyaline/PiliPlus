@@ -1,10 +1,8 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/sub/sub/list.dart';
 import 'package:PiliPlus/pages/subscription_detail/view.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -27,10 +25,6 @@ class SubItem extends StatelessWidget {
       21 => '合集',
       _ => '其它(${item.type})',
     };
-    void onLongPress() => imageSaveDialog(
-      title: item.title,
-      cover: item.cover,
-    );
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -55,8 +49,6 @@ class SubItem extends StatelessWidget {
             );
           }
         },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Row(

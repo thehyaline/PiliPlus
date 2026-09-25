@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
@@ -57,7 +58,8 @@ class _IntroDetailState extends State<PgcIntroPanel>
           Row(
             children: [
               Expanded(
-                child: TabBar(
+                child: TvTabBar(
+                  regionLabel: 'pgc-intro-detail-tabbar',
                   controller: _tabController,
                   dividerHeight: 0,
                   isScrollable: true,

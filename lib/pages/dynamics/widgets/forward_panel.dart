@@ -1,10 +1,8 @@
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/dyn_content.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/module_panel.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -57,47 +55,8 @@ Widget forwardPanel(
     return child;
   }
 
-  void showMore() {
-    String? title, cover, bvid;
-    switch (orig.type) {
-      case 'DYNAMIC_TYPE_AV':
-        title = major?.archive?.title;
-        cover = major?.archive?.cover;
-        bvid = major?.archive?.bvid;
-        break;
-      case 'DYNAMIC_TYPE_UGC_SEASON':
-        title = major?.ugcSeason?.title;
-        cover = major?.ugcSeason?.cover;
-        bvid = major?.ugcSeason?.bvid;
-        break;
-      case 'DYNAMIC_TYPE_PGC' || 'DYNAMIC_TYPE_PGC_UNION':
-        title = major?.pgc?.title;
-        cover = major?.pgc?.cover;
-        break;
-      case 'DYNAMIC_TYPE_LIVE_RCMD':
-        title = major?.liveRcmd?.title;
-        cover = major?.liveRcmd?.cover;
-        break;
-      case 'DYNAMIC_TYPE_LIVE':
-        title = major?.live?.title;
-        cover = major?.live?.cover;
-        break;
-      default:
-        return;
-    }
-    if (cover != null) {
-      imageSaveDialog(
-        title: title,
-        cover: cover,
-        bvid: bvid,
-      );
-    }
-  }
-
   return InkWell(
     onTap: () => PageUtils.pushDynDetail(orig),
-    onLongPress: showMore,
-    onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
     child: child,
   );
 }

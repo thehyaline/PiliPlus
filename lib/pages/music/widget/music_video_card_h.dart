@@ -1,6 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/marquee.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
@@ -11,7 +10,6 @@ import 'package:PiliPlus/models_new/music/bgm_recommend_list.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MusicVideoCardH extends StatelessWidget {
@@ -24,11 +22,6 @@ class MusicVideoCardH extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      title: videoItem.title,
-      cover: videoItem.cover,
-      bvid: videoItem.bvid,
-    );
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -52,8 +45,6 @@ class MusicVideoCardH extends StatelessWidget {
             );
           }
         },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Style.safeSpace,

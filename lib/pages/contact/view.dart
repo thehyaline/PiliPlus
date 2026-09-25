@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/fan/view.dart';
@@ -65,7 +66,8 @@ class _ContactPageState extends State<ContactPage>
       ),
       body: Column(
         children: [
-          TabBar(
+          TvTabBar(
+            regionLabel: 'contact-tabbar',
             controller: _controller,
             tabs: const [
               Tab(text: '我的关注'),

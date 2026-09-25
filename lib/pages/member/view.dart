@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/report_member.dart';
 import 'package:PiliPlus/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart'
@@ -146,7 +147,8 @@ class _MemberPageState extends State<MemberPage> {
                         if ((_userController.tab2?.length ?? 0) > 1)
                           SizedBox(
                             height: 45,
-                            child: TabBar(
+                            child: TvTabBar(
+                              regionLabel: 'member-tabbar',
                               controller: _userController.tabController,
                               tabs: _userController.tabs,
                               onTap: _userController.onTapTab,

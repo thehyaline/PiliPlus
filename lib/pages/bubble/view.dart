@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
@@ -149,7 +150,8 @@ class _BubblePageState extends State<BubblePage>
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TabBar(
+              TvTabBar(
+                regionLabel: 'bubble-tabbar',
                 isScrollable: true,
                 tabAlignment: .start,
                 controller: _controller.tabController,

@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/models/common/pgc_review_type.dart';
 import 'package:PiliPlus/pages/pgc_review/child/controller.dart';
@@ -50,7 +51,8 @@ class _PgcReviewPageState extends State<PgcReviewPage>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TabBar(
+          TvTabBar(
+            regionLabel: 'pgc-review-tabbar',
             controller: _tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,

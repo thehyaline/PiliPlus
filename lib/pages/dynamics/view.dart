@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
@@ -234,7 +235,8 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                 padding: const EdgeInsets.only(top: 4),
                 child: SizedBox(
                   height: 42,
-                  child: TabBar(
+                  child: TvTabBar(
+                    regionLabel: 'dynamics-tabbar',
                     dividerHeight: 0,
                     isScrollable: true,
                     tabAlignment: .center,

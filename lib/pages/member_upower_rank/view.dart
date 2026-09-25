@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -117,7 +118,8 @@ class _UpowerRankPageState extends State<UpowerRankPage>
                         builder: (context) {
                           return Column(
                             children: [
-                              TabBar(
+                              TvTabBar(
+                                regionLabel: 'upower-rank-tabbar',
                                 isScrollable: true,
                                 tabAlignment: TabAlignment.start,
                                 tabs: tabs
