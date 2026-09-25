@@ -47,6 +47,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
@@ -1154,26 +1155,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   bool tripling = false;
 
-  /// 手柄模式下焦点是否停在控制条里（由 `PlayerTvOsd` 监听焦点变化维护）。
-  ///
-  /// 停在里面时控制条不自动收：一收焦点就落到看不见的按钮上，
-  /// 方向键会像"失灵"一样。人一离开（或按 B 收起来）就恢复正常计时。
-  bool tvFocusInControls = false;
-
   /// 隐藏控制条
   void hideTaskControls() {
     _timer?.cancel();
     _timer = Timer(showControlDuration, () {
-      if (tvFocusInControls) {
-        // 焦点还在控制条里，再等一会儿
-        hideTaskControls();
-        return;
-      }
       if (!isSeeking.value && !tripling) {
         controls = false;
       }
       _timer = null;
     });
+  }
+
+  /// 把"控制条自动隐藏"重新计时。
+  ///
+  /// 手柄模式下焦点停在控制条里**不豁免**自动隐藏（它和"鼠标停在控制条上"
+  /// 不是一回事）：预选框停在一块迟早会自己收起来的浮层上，反倒是"按了没反应"
+  /// 的来源，所以到点就收——焦点由 `PlayerTvOsd` 拉回画面（见那里的注释）。
+  /// 代价是人一直在控制条里操作时得**每次都重新计时**，就是这里干的事：
+  /// `PlayerFocus` 每收到一次按在控制条上的按键就调一次，手一停照样收。
+  void keepControlsAlive() {
+    if (showControls.value) {
+      hideTaskControls();
+    }
   }
 
   void onSeekStart(int seekFrom) {
@@ -1257,6 +1260,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       hideTaskControls();
     }
   }
+
+  /// 桌面端播放器区域的光标：控制条收着就藏起来。
+  ///
+  /// "看片的时候别挡着"——鼠标不动 → 控制条按超时收起（[hideTaskControls]）
+  /// → 光标跟着一起藏；再晃一下鼠标，`MouseRegion.onHover` 把控制条亮起来，
+  /// 光标也就回来了（`MouseRegion.cursor` 变了会触发一次重绘 +
+  /// `MouseTracker` 重算，不用等下一次指针移动）。
+  ///
+  /// **不要求全屏**：窗口里的那块视频同样得能"看片时不挡着"。以前只有全屏
+  /// 才藏，是因为窗口模式里鼠标还在页面上干活；但这一层只覆盖视频自己那块
+  /// 区域，指针一离开就到 `onExit` 把控制条收了，光标也归页面管。
+  MouseCursor get playerCursor => showControls.value
+      ? MouseCursor.defer
+      : SystemMouseCursors.none;
 
   Timer? longPressTimer;
   void cancelLongPressTimer() {
@@ -1740,6 +1757,47 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
 
+    // 全屏里控制条亮着时，返回键先收控制条（见 [hideControlsOnBack]）。
+    // 安卓的返回键走不到 `appBack()`（系统直接 popRoute），这一步得在这儿补。
+    if (hideControlsOnBack()) {
+      return;
+    }
+    onBackButton();
+  }
+
+  /// 返回键的**第一步**：控制条亮着就只收控制条，返回 true（这次返回到此为止）。
+  ///
+  /// 需求：全屏 / 窗口全屏里 OSD 亮着时，`ESC` / `B` / 安卓返回键是**隐藏 OSD**，
+  /// 而不是退出全屏（更不是退页面）。桌面端的 Esc 由 `main.dart` 的 early handler
+  /// 直接送进 `appBack()`、手柄 B 走焦点树送进 `appBack()`、安卓返回键进
+  /// [onPopInvokedWithResult]，三条路都在这里汇合。
+  ///
+  /// 只认两个状态，都是有意的：
+  /// - **手柄模式**（[isPlayerTvMode]）：关着的时候 Esc 就是"退出全屏"，
+  ///   桌面用户对这个键有预期，不替他们改成两下；
+  /// - **全屏 / 窗口全屏**（[isFullScreen]，桌面全屏和 `windowFullScreen` 是同一个
+  ///   状态）：非全屏的播放器里 OSD 是给鼠标/触摸用的浮层（整层不进焦点树），
+  ///   在那儿按返回还是"退出页面"，别让触摸用户多点一次。
+  ///
+  /// 锁屏时**不**吃这一下：那时 OSD 是锁着的样子，返回键的语义是解锁
+  /// （[onBackButton] 里的第一步）。
+  bool hideControlsOnBack() {
+    if (!isPlayerTvMode() || !isFullScreen.value) {
+      return false;
+    }
+    if (controlsLock.value || !showControls.value) {
+      return false;
+    }
+    controls = false;
+    return true;
+  }
+
+  /// 返回键的**第二步**：锁屏 → 画中画 → 全屏 → 退页面。
+  ///
+  /// OSD 上那颗返回按钮直接调这里，**跳过** [hideControlsOnBack]：它就是
+  /// "退出全屏"的意思，被"先收控制条"吃掉的话按一下只看见控制条收起来，
+  /// 等于按了没反应（而且那颗按钮只在控制条亮着时才看得见）。
+  void onBackButton() {
     if (controlsLock.value) {
       onLockControl(false);
       return;

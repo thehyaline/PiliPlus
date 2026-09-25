@@ -1619,8 +1619,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: RepaintBoundary(
               child: PlayerTvOsd(
                 showControls: plPlayerController.showControls,
-                onFocusInOsd: (value) =>
-                    plPlayerController.tvFocusInControls = value,
                 // 手柄播放器模型：非全屏时 OSD 不进焦点树（那种状态下播放器
                 // 只有"整块画面"一个焦点，确定键进全屏）；全屏时正常可聚焦
                 videoMode: tvPlayerMode,
@@ -2061,9 +2059,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (PlatformUtils.isDesktop) {
       return Obx(
         () => MouseRegion(
-          cursor: !plPlayerController.showControls.value && isFullScreen
-              ? SystemMouseCursors.none
-              : MouseCursor.defer,
+          // 控制条收着就把光标藏起来（晃一下鼠标控制条就亮、光标就回来）。
+          // 规则在 `PlPlayerController.playerCursor`：**不要求全屏**。
+          // 视频页和直播页共用这一层（`PLVideoPlayer`），所以两页一起生效。
+          cursor: plPlayerController.playerCursor,
           onEnter: (_) => plPlayerController.controls = true,
           onHover: (_) => plPlayerController.controls = true,
           onExit: (_) => plPlayerController.controls =

@@ -154,13 +154,9 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               tooltip: '返回',
               focusNode: _backNode,
               icon: const Icon(FontAwesomeIcons.arrowLeft, size: 15),
-              onTap: () {
-                if (plPlayerController.isDesktopPip) {
-                  plPlayerController.exitDesktopPip();
-                } else {
-                  plPlayerController.triggerFullScreen(status: false);
-                }
-              },
+              // 和视频页同一颗按钮：直接走"退出"那一步（锁屏 → 画中画 →
+              // 全屏 → 退页面），不吃"控制条亮着先收控制条"那条规则
+              onTap: plPlayerController.onBackButton,
             ),
           child,
           ...?timeBatteryWidgets,

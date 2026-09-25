@@ -1832,6 +1832,11 @@ class HeaderControlState extends State<HeaderControl>
               // 播放器里少数几个自带焦点环的按钮：它是上栏的入口落点
               // （手柄模式下的返回键语义就是"退出播放器"，bbll 的返回键
               // 干脆不可聚焦，这里反过来把它当成上栏的默认落点）
+              //
+              // 走 `onBackButton` 而不是 `onPopInvokedWithResult`：后者会先做
+              // "全屏里控制条亮着就只收控制条"那一步（ESC / B 的语义），
+              // 而这颗按钮只在控制条亮着时才看得见，被那一步吃掉就成了
+              // "按了没反应"——它要的就是退出（全屏 → 退页面）。
               child: FocusRing(
                 focusNode: _backNode,
                 debugLabel: 'PlayerBack',
@@ -1848,8 +1853,7 @@ class HeaderControlState extends State<HeaderControl>
                     size: 15,
                     color: Colors.white,
                   ),
-                  onPressed: () =>
-                      plPlayerController.onPopInvokedWithResult(false, null),
+                  onPressed: () => plPlayerController.onBackButton(),
                 ),
               ),
             ),

@@ -849,9 +849,42 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 锚点节点的 `hasFocus` 在自己或任一后代有焦点时都为真，正好可以拿来问
 "焦点现在在不在这块区域里"。
 
-同理，**焦点还在控制条里时不自动隐藏**——`hideTaskControls` 每 2 秒问一次
-`tvFocusInControls`，为真就重新计时。用一个裸 `bool`（而不是 `Rx`）是因为
-它只被计时器这一个消费者读，改它不需要触发重建。
+### 控制条自动隐藏：焦点在 OSD 里**也照收**
+
+老写法反过来：`hideTaskControls` 每 2 秒问一次 `tvFocusInControls`，为真就重新
+计时——"焦点在控制条里就不自动隐藏"。手柄把预选框停在控制条上时，那一层于是
+**永远不收**：焦点待在一块不会消失的浮层里，用户看到的是"这块东西一直在，
+按它也没反应"。已经拿掉了。
+
+现在的规则两条：
+
+- 到点就收，**焦点在 OSD 里不豁免**（收掉之后由上一节那条"拉回画面"接住）；
+- 栏亮着时，人在控制条上按键就**重新计时**——`PlPlayerController.keepControlsAlive`，
+  `PlayerFocus` 每收到一次按在 OSD 里的按键就调一次。所以"一直在操作"不会被
+  打断，"停手"也一定收得掉；代价就是人在栏里时得**一直按**才留得住它。
+
+计时器本身还是 `hideTaskControls`（超时时长不变：`Pref.enableLongShowControl`
+才是 30s，否则 3s），`isSeeking` / `tripling` 期间照旧不收起。
+
+### 鼠标光标跟着控制条收放（`PlPlayerController.playerCursor`）
+
+| 状态 | 光标 |
+| --- | --- |
+| 控制条亮着 | `MouseCursor.defer`（照旧） |
+| 控制条收着 | `SystemMouseCursors.none` |
+
+看片时鼠标不动 → 超时收栏 → 光标跟着一起消失；再晃一下鼠标，`MouseRegion.onHover`
+把栏亮起来，光标同时回来。**不需要单独的"鼠标静止计时器"**：会收栏的那一路本来
+就是"指针停在视频上但没动"，复用同一个计时器就够。
+
+**不要求全屏**（老写法是 `!showControls && isFullScreen` 才藏）：窗口里那块视频
+同样得"看片时不挡着"。窗口模式里指针会离开视频区域去做别的事，那一下 `onExit`
+把控制条收掉、光标也交回页面管（`defer`），不会出现"整个页面没有光标"。
+视频页和直播页共用 `PLVideoPlayer` 这一层，所以两页一起生效。
+
+换光标为什么立刻可见：`RenderMouseRegion.cursor` 的 setter 会 `markNeedsPaint`，
+`MouseTracker` 因此重算一次，**不用等下一次指针移动**——不然就是"晃了却还看不见
+光标"。
 
 ### 键位表（手柄模式关着时：桌面键盘）
 
@@ -868,7 +901,7 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 | enter / space | "跳过片头 + 发弹幕"（直播页是发弹幕）/ 播放暂停 |
 | L2 / R2 | 快退 / 快进（媒体键同） |
 | L1 / R1 | 走全局层（上一栏/下一栏），播放器里没做特殊处理 |
-| B / Esc | 播放器不拦，交给全局层（退页面） |
+| B / Esc | 播放器不拦，交给全局层（全屏里 = 退出全屏，桌面画中画里 = 退画中画，否则退页面） |
 
 焦点在**控制条**里（下面这几条都是手柄模式打开时；关着时播放器不拦 B，
 它是全局的"返回"）：
@@ -878,11 +911,57 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 | ←/→ | 控件间导航；停在进度条上时按 `TvSeekBar` 的规则微调（见下） |
 | ↑/↓ | 顶栏 ↔ 底栏（`stop` 边界，不会跑出 OSD） |
 | 确定 | 激活焦点控件（`ActivateIntent`，交还框架） |
-| B / Esc | 收控制条 + 焦点回画面 |
+| 空格 / Tab | 交还框架（空格 = 激活焦点控件，`NextFocusIntent` 照常） |
+| B / Esc / 安卓返回键 | 收控制条 + 焦点回画面（走 `hideControlsOnBack`，见下） |
 
-实现上这件事只在 `onKeyEvent` 开头做一次判断：`TvRegions.hasFocus(playerOsd)`
-为真就**放行**方向键/确定键/Tab，其余走桌面键位表。放行（`ignored`）而不是
+B 这一行**不是 `PlayerFocus` 自己判的**：焦点在 OSD 里时它只做一件事——把自动隐藏
+重新计时（`keepControlsAlive`），其余按键一律放行；返回键那一下交给全局那条路。
+原因是这三条路根本不在焦点树里汇合（见「返回键：一套语义」）：桌面端的 Esc 由
+`main.dart` 的 early handler 直接送进 `appBack()`，安卓返回键走系统 `popRoute`，
+只有手柄 B 会经过 `PlayerFocus`。规则放在三者**共同**的落点上才管得住全部。
+
+实现上 `onKeyEvent` 开头只做一次判断：`TvRegions.hasFocus(playerOsd)` 为真就
+**放行**方向键/确定键/空格/Tab，其余按桌面键位表走。放行（`ignored`）而不是
 `handled` 很关键——`handled` 会让按键停在这一层，控件的"确定"就永远不会被激活。
+
+### 返回键：全屏里亮着 OSD 就先收 OSD（`hideControlsOnBack`）
+
+需求：全屏 / 窗口全屏（桌面全屏和 `windowFullScreen` 是同一个 `isFullScreen`）
+**且 OSD 亮着**时，`Esc` / 手柄 `B` / 安卓返回键的语义是**隐藏 OSD**，而不是退出
+全屏、更不是退页面。
+
+| 状态 | 返回键 |
+| --- | --- |
+| 手柄模式 + 全屏 + OSD 亮着 | 收 OSD（焦点回画面），这一下到此为止 |
+| 手柄模式 + 全屏 + OSD 收着 | 退全屏（交给 `onBackButton` 的下一步） |
+| 手柄模式 + 非全屏 | 播放器不插手：退页面（桌面画中画里是退画中画） |
+| 锁屏中 | 不插手（那一下是"解锁"） |
+| 手柄模式关着 | 不插手（桌面键盘的 Esc 照旧是"退出全屏"） |
+
+`PlPlayerController.onPopInvokedWithResult` 是最前面的落点（`noPop` 分支），
+`hideControlsOnBack()` 返回 true 就只收 OSD。三条路怎么走到这里的：
+
+- **手柄 B**：焦点树 → `TvShortcuts` → `appBack()` → 路由 `popDisposition`
+  （全屏时 `PopScope(canPop: false)`）→ `onPopInvokedWithResult`；
+- **桌面 Esc**：`main.dart` 的 early handler → 同一个 `appBack()` → 同一处；
+- **安卓返回键**：系统直接 `popRoute`，**不经过 `appBack()`**——它自己就会落到
+  路由的 `popDisposition` 上，所以补在 `onPopInvokedWithResult` 里是唯一
+  三个都覆盖得到的写法（不需要给播放器压 `TvBack` handler）。
+
+只认这两个状态是有意的：**非全屏的 OSD 是给鼠标/触摸的浮层**（手柄模型下整层
+不进焦点树），在那儿按返回还是"退出页面"，别让触摸用户为了退出多点一次；
+**桌面键盘模式**（「手柄/遥控器模式」关着）的 Esc 保持"退出全屏"的老语义，
+桌面用户对这个键有预期。窗口全屏和桌面全屏走同一个 `isFullScreen`，规则一视同仁。
+
+OSD 上那颗**返回按钮**（顶栏那颗）不走这条路：它直接调
+`PlPlayerController.onBackButton`（锁屏 → 画中画 → 全屏 → 退页面）。
+那颗按钮只在控制条亮着时才看得见，被"先收控制条"吃掉就成了"按了没反应"——
+它要的就是退出。视频页和直播页共用这一颗按钮的行为。
+
+**面板开着时返回键不会误伤控制条**：面板是路由（画质、弹幕设置……）或
+`MiniScaffold` 底弹层，前者本身就是最上层路由、后者是路由内部的 local history
+entry（`popDisposition` 那时返回 `pop`），都在 `onPopInvokedWithResult` 之前
+把这一下吃掉了。
 
 ### 手柄播放器模型：整块画面 = 一个焦点（`TvPlayerSurface`）
 
@@ -924,8 +1003,8 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 | **进全屏**时上下栏收着 | — | 焦点留在画面（收栏的静息态，什么也不做） |
 | 退出全屏 | — | 焦点交回画面（非全屏下它是唯一落点） |
 | 任何时候 | 空格 / 字母键 | 播放暂停、发弹幕、全屏(`F`/`X`)、静音……照旧 |
-| 控制条亮着 | B / Esc | 只收控制条，焦点回画面 |
-| 控制条收着 | B / Esc | 播放器让出去，交给全局层（退页面） |
+| 控制条亮着 | B / Esc / 安卓返回键 | 只收控制条，焦点回画面（`hideControlsOnBack`） |
+| 控制条收着 | B / Esc / 安卓返回键 | 退全屏；全屏之外才交给全局层（退页面） |
 
 全屏下画面**不再是"整块一个大焦点"**：焦点能进上下栏了，它退化成"上下栏收起来
 时焦点停的地方"，所以**不画预选框**（`FocusRing(hideRing: true)`）——上下栏收着
@@ -951,6 +1030,10 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
   这条规则对两种全屏一视同仁。
 - **方向键唤栏只认"第一次按下"**（`TvKeys.isFirstPress`）：长按的重复事件只吞掉，
   不然每帧都要重新送一遍焦点。
+- **返回键那一步不在这一层**（`PlayerFocus` / `TvPlayerSurface`）：全屏里 OSD 亮着
+  时它要先收 OSD，而 Esc 和安卓返回键都到不了焦点树，所以规则写在三条路的共同
+  落点 `PlPlayerController.onPopInvokedWithResult` 里（见「返回键：全屏里亮着 OSD
+  就先收 OSD」）。这一层只做"焦点在 OSD 里就把自动隐藏重新计时"。
 - **焦点在进度指示器上时不画整条进度条的环**（`TvSeekBar(focusOnThumb: true)`
   把 `borderWidth` 收成 0），那一圈改由 `ProgressBar.thumbFocusRing` 画在
   thumb 外面——否则会同时出现两个框，让人以为有两个能停的地方。
@@ -1285,8 +1368,12 @@ TvBack.dispatch()            // 1. 先给"当前场景"的拦截栈
  → navigator.pop()           // 4. 最后才退页面
 ```
 
-`TvBack.push(handler)` 是给"返回键要先关控件、再退页面"的场景准备的
-（播放器控件层、全屏、图片预览……）。handler 返回 `false` 表示不接手。
+`TvBack.push(handler)` 是给"返回键要先关自己的控件、再退页面"的场景准备的
+（栈顶先拿到这一下），handler 返回 `false` 表示不接手。**播放器没有用它**：
+它那句"先收控制条"要同时盖住桌面 Esc（跑在焦点树之前，`Focus.onKeyEvent`
+抢不到）、安卓返回键（系统直接 `popRoute`，**根本不经过 `appBack()`**）和手柄 B，
+所以规则挂在三条路唯一的交集——路由的 `popDisposition`
+（`onPopInvokedWithResult`）上，见「返回键：全屏里亮着 OSD 就先收 OSD」。
 
 为什么需要这个栈：桌面端的 Esc 是在 `FocusManager.addEarlyKeyEventHandler`
 里处理的（`main.dart`），它跑在**焦点树之前**，`Focus.onKeyEvent` 抢不到；
@@ -1336,7 +1423,9 @@ TvMediaKeys.remove(target);
 | 让焦点落在进度**指示器**上（手柄播放器模型） | `TvSeekBar(focusOnThumb: true)` + `ProgressBar(thumbFocusRing:)` |
 | 播放器画面当成一个大焦点（预选框+确定键进全屏） | `TvPlayerSurface`（只在手柄播放器模型下装，见 `isPlayerTvMode`） |
 | 焦点"进到某块区域"时把落点锁到指定控件 | `TvEntryLock`（播放器上下栏就是这么锁返回键 / 播放暂停的） |
-| 播放器 OSD（自动隐藏与焦点联动） | `PlayerTvOsd`，按键层是 `PlayerFocus` |
+| 播放器 OSD（控制条照超时收、焦点由它拉回画面） | `PlayerTvOsd`，按键层是 `PlayerFocus`（按键只负责重新计时：`keepControlsAlive`） |
+| 播放器返回键（全屏里先收 OSD） | `PlPlayerController.hideControlsOnBack`（挂在 `onPopInvokedWithResult` 上，三条返回路径同一个落点） |
+| 看片时藏鼠标光标 | `PlPlayerController.playerCursor`（控制条收着 → `SystemMouseCursors.none`） |
 | 响应媒体键 | `TvMediaKeys.push` |
 | 键位判定 | `TvKeys.isOk / isBack / isMore / isPrevSection / isNextSection / isDpad / isFirstPress` |
 | 尺寸与时长常量 | `TvFocusSpec`（scale / duration / radius / borderWidth / longPressDuration / safeSpace / cacheExtent，播放器另有 playerRadius / surfaceRadius / seekStep） |
@@ -1378,7 +1467,9 @@ TvMediaKeys.remove(target);
    不分页），改键位表两页一起变（差别只在直播没有进度条、`isLive` 会把快进短路）；
    控制条上的新控件一律用 `TvButton` 包（要当锚点就把 `focusNode` 透传出去）；
    新按钮要能"进栏即落点"就把 `TvRegions.registerAnchor` 登记上，
-   别在按键层里写方向判断。
+   别在按键层里写方向判断。**跟返回键有关的行为别写进 `PlayerFocus`**：
+   桌面 Esc / 安卓返回键都到不了那里，规则要挂在 `PlPlayerController`
+   上（见「返回键：全屏里亮着 OSD 就先收 OSD」）。
 
 ### 写测试时的几个坑（`test/tv_focus_test.dart` 顶部有现成脚手架）
 
@@ -1508,6 +1599,25 @@ TvMediaKeys.remove(target);
   对照的 BBLL 也是这个分工。全屏之后确定才是播放/暂停（这时它就是 BBLL 的手感）。
   直播页跟着一起变：它原来是"确定 = 进控制条 / 播放暂停"（只在那一条分支里），
   现在两页同一个模型。
+- **焦点停在控制条里不豁免自动隐藏**（老写法是"焦点在栏里就一直不收"）：
+  豁免的后果是手柄把预选框停在一块**永不消失**的浮层上——用户按不动它、
+  也等不到它自己走，只有画面那块"一直亮着框"。改成"到点照收"之后，
+  代价挪到了另一头：人一直在栏里操作就得**一直按**（每次按键重新计时），
+  停手的那一下栏会收掉、焦点被拉回画面。两害相权，后者是电视上通行的做法
+  （遥控器"没动作就淡出"），前者则是个死状态。
+- **非全屏 / 桌面键盘模式下返回键不吃"先收 OSD"**：非全屏的 OSD 是鼠标/触摸的
+  浮层（手柄模型下整层不进焦点树），按返回就是"退页面"，吃成两下会让触摸用户
+  为了退出多点一次；桌面键盘模式（「手柄/遥控器模式」关着）的 Esc 保持
+  "退出全屏"的老语义，桌面用户对这个键有预期。所以 `hideControlsOnBack` 只认
+  "手柄模式 + 全屏/窗口全屏 + OSD 亮着"这一个组合。
+- **看片时的鼠标光标跟控制条走，不再要求全屏**（老写法是
+  `!showControls && isFullScreen`）：窗口里那块视频同样得"看片时不挡着"。
+  指针离开视频区域（`onExit` 收栏、光标交回页面）之后没有副作用——藏光标的
+  `MouseRegion` 只覆盖播放器自己那一块。再晃一下鼠标光标立刻回来，
+  靠的是 `RenderMouseRegion.cursor` 的 setter 会 `markNeedsPaint`。
+- **OSD 顶栏那颗「返回」按钮刻意跳过 `hideControlsOnBack`**（直接调
+  `onBackButton`）：它只在控制条亮着时才看得见，被"先收控制条"吃掉就是
+  "按了没反应"——它要的正是退出（全屏 → 退页面）。视频页和直播页共用这一颗。
 - **桌面画中画（`isDesktopPip`）里 OSD 上的按钮手柄够不到**：画中画只能从非全屏
   进（`enterDesktopPip` 在 `isFullScreen` 为真时直接返回），而非全屏下整层 OSD
   是 `ExcludeFocus` 的，所以画中画窗口上那排按钮只有触摸能点——直播页偏偏还会在
@@ -1523,9 +1633,11 @@ TvMediaKeys.remove(target);
   点上（`_enterFullScreen`），两种情况用户看到的都是"栏亮着、预选框在播放/暂停"。
   好处是方向键的语义只有一条（唤栏），不用在画面这一层判"↑ 进下栏还是上栏"；
   代价是亮栏那一帧焦点其实已经不在画面上了，所以画面在那一帧同步 `hideRing`。
-- **`PlayerFocus` 的 B 键在最前面判**：B 在任何情况下的意思都是"先收掉播放器自己
-  的东西"（控制条亮着收控制条、焦点在画面里就退页面），这条在两个模型下完全一致，
-  所以它写在 `_tvPlayerMode` 分支之前，手柄播放器模型不会把它一起让出去。
+- **B 键分两处判，看焦点在不在控制条里**（`PlayerFocus`）：焦点在画面/页面里时
+  这一层直接吃掉它（控制条亮着就只收控制条 + 焦点回画面，收着就放给全局层当
+  "退出"）；焦点在控制条里时它**不吃**，只把自动隐藏重新计时，然后让这一下走到
+  全局那条路上去——桌面 Esc 和安卓返回键都到不了焦点树，规则必须写在三条路的
+  共同落点（`hideControlsOnBack`）上，写在 `PlayerFocus` 里反而会漏掉那两个。
 - **上下栏的落点用进栏锁，不在按键层判方向**：从画面按 ↑ 进底栏，几何上会落到
   "正上方那根进度条"，而手柄用户要的是播放/暂停按钮。进栏锁（`TvEntryLock`）
   只认"焦点从栏外进到栏里"，栏内移动照旧几何寻焦——这样以后往栏里加控件、

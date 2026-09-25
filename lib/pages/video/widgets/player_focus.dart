@@ -10,7 +10,6 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/tv_keys.dart';
 import 'package:flutter/services.dart'
@@ -35,6 +34,12 @@ import 'package:material_ui/material_ui.dart';
 ///     上下栏收着时确定键是播放/暂停；
 ///   * 这一层只留播放器自己的键：B 收控制条（收着时让出去，当"退出"用）、
 ///     空格播放暂停、字母快捷键，以及 [TvMediaKeys] 上的媒体键。
+///   * 焦点停在控制条（OSD）里时，这一层吃得下的键只剩"重新计时"：
+///     跟控制条有关的行为（方向键移动预选框、空格/Tab 交给框架、
+///     **ESC / B / 安卓返回键先收控制条**）全都由控件自己和
+///     `PlPlayerController.hideControlsOnBack` 负责——ESC 在桌面端根本
+///     到不了焦点树（`main.dart` 的 early handler 直接送进 `appBack()`），
+///     安卓的返回键也走系统那一路，只有把规则放在它们**共同**的落点上才管用。
 ///
 /// 媒体键（键盘/耳机/遥控器上的播放暂停、上一集、快进）挂在 [TvMediaKeys] 上，
 /// 页面只要有播放器就生效。
@@ -76,10 +81,9 @@ class _PlayerFocusState extends State<PlayerFocus> {
   PlPlayerController get _ctr => widget.plPlayerController;
   bool get isFullScreen => _ctr.isFullScreen.value;
   bool get hasPlayer => _ctr.videoPlayerController != null;
-  bool get _tvMode => Pref.tvFocus;
 
-  /// 手柄播放器模型：方向键/确定键**完全**交给焦点系统（见类注释）。
-  bool get _tvPlayerMode => isPlayerTvMode();
+  /// 手柄 / 遥控器模式（= 手柄播放器模型，`isPlayerTvMode()` 也是它）。
+  bool get _tvMode => isPlayerTvMode();
 
   /// 焦点是不是在 OSD（顶部信息栏 / 底部控制条）里面。
   bool get _inOsd => TvRegions.hasFocus(TvLabels.playerOsd);
@@ -139,6 +143,10 @@ class _PlayerFocusState extends State<PlayerFocus> {
   ///
   /// 控制条本来就收着时不吃它——那时 B 的语义是"退出"，交给上层。
   /// 按下/重复/抬起都吃掉同一个 B：不然抬起时又来一次返回。
+  ///
+  /// 只在焦点**不在**控制条里时走这里（见 [build]）：焦点停在 OSD 上时这一层
+  /// 收不到这个键的判断，那条路交给 `PlPlayerController.hideControlsOnBack`
+  /// ——它同时兜住桌面端的 Esc（走不到焦点树）和安卓的返回键。
   bool _handleTvKey(KeyEvent event) {
     if (!TvKeys.isBack(event)) {
       return false;
@@ -160,7 +168,7 @@ class _PlayerFocusState extends State<PlayerFocus> {
     // （`TvPlayerSurface`）登记，其余情况是这一层的页面级节点。
     // 写在 build 里（不是 initState）才能在运行中开关设置后换人；
     // 各自只撤销自己登记的节点（identity 检查），不会互相误删。
-    if (!_tvPlayerMode) {
+    if (!_tvMode) {
       TvRegions.registerAnchor(TvLabels.playerSurface, _node);
     }
     // 页面级锚点：画面那一层被移出树时（切布局、画中画、播放器还没就绪……）
@@ -168,7 +176,7 @@ class _PlayerFocusState extends State<PlayerFocus> {
     TvRegions.registerAnchor(TvLabels.playerPage, _node);
     return Focus(
       focusNode: _node,
-      autofocus: !_tvPlayerMode,
+      autofocus: !_tvMode,
       // 手柄播放器模型下这一层**不再自动聚焦**（树序上祖先会赢过后代，
       // 自动聚焦要留给画面那一层），但必须保持可聚焦：画面那一层从树上
       // 消失时它是唯一还活着、"接得住"的节点。
@@ -179,15 +187,19 @@ class _PlayerFocusState extends State<PlayerFocus> {
       skipTraversal: _tvMode,
       onKeyEvent: (node, event) {
         if (_tvMode) {
-          // 方向键/确定键一律放行——方向键走几何寻焦在界面里移动预选框，
-          // 确定键由画面那层（进全屏 / 播放暂停）或控件自己（激活）接
-          if (_tvPlayerMode && _isFocusKey(event)) {
-            return KeyEventResult.ignored;
-          }
+          // 焦点在控制条里时，任何一次按键都算"人还在操作"：
+          // 手柄模式下焦点停在 OSD 里**不再豁免**自动隐藏（一停手就收，
+          // 焦点由 `PlayerTvOsd` 拉回画面），所以每按一下都要把计时推后
           if (_inOsd) {
-            // 焦点在上下栏里：方向键/确定键/Tab 交回框架（控件间导航 + 确定）
-            if (TvKeys.isDpad(event) ||
-                TvKeys.isOk(event) ||
+            _ctr.keepControlsAlive();
+            // 方向键/确定键一律放行——方向键走几何寻焦在界面里移动预选框，
+            // 确定键由画面那层（进全屏 / 播放暂停）或控件自己（激活）接
+            if (_isFocusKey(event)) {
+              return KeyEventResult.ignored;
+            }
+            // 空格/Tab 也交回框架（激活焦点控件 / 切换焦点），
+            // 桌面键位表里的"空格 = 播放暂停"在控制条里让位
+            if (event.logicalKey == LogicalKeyboardKey.space ||
                 event.logicalKey == LogicalKeyboardKey.tab) {
               return KeyEventResult.ignored;
             }
