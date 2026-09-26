@@ -926,55 +926,64 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     );
   }
 
+  /// UP 主那一块（头像 + 昵称 + 粉丝数/视频数）= **一个**焦点节点。
+  ///
+  /// 这几样点哪儿都是跳 UP 主个人页，拆成几个焦点只会让方向键在里面绕；
+  /// 整块当一个卡片（[TvCard]），确定键 = 跳个人页（见「准则 1」）。
+  /// 描边画在控件边界**之内**，所以里面留一圈 `Padding` 当余量，不然环会贴着字。
   Widget _buildAvatar(
     VoidCallback onPushMember,
-  ) => GestureDetector(
+  ) => TvCard(
+    debugLabel: 'UP主',
+    radius: const .all(.circular(8)),
     onTap: onPushMember,
-    behavior: .opaque,
     onSecondaryTap:
         PlatformUtils.isDesktop && introController.horizontalMemberPage
         ? () => Get.toNamed(
             '/member?mid=${introController.userStat.value.card?.mid}&from_view_aid=${videoDetailCtr.aid}',
           )
         : null,
-    child: Obx(
-      () {
-        final userStat = introController.userStat.value;
-        final isVip = (userStat.card?.vip?.status ?? 0) > 0;
-        return Row(
-          spacing: 10,
-          mainAxisSize: .min,
-          children: [
-            PendantAvatar(
-              userStat.card?.face,
-              size: 35,
-              badgeSize: 14,
-              vipStatus: userStat.card?.vip?.status,
-              officialType: userStat.card?.official?.type,
-            ),
-            Column(
-              crossAxisAlignment: .start,
-              children: [
-                Text(
-                  userStat.card?.name ?? "",
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isVip && userStat.card?.vip?.type == 2
-                        ? colorScheme.vipColor
-                        : null,
+    child: Padding(
+      padding: const .symmetric(horizontal: 5, vertical: 5),
+      child: Obx(
+        () {
+          final userStat = introController.userStat.value;
+          final isVip = (userStat.card?.vip?.status ?? 0) > 0;
+          return Row(
+            spacing: 10,
+            mainAxisSize: .min,
+            children: [
+              PendantAvatar(
+                userStat.card?.face,
+                size: 35,
+                badgeSize: 14,
+                vipStatus: userStat.card?.vip?.status,
+                officialType: userStat.card?.official?.type,
+              ),
+              Column(
+                crossAxisAlignment: .start,
+                children: [
+                  Text(
+                    userStat.card?.name ?? "",
+                    maxLines: 1,
+                    overflow: .ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isVip && userStat.card?.vip?.type == 2
+                          ? colorScheme.vipColor
+                          : null,
+                    ),
                   ),
-                ),
-                Text(
-                  '${NumUtils.numFormat(userStat.follower)}粉丝    ${'${NumUtils.numFormat(userStat.archiveCount)}视频'}',
-                  style: TextStyle(fontSize: 12, color: colorScheme.outline),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
+                  Text(
+                    '${NumUtils.numFormat(userStat.follower)}粉丝    ${'${NumUtils.numFormat(userStat.archiveCount)}视频'}',
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     ),
   );
 

@@ -474,7 +474,8 @@ class _MainAppState extends PopScopeState<MainApp>
                 .map(
                   (e) => TvNavDestination(
                     debugLabel: 'nav-${e.name}',
-                    // 这一格上下都贴着栏边，放大 4% 会把环顶到栏外面（见该类）
+                    // 这一格不弹：上下都贴着栏边，放大只会在贴边那一侧被裁掉
+                    // （放大现在收在格子自己的矩形里，见该类）
                     scale: 1.0,
                     child: NavigationDestination(
                       label: e.label,
@@ -587,12 +588,11 @@ class _MainAppState extends PopScopeState<MainApp>
                     header: Expanded(
                       flex: 4,
                       child: Padding(
-                        // 头像紧贴在抽屉最上沿，而抽屉（`Drawer`）默认
-                        // `clipBehavior: Clip.hardEdge`、裁剪线就是它自己的框：
-                        // 焦点框放大 4% 往外顶的那不到 1dp（头像 34 / 未登录 38dp）
-                        // 正好落在裁剪线外，环的顶上会被削平一条。这 4dp 和导航项
-                        // 那圈 `tilePadding` 是同一个用途——给预选框的缩放让位
-                        // （余量必须在抽屉**里面**，套在外面等于连裁剪线一起挪）
+                        // 头像紧贴在抽屉最上沿时的 4dp 留白。
+                        // 原来是给焦点缩放留的余量（抽屉 `Drawer` 默认
+                        // `clipBehavior: Clip.hardEdge`，放大 4% 往外顶的那不到
+                        // 1dp 会被裁剪线削平环顶）；放大收进控件自己的矩形里之后
+                        // 不用再让了（见 `FocusRing.scale`），留着只是留白。
                         padding: const .only(top: 4),
                         child: userAndSearchVertical(),
                       ),

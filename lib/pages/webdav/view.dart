@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/pages/webdav/webdav.dart';
@@ -51,43 +52,60 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
             bottom: padding.bottom + 100,
           ),
           children: [
-            TextField(
-              controller: _uriCtr,
-              decoration: const InputDecoration(
-                labelText: '地址',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _usernameCtr,
-              decoration: const InputDecoration(
-                labelText: '用户',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _passwordCtr,
-              autofillHints: const [AutofillHints.password],
-              decoration: InputDecoration(
-                labelText: '密码',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(() => _obscureText = !_obscureText),
-                  icon: _obscureText
-                      ? const Icon(Icons.visibility)
-                      : const Icon(Icons.visibility_off),
+            TvTextField(
+              debugLabel: 'WebDAV 地址',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                controller: _uriCtr,
+                decoration: const InputDecoration(
+                  labelText: '地址',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              obscureText: _obscureText,
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _directoryCtr,
-              decoration: const InputDecoration(
-                labelText: '路径',
-                border: OutlineInputBorder(),
+            TvTextField(
+              debugLabel: 'WebDAV 用户',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                controller: _usernameCtr,
+                decoration: const InputDecoration(
+                  labelText: '用户',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TvTextField(
+              debugLabel: 'WebDAV 密码',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                controller: _passwordCtr,
+                autofillHints: const [AutofillHints.password],
+                decoration: InputDecoration(
+                  labelText: '密码',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    onPressed: () =>
+                        setState(() => _obscureText = !_obscureText),
+                    icon: _obscureText
+                        ? const Icon(Icons.visibility)
+                        : const Icon(Icons.visibility_off),
+                  ),
+                ),
+                obscureText: _obscureText,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TvTextField(
+              debugLabel: 'WebDAV 路径',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                controller: _directoryCtr,
+                decoration: const InputDecoration(
+                  labelText: '路径',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
             const SizedBox(height: 20),

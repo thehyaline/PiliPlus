@@ -1,6 +1,7 @@
 import 'dart:io' show File;
 
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/time_picker.dart';
@@ -305,21 +306,25 @@ class _CreateVotePageState extends State<CreateVotePage> {
           ),
         ),
         Expanded(
-          child: TextFormField(
-            key: key,
-            initialValue: initialValue,
-            onChanged: onChanged,
-            decoration: InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              hintText: hintText ?? desc,
-              hintStyle: TextStyle(
-                fontSize: 15,
-                color: theme.colorScheme.outline.withValues(alpha: 0.7),
+          child: TvTextField(
+            debugLabel: 'CreateVoteInput',
+            builder: (context, node) => TextFormField(
+              key: key,
+              focusNode: node,
+              initialValue: initialValue,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: hintText ?? desc,
+                hintStyle: TextStyle(
+                  fontSize: 15,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.7),
+                ),
               ),
+              inputFormatters: inputFormatters,
             ),
-            inputFormatters: inputFormatters,
           ),
         ),
         if (showImg)

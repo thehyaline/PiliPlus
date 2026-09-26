@@ -2,6 +2,23 @@
     [string]$platform = ""
 )
 
+# `.patch` 统一按 UTF-8 读、按 UTF-8 写（不带 BOM）。
+#
+# 别改用 `Get-Content` / `Set-Content`：Windows PowerShell 5.1 不带 `-Encoding`
+# 时走**系统 ANSI 代码页**（中文 Windows 上是 GBK），补丁里的中文注释会被这一步
+# 写成乱码，字节一变行也跟着少，`git apply` 就报 "corrupt patch at line N"
+# （`lib/scripts/material/tabs.patch` 里那几行 `// PiliPlus: 手柄/遥控器…` 的注释
+# 就是这么被吃掉 7 行的）。顺手把 CRLF 统一成 LF：`git apply` 不认 CRLF 的补丁。
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+function Convert-PatchToLf([string]$path) {
+    $text = [System.IO.File]::ReadAllText($path, $utf8NoBom)
+    $lf = $text -replace "`r`n", "`n"
+    # 已经是 LF 就一个字节都别动
+    if ($lf -ne $text) {
+        [System.IO.File]::WriteAllText($path, $lf, $utf8NoBom)
+    }
+}
+
 # TODO: remove
 # https://github.com/flutter/flutter/issues/182281
 $NewOverScrollIndicator = "362b1de29974ffc1ed6faa826e1df870d7bec75f";
@@ -308,8 +325,7 @@ if (-not $patchesApplied) {
     }
 
     Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/material" -Filter *.patch | ForEach-Object {
-        (Get-Content $_.FullName -Raw) -replace "`r`n", "`n" |
-            Set-Content -NoNewline $_.FullName
+        Convert-PatchToLf $_.FullName
     }
 
     cd $MaterialUiDir.FullName
@@ -356,8 +372,7 @@ if (-not $CupertinoUiDir) {
 Write-Host "cupertino_ui dir: $($CupertinoUiDir.FullName)"
 
 Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/cupertino" -Filter *.patch | ForEach-Object {
-    (Get-Content $_.FullName -Raw) -replace "`r`n", "`n" | 
-        Set-Content -NoNewline $_.FullName
+    Convert-PatchToLf $_.FullName
 }
 
 cd $CupertinoUiDir.FullName

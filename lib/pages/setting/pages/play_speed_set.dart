@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
@@ -66,16 +67,24 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 12),
-            TextFormField(
+            TvTextField(
+              // TV：焦点落在这格但不弹键盘，按 A 才输入
               autofocus: true,
-              initialValue: initialValue,
-              keyboardType: const .numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: '自定义倍速',
-                border: OutlineInputBorder(borderRadius: .all(.circular(6))),
+              debugLabel: 'AddSpeedInput',
+              builder: (context, node) => TextFormField(
+                autofocus: !Pref.tvFocus,
+                focusNode: node,
+                initialValue: initialValue,
+                keyboardType: const .numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: '自定义倍速',
+                  border: OutlineInputBorder(
+                    borderRadius: .all(.circular(6)),
+                  ),
+                ),
+                onChanged: (value) => initialValue = value,
+                inputFormatters: FilteringText.decimal,
               ),
-              onChanged: (value) => initialValue = value,
-              inputFormatters: FilteringText.decimal,
             ),
           ],
         ),

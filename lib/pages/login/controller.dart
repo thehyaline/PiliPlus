@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:PiliPlus/common/dial_prefix.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart' show TvRadioAxis;
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/radio_widget.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -282,21 +283,25 @@ class LoginPageController extends GetxController
                   style: const TextStyle(fontSize: 18),
                 ),
                 // 带有清空按钮的输入框
-                TextField(
-                  style: const TextStyle(fontSize: 15),
-                  controller: textFieldController,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: "请输入短信验证码",
-                    hintStyle: const TextStyle(fontSize: 15),
-                    suffixIcon: iconButton(
-                      icon: const Icon(Icons.clear),
-                      size: 32,
-                      onPressed: textFieldController.clear,
-                    ),
-                    suffixIconConstraints: const BoxConstraints(
-                      maxHeight: 32,
-                      maxWidth: 32,
+                TvTextField(
+                  debugLabel: '短信验证码',
+                  builder: (context, node) => TextField(
+                    focusNode: node,
+                    style: const TextStyle(fontSize: 15),
+                    controller: textFieldController,
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      hintText: "请输入短信验证码",
+                      hintStyle: const TextStyle(fontSize: 15),
+                      suffixIcon: iconButton(
+                        icon: const Icon(Icons.clear),
+                        size: 32,
+                        onPressed: textFieldController.clear,
+                      ),
+                      suffixIconConstraints: const BoxConstraints(
+                        maxHeight: 32,
+                        maxWidth: 32,
+                      ),
                     ),
                   ),
                 ),

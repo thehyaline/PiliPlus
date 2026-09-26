@@ -9,7 +9,6 @@ import 'package:PiliPlus/pages/fav/cheese/controller.dart';
 import 'package:PiliPlus/pages/fav/topic/controller.dart';
 import 'package:PiliPlus/pages/fav/video/controller.dart';
 import 'package:PiliPlus/pages/fav_folder_sort/view.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -144,16 +143,13 @@ class _FavPageState extends State<FavPage> with SingleTickerProviderStateMixin {
                   if (!_tabController.indexIsChanging) {
                     switch (FavTabType.values[index]) {
                       case FavTabType.video:
-                        _favController.scrollController.animToTop();
+                        _favController.toTopAndRefresh();
                       case FavTabType.article:
-                        Get.find<FavArticleController>().scrollController
-                            .animToTop();
+                        Get.find<FavArticleController>().toTopAndRefresh();
                       case FavTabType.topic:
-                        Get.find<FavTopicController>().scrollController
-                            .animToTop();
+                        Get.find<FavTopicController>().toTopAndRefresh();
                       case FavTabType.cheese:
-                        Get.find<FavCheeseController>().scrollController
-                            .animToTop();
+                        Get.find<FavCheeseController>().toTopAndRefresh();
                       default:
                     }
                   }

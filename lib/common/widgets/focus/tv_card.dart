@@ -244,6 +244,9 @@ Widget _transparentSurface(Widget child) =>
 
 /// 带 M3 卡片外表的 [TvCard.surface]：`Card` 自带的 4dp 外边距正好当卡片间距，
 /// 所以这里不动它（焦点框画在整格边界上，和 blbl 的 stroke 一样留一圈余量）。
+///
+/// 聚焦时卡片跟着内容一起放大 4%，那点增长最多把这 4dp 外边距吃平——放大被
+/// 限制在整格之内（见 [FocusRing.scale]），所以**不需要**再给网格留 z 序余量。
 Widget tvCardSurface(Widget child) => Card(child: child);
 
 /// 卡片 / 弹层里不该被方向键选中的子控件（点赞、更多、时长角标、底弹层的拖拽把手……）。

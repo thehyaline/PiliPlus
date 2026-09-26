@@ -1,8 +1,10 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/radio_widget.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -106,24 +108,31 @@ Future<void> autoWrapReportDialog(
                         if (isWithContent)
                           Padding(
                             padding: const .only(left: 22, top: 5, right: 22),
-                            child: TextFormField(
-                              key: key,
-                              minLines: 2,
-                              maxLines: 4,
-                              initialValue: reasonDesc,
+                            child: TvTextField(
+                              // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                               autofocus: isContentRequired,
-                              decoration: const InputDecoration(
-                                labelText: '为帮助审核人员更快处理，请补充问题类型和出现位置等详细信息',
-                                border: OutlineInputBorder(),
-                                contentPadding: .all(10),
-                                labelStyle: TextStyle(fontSize: 14),
-                                floatingLabelStyle: TextStyle(fontSize: 14),
+                              debugLabel: '举报理由',
+                              builder: (context, node) => TextFormField(
+                                key: key,
+                                minLines: 2,
+                                maxLines: 4,
+                                initialValue: reasonDesc,
+                                // 非 TV 模式保持"打开就能输入"的老行为
+                                autofocus: !Pref.tvFocus && isContentRequired,
+                                focusNode: node,
+                                decoration: const InputDecoration(
+                                  labelText: '为帮助审核人员更快处理，请补充问题类型和出现位置等详细信息',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: .all(10),
+                                  labelStyle: TextStyle(fontSize: 14),
+                                  floatingLabelStyle: TextStyle(fontSize: 14),
+                                ),
+                                onChanged: (value) => reasonDesc = value,
+                                validator: (value) =>
+                                    isContentRequired && value.isNullOrEmpty
+                                    ? '理由不能为空'
+                                    : null,
                               ),
-                              onChanged: (value) => reasonDesc = value,
-                              validator: (value) =>
-                                  isContentRequired && value.isNullOrEmpty
-                                  ? '理由不能为空'
-                                  : null,
                             ),
                           ),
                       ],

@@ -256,10 +256,20 @@ WidgetsBinding.instance.addPostFrameCallback(tryFocus);
 （对齐 blbl 的 `blbl_focus_scale.xml`：scale 1.04 / duration 120；`blbl_focus_stroke.xml`：2dp 描边。）
 描边画在控件**自己的边界内**（`Positioned.fill` + `Border.all`，`strokeAlign` 默认
 `inside`），所以描边本身不会被视口裁切，也不存在和邻卡的 z 序问题。
-但**缩放是往外顶的**（1.04 倍 = 每边多出控件尺寸的 2%）：控件紧贴某个
-`Clip.hardEdge` 的容器的裁剪边时（抽屉、列表视口），顶出去的那一条会被削平。
-贴着裁剪边的控件因此要么**留余量**（平板导航项的 `tilePadding`、抽屉头部给头像留的
-4dp，见「主界面导航栏（平板抽屉）」），要么给 `FocusRing` 传 `scale: 1.0` 不放大。
+
+**放大也只发生在控件自己的矩形里**（`FocusRing._buildContent`）：只有内容层按
+`scale` 放大，超出控件矩形的部分当场裁掉（圆形裁成内切圆、其余按控件圆角裁），
+描边 / 底纹 / `overlay` 一律不缩放、画在控件边界上。于是：
+
+- 「预选框」恒等于控件矩形——后画的邻项、`AppBar` 底边、列表视口、抽屉、屏幕边
+  都盖不住、也切不掉它。项目越宽越明显：整屏宽的评论卡在"整块一起放大"时左右
+  各顶出去 16dp，两条竖描边整个跑到屏幕外，看上去就是"预选框被挡了 / 被切了"；
+- 贴边的控件**不用再留余量**，正常排就行；
+- `scale` 只剩"内容弹得多明显"这一个含义，`TvFocusSpec.scale = 1.0` 是"完全不要
+  弹"的逃生阀（`scale == 1.0` 时连 `AnimatedScale` 都不建，和没有这个特性时一样）。
+
+`test/tv_focus_test.dart` 的「预选框不外溢（放大收在控件矩形里）」那一组钉着这两条：
+顶栏下沿的一排（环顶不被 `AppBar` 盖）、整屏宽的列表项（左右描边不被屏幕边切）。
 
 ### 兜底：包不进去的那些控件（`TvFocusOverlay`）
 
@@ -518,6 +528,9 @@ Win32 的窗口标题栏在 Flutter 视图**之外**，正好对上用户说的"
   **吃掉这一下**（对齐电视上"第一下先亮出光标"的手感），没试到就放行，
   框架行为照旧；
 - 路由自己说了 `requestFocus: false`（"别抢焦点"的弹层）就一个指头都别动；
+- **窗口走完之后才建出来的东西不在这一层管**：播放器画面要等详情接口 + 拉流 URL，
+  那早就过了 90 帧。它自己会来接手（`TvPlayerSurface._claimFocus`），判据是
+  "用户换页之后还没动过手"——见「手柄播放器模型」里那一节；
 - `Pref.tvFocus` 关掉时整条路径不生效。
 
 它是一条**看护循环**，不是"换页时送一次"：窗口 90 帧（≈1.5 秒，覆盖 pop 动画
@@ -549,6 +562,13 @@ Win32 的窗口标题栏在 Flutter 视图**之外**，正好对上用户说的"
 - **手指 / 触控笔按下** → 只切 `alwaysTouch`，**不动焦点**：触屏用户没有方向键，
   而且手指抬起后那个控件可能已经不在树上了。
 
+它顺带记一笔"换页之后用户动过手没有"（`TvInputMode.userActedSinceEntry`）：
+push / replace 时清零，**任何按键按下**（抬起不算）/ **指针按下**时置位。
+唯一的读者是 `TvPlayerSurface._claimFocus`——它要判"页面里这个入口焦点是不是
+页面自己塞的"（见「手柄播放器模型」）。抬起不算有两个理由：松开手柄时预选框
+不该收起来（同上面那条），以及**进这一页那颗确定键的抬起是在 push 之后才派发的**，
+算进去的话玩家一进页面就把留给画面的那次机会用掉了。
+
 `FocusRing` 自己监听了高亮模式的变化（`addHighlightModeListener`），所以已经画着
 的那个环**当帧就收起来/回来**，不用等下一次焦点变化。
 
@@ -578,11 +598,12 @@ Win32 的窗口标题栏在 Flutter 视图**之外**，正好对上用户说的"
 
 ## 5. UI 为手柄让路
 
-- 网格左右各留 8dp 安全内边距，避免 1.04 倍缩放被视口裁切
-  （blbl：`focus_safe_padding_h = 8dp` + RecyclerView `clipChildren="false"`）。
-  Flutter 里用 `TvFocusSpec.safeSpace`。
-- 卡片间距 ≥ 12dp 时，1.04 倍缩放的溢出不会压到邻卡，**不需要**处理 z 序。
-  如果将来把间距改小，必须同时把缩放降到 `间距 / 2 / 卡片尺寸` 以下。
+- 网格左右那 8dp（`TvFocusSpec.safeSpace`）现在只是**留白**：放大收在卡片自己
+  的矩形里之后，贴视口边的那一列不会再被裁，留着是为了别让卡片贴着屏幕边
+  （blbl 里那一份 `focus_safe_padding_h = 8dp` + RecyclerView
+  `clipChildren="false"` 的一半动机已经不成立了）。
+- 卡片间距只影响观感，**不需要**再给缩放的溢出留位、也不用处理 z 序：内容放大
+  被裁在卡片自己的矩形里，压不到邻卡。
 - 必要时可以缩小或隐藏卡内次要按钮——TV 上没人去点 29×29 的三点按钮。
   成批隐藏时降级成"一张卡一个焦点"：总开关打开时动态卡片就是这么走的
   （见「动态卡片」）。
@@ -724,6 +745,47 @@ SizedBox(
   的完整 fork（左栏竖排，↑/↓ 走标签、←/→ 出栏），在同一份代码里实现了同样三个
   扩展点，参数也一样。
 
+### 重按当前那一栏 = 回顶 + 刷新（`toTopAndRefresh`）
+
+鼠标点当前那一栏、手柄 A、确定键、回车、遥控器 OK——这几路输入走的是**同一条**
+路：`WidgetsApp._defaultShortcuts` 把 enter / numpadEnter / select / gameButtonA
+都映成 `ActivateIntent`，标签里的 `InkWell` 收到它就调自己的 `onTap`。所以接线点
+只有一个，就是每个标签栏的 `onTap`（`TvTabBar` 不代做——刷新得调**页面自己**的
+控制器）。
+
+判定"这一下按的是**当前**那一栏"用 `if (!tabController.indexIsChanging)`：
+`TabBar._handleTap` 是"`animateTo(index)` 然后 `onTap(index)`"，换栏那一下
+`_changeIndex` 会真的切、`indexIsChanging` 为真（整个 300ms 动画期间都真）；
+重按当前栏时 `_changeIndex` 看见 `value == _index` 直接返回，于是是 `false`。
+
+```dart
+onTap: (index) {
+  if (!_homeController.tabController.indexIsChanging) {
+    _homeController.toTopAndRefresh();   // 回顶 + 重新拉数据
+  }
+},
+```
+
+`toTopAndRefresh()` 在 `ScrollOrRefreshMixin` 上（所有 `CommonController` 都带），
+做两件事：`animateToTop()`，再走节流 500ms 的 `onRefresh()`。语义对齐 blbl 的
+`onTabReselected` → `handleRefreshKey`（回第一项 + 重新拉数据）。
+
+它和底栏导航项那条 `toTopOrRefresh()` **不是一回事**，别混用：
+
+| 按在哪儿 | 那一按的意思 | 动作 |
+| --- | --- | --- |
+| 底栏 / 侧栏导航项（`MainController._selectNav`） | 兼作"回顶"：不在顶部时多半只是想回顶 | 不在顶部 → 只回顶；已经在顶部 → 刷新 |
+| 标签栏的某一栏（`TabBar.onTap`） | 意思很明确：重新加载这一栏 | 回顶 **并且** 刷新 |
+
+回顶那一步不能省：刷新时列表**不重建**的页面（`KeepAliveWrapper` 保活、增量
+刷新）位置会留着，不先回顶的话新数据接在用户眼前那一屏后面，看起来像"按了没
+反应"。反过来，列表被换成加载态的页面本来就会回到顶部，这一步等于空操作。
+节流闸（`EasyThrottle` 的 `'topOrRefresh'`）和 `toTopOrRefresh()` **共用**，
+连着点不会连发请求。
+
+**标签栏没有自己的滚动控制器时**（分区页那种只读网格）：照样接
+`toTopAndRefresh()`——`animateToTop()` 是空操作，重拉数据本身就把用户带回第一屏。
+
 ## 主界面导航栏（抽屉 / 底栏 / 侧栏）
 
 主界面一共有四条导航栏：手机底栏的三支（M3 `NavigationBar` / M2
@@ -759,10 +821,11 @@ SizedBox(
 `tilePadding`（上下 5 / 左右 12）留在环**外面**（`TabletNavItem._tilePadding`）。
 于是 12% 底纹就是"这一格自己的背景色"——这正是原来那版做不到的：环包着
 `tilePadding` 时是 96×66，比指示条每边宽 12dp、高 5dp，底纹和描边都溢出到格子外面
-去了。那圈留白还兼作**缩放余量**：1.04 倍每边多出 1.4dp，而第一枚离导航列表视口的
-上沿只有 5dp——原来放大后两侧描边会被 `ListView` 的 `Clip.hardEdge` 削成不到
-0.2px 的细线、顶边也被切；现在整圈都落在视口内（`test/tv_focus_test.dart`
-的「导航项：环就是这一格自己的矩形，放大后也不出视口」钉着这两条）。
+去了。那圈留白原本还兼作**缩放余量**（1.04 倍每边多出控件尺寸的 2%，第一枚离导航
+列表视口上沿只有 5dp，放大后两侧描边会被 `ListView` 的 `Clip.hardEdge` 削成不到
+0.2px 的细线、顶边也被切）；现在放大收在格子矩形里，余量不再必要，整圈本来就落在
+视口内（`test/tv_focus_test.dart` 的「导航项：环就是这一格自己的矩形，放大只在这一格
+里面」钉着"环 == 格子矩形"和"环不出视口"两条）。
 
 指示条那边有个容易看走眼的地方：框架那份 defaults 假设抽屉有 360 宽、指示条宽
 336，而这条抽屉只有 96，`NavigationIndicator` 被父约束夹成了 72×56——**16dp 圆角
@@ -819,29 +882,30 @@ Widget _searchButton() {
 没登录时消息那一格是 `SizedBox.shrink()`：节点没人接，也就进不了焦点遍历
 （遍历走的是 element 树），不会多出一个"看不见的落脚点"。
 
-**放大照旧**（1.04 倍，和别的控件一样）：这是焦点框的通用手感，不因为它们是圆按钮
-就特殊。代价就是「可见（焦点预选框）」里那条规则——头像在抽屉头部是**第一格**，
-紧贴抽屉上沿，而 `Drawer` 的 M3 默认 `clipBehavior` 是 `Clip.hardEdge`、裁剪线就是
-抽屉自己的矩形：1.04 倍把环从 34dp 的框里往上顶 0.68dp（+ 描边抗锯齿），正好落在
-裁剪线外，环顶被削平一条（像素级量过：同一个头像在抽屉外是完整的圆，在抽屉里顶边
-是一条直线）。所以 `_sideBar()` 的头部在抽屉**里面**留了 4dp：
+**放大照旧**（1.04 倍，和别的控件一样），但**收在头像自己的圆里**：这是焦点框的
+通用手感，不因为它们是圆按钮就特殊。原来整块一起放大时的翻车现场是——头像在抽屉
+头部是**第一格**，紧贴抽屉上沿，而 `Drawer` 的 M3 默认 `clipBehavior` 是
+`Clip.hardEdge`、裁剪线就是抽屉自己的矩形：1.04 倍把环从 34dp 的框里往上顶 0.68dp
+（+ 描边抗锯齿），正好落在裁剪线外，环顶被削平一条（像素级量过：同一个头像在抽屉
+外是完整的圆，在抽屉里顶边是一条直线）。现在环画在头像矩形上、内容放大裁成内切圆，
+贴不贴上沿都完整，`_sideBar()` 头部那 4dp 就只是留白了：
 
 ```dart
 header: Expanded(
   flex: 4,
   child: Padding(
-    padding: const EdgeInsets.only(top: 4),   // 给预选框的缩放让位（同 tilePadding）
+    padding: const EdgeInsets.only(top: 4),   // 只是留白（原来给预选框的缩放让位）
     child: userAndSearchVertical(),
   ),
 ),
 ```
 
-余量必须在抽屉**里面**（裁剪线内侧）：套在抽屉外面等于连裁剪线一起挪，白留。
+"余量要留就得留在抽屉**里面**（裁剪线内侧）"这条经验现在只剩历史价值：
+`test/tv_focus_test.dart` 的「头像：紧贴抽屉上沿时环也不会被裁剪线切掉」量的是
+"环 == 头像矩形 + 环整个落在抽屉里"，把 `top: 4` 去掉照样过。
 `userAndSearchVertical()` 本身不动——`NavigationRail.leading` 和窄侧栏也在用它，
 那里没有抽屉上沿要躲（`FocusRing` 直接当 `Expanded` 的孩子还会被拉成整段高度，
-得待在 `Column` 里，和 `userAndSearchVertical()` 一样）。这条余量由
-`test/tv_focus_test.dart` 的「头像：放大 4% 后环不会被抽屉自己的裁剪线切掉」
-看着（把 `top: 4` 去掉那条断言就会炸）。
+得待在 `Column` 里，和 `userAndSearchVertical()` 一样）。
 
 ### 底栏与侧栏：`TvNavDestination`
 
@@ -865,8 +929,9 @@ header: Expanded(
 （`tabletNavTileRadius` + `TvFocusSpec.tabFillAlpha`），因为"一格 tab"是同一个东西。
 
 底栏那一支传 `scale: 1.0`：这一格上下都贴着栏边（选中的那格更是紧贴屏幕底边），
-放大 4% 会把描边和底纹顶到栏外面去。默认值（1.04 倍）留给"四周有余量"的位置
-（比如抽屉里的导航项）。
+现在虽然不会被裁了，但底栏本来就挤，一格单独跳出来观感上多余——这是**唯一**还留着的
+`scale: 1.0` 控件，想放开就删掉这一行（`test/tv_focus_test.dart` 的「底栏导航项」
+里那条断言（`AnimatedScale` 都不建）要跟着改）。
 
 四条栏里**只有 M3 底栏（`Pref.enableMYBar`，也是默认）套上了**，剩下三种情况
 是"套不了"，不是"忘了"：
@@ -951,9 +1016,22 @@ void _selectNav(int index) {
 - **进编辑态**：导航态按确定（手柄 A / 遥控器确定）。这就是"按 A 再输入"。
   **抬起也算吃掉**（按下/重复/抬起全部 `handled`），否则抬起那一下会漏成框架的
   一次 `ActivateIntent`。
-- **脱出**：编辑态按返回键（B / Esc）→ 焦点交回外层：键盘收起、焦点环还在这一格，
+- **脱出**：编辑态按返回键 → 焦点交回外层：键盘收起、焦点环还在这一格，
   再按一次确定可以接着改。**退出编辑态不会顺手退出页面**（所以"先脱出、再返回"
-  要按两下 B）。
+  要按两下返回键）。「返回键」是三条互不汇合的路径（拆法同「播放器」一节），
+  编辑态得**两条机制一起挂**才覆盖得住：
+  - **手柄 B**：普通焦点树 → `TvShortcuts` → `appBack()`，`_handleKey` 里就吃掉了；
+  - **桌面 Esc**：`main.dart` 的 early handler 在焦点树**之前**就截走了它
+    （`Focus.onKeyEvent` 根本看不见，框架给 `TextField` 挂的
+    `escape → DismissIntent` 也就永远不触发），所以进编辑态时往 `TvBack` 压一个
+    `_handleBack`——`TvBack.dispatch()` 是 `appBack()` 里问的第一个；
+  - **遥控器 / 安卓返回键**：系统直接 `popRoute → Navigator.maybePop`，
+    **不经过 `appBack()`**，所以要再套一层 `PopScope(canPop: !_blockBack)`。
+    用**框架自带的** `PopScope`（`didChangeDependencies` 里
+    `ModalRoute.of(context)`，没进编辑态就不注册），别换成
+    `common/widgets/flutter` 里那个 `Get.routing.route` 版本。
+
+  两条都只在编辑态存在，脱出去就拆掉，不留东西吃键。
 - 硬件键盘直接敲字会**自动进编辑态**（控制字符不算，Tab/Esc/方向键各自还有用途）。
 - 输入框自己的节点带 `skipTraversal: true`：方向键在这一格上是"路过"，不是"进去"。
 - 触摸行为完全不变：点一下输入框，框架直接把焦点给输入框 = 直接进编辑态、键盘照弹。
@@ -989,6 +1067,12 @@ if (Pref.tvFocus) navFocusNode.requestFocus(); else focusNode.requestFocus();
 两个 `autofocus` 各管一半，少写一个就会让**触摸用户在打开页面后还得再点一下**
 输入框。本仓库已按这个写法改过：搜索 / 分区搜索 / 用户搜索 / 设置搜索 /
 关于页 / 收藏夹重命名 / 屏蔽词与其它设置弹窗。
+
+⚠️ **仓库里的输入框一律走 `TvTextField`**（含各设置页、弹窗、发布页、播放器
+发弹幕那格）。`grep -rn "TextField("` 现在只应该命中 `TvTextField` 自己的
+`builder` 和框架 fork，页面上不该再出现裸的 `TextField` / `TextFormField`——
+手写一个就会漏掉"两段式焦点"，手柄用户在那格上要么键盘直接弹起来、
+要么方向键卡住出不来。新加输入框时照上面套一层，别只在外观上对齐。
 
 ## 只读选区：`TvSelectionArea`
 
@@ -1079,9 +1163,18 @@ return SelectionArea(focusNode: node, ...);
 方向键（按下/重复/抬起都吃掉）
 ├─ 焦点不在真控件上（null / scope / 整页锚点）→ 先"唤醒"：
 │    TvRegions.focusAnchor(playerSurface)，没有画面锚点就 TvRegions.focusRouteEntry()
-└─ 焦点在真控件上 → primary.focusInDirection(direction)，再看 primaryFocus 变没变
-     └─ 没变 → TvRegions.focusInDirection(direction, from: primary) 兜底几何扫描
+└─ 焦点在真控件上 → primary.focusInDirection(direction) 的**返回值**
+     ├─ true（框架自己挑出了落点，已经 requestFocus）→ 到此为止
+     └─ false（那个方向上框架一个候选都挑不出来）→ TvRegions.focusInDirection 扫
 ```
+
+⚠️ **判据是返回值，不是"`primaryFocus` 变没变"**：`FocusNode.requestFocus` 只是把
+"下一个焦点是谁"记下来（`_markNextFocus`），真正应用要等**一个微任务**——在同一个
+同步按键处理器里读 `primaryFocus`，永远是老的那个。照"变没变"判，兜底扫描就没有
+不发生的时候，而它的评分（`主轴前进量 + 2×垂轴偏移`）比框架的"同一条带里取最近"
+粗得多：焦点在 OSD 下栏**左下最后一颗**上按 →，框架挑的是居右一组的第一个按钮，
+兜底扫描却会挑中**横跨整屏的进度条**（它的中心离得很近）——"按 → 选不到右边那颗"
+就是这么来的（见「下栏两组之间按 →」）。
 
 兜底扫描（`TvRegions.focusInDirection`）不看中间祖先的尺寸，只要求候选
 `canRequestFocus && !skipTraversal && TvRegions.isPainted()`，并排除落脚点 /
@@ -1332,9 +1425,18 @@ entry（`popDisposition` 那时返回 `pop`），都在 `onPopInvokedWithResult`
   切布局 / 拉流重试时 `PLVideoPlayer` 会被换成 `SizedBox.shrink()`，这一层也跟着
   不在树上。等它建出来，焦点多半悬在路由 scope 上或者 `TvLabels.playerPage` 那个
   页面级节点上，`TvPlayerSurface` 在首帧之后 `_claimFocus()` 把它接过来
-  （`autofocus` 只在同一批里没人抢焦点时才起作用，接不住这种情况）。反过来，
-  焦点不在画面里时它**不抢**：画面被拆掉只把"本来就在画面里"的焦点交给
-  页面那一层兜底，不会顺手把用户从别处拽回来。
+  （`autofocus` 只在同一批里没人抢焦点时才起作用，接不住这种情况）。
+- **"进页面预选框落在视频上"靠的是第三条判据：用户还没动过手**。播放器要等
+  详情接口 + 拉流 URL 才算建出来，那早就过了 `TvRouteFocusObserver` 的 90 帧窗口
+  （见「进页面的初始落点」），入口焦点已经落在简介面板 / 内容区上了——光判"悬空"
+  接不住。所以 `_claimFocus()` 在「焦点悬空」之外还接一种：**焦点在别的控件上，
+  但换页之后用户一次都没按过键 / 点过屏**（`TvInputMode.userActedSinceEntry`）。
+  判据的理由：用户没有任何输入，说明这个落点是页面自己塞的（observer 送的入口），
+  画面该接管；一旦他动过手，画面就**不再抢**，否则会把人自己挑的落点端走。
+  每页只发生一次（下一次换页才清零），所以"用户从简介区走回来"不会被抢。
+- **反过来，焦点不在画面里时它不顺手抢人**：画面被拆掉只把"本来就在画面里"的
+  焦点交给页面那一层兜底，不会把用户从别处拽回来（上一条那个"没动过手"是唯一
+  的例外，且只对着入口那一次）。
 - **`dispose` 里不能查祖先**：把焦点交回页面那一层走的是
   `TvRegions.focusAnchor(playerPage, checkRoute: false)`——`focusAnchor` 默认要问
   `ModalRoute.of`，而 `dispose()` 里查祖先框架会直接抛断言
@@ -1457,6 +1559,33 @@ FocusRing(
 菜单路由打开后**不接管焦点**，所以手柄/遥控器进了菜单也走不动（触摸/鼠标照旧）。
 要修得把弹出层的焦点选择器换成手柄可用的一套（`PopupMenuItem` 目前也只在兜底环
 的覆盖范围里），牵涉到 OSD 的自动隐藏计时，留给后续。
+
+### 下栏两组之间按 →：几何保证，不写代码
+
+需求那条「预选框在居左按钮的**最后一颗**时按 →，**必然**落到居右按钮的第一颗」，
+**没有对应的代码**——它是 `PlayerBar` 的布局 + 框架的带过滤一起给的（准则 2）：
+
+- **两组在同一条水平中线上**（`RenderBottomBar` 把每个子项垂直居中）：
+  左右两组共享同一条"带"（框架按目标矩形算出的
+  `Rect.fromLTRB(-∞, top, +∞, bottom)`），居右第一颗和左下最后一颗都在带里
+  → 不会因为"垂轴错开"被筛掉；
+- **两组不重叠**：`PlayerBar` 只有两个子项（左组 `Row` / 右组 `Row`），
+  `RenderBottomBar` 把 `firstChild` 摆在 `x = 0`、`lastChild` 摆在
+  `maxWidth - lastWidth`，居右组整体排在居左组右边 → 带内的候选里
+  居右第一颗的**主轴前进量最小**（框架取 `|Δdx|` 最小的那个）→ 必然是它。
+  那条整屏宽的进度条（`TvSeekBar`）**不在这条带上**：`BottomControl` 的结构是
+  `Column[ 进度条, PlayerBar ]`，它自己在上面那一行，够不着。
+
+窗口很窄、两组宽度加起来超宽时 `RenderBottomBar` 走缩放分支
+（`scale = maxWidth / totalWidth` + `_transform`，右侧那批的偏移量按
+`(maxWidth - lastWidth * scale) / scale` 折算），**缩放后两组仍然相接**，
+上面两条不变。
+
+所以这里**不许**再写一层方向键覆写：任何"按矩形自己挑一个"的手写逻辑
+（`TvRegions.focusInDirection` 那种评分）都可能先挑到那条横跨整屏的进度条。
+这个行为由 `test/tv_focus_test.dart` 的「下栏跨组」两个用例钉住：
+一个是常规宽度（`播放暂停 → 上一集 → 弹幕设置 → 画质`，再按 ← 回得来），
+一个是窄到走缩放分支的窗口。
 
 ### 直播页
 
@@ -1918,6 +2047,7 @@ TvMediaKeys.remove(target);
 | 给 `ListTile` 加环（压掉框架自带底纹） | `listTileFocusRing`（`ListTile.focusColor` 置透明、节点交给 `ListTile`） |
 | 一行单选（`RadioListTile` / `RadioWidget`） | `tvRadioTile`（方向键只移动、确定键才提交——**必须套**，不然 `RadioGroup` 自己那套"方向键=选中并提交"会先一步生效；当前值那一项再配 `autofocus` + `reveal`，见「单选组」） |
 | 顶部标签栏（预选框 + 焦点即切换 + 进栏锁 + L1/R1） | `TvTabBar`（`regionLabel` 要唯一；"标签=滚到区块"的页面传 `onFocusTab`） |
+| 重按当前那一栏（鼠标 / A / 确定 / 回车）= 回顶 + 刷新 | 标签栏的 `onTap` 里判 `if (!tabController.indexIsChanging)` 再调 `toTopAndRefresh()`（见「重按当前那一栏 = 回顶 + 刷新」） |
 | 平板抽屉里的导航项 | `TabletNavItem`（圆角矩形环 + 指示条；头像/消息/搜索那三颗圆按钮用 `FocusRing(circle: true)`） |
 | 框架自己的导航项（M3 底栏 / 侧栏） | `TvNavDestination`（外壳只当环的挂点，落点仍是框架的 `InkWell`） |
 | 页面/面板的焦点边界 | `TvRegion`（标签要唯一；套上就自动有**落点记忆**：离开时待着的那一项，回来还给它——见准则 3「落点：记下来的，不是算出来的」） |
@@ -1964,7 +2094,8 @@ TvMediaKeys.remove(target);
    标签栏一律用 `TvTabBar`（它自带区域，焦点在标签栏里时 L1/R1 已经能切，
    从内容区按 ↑ 回来也一律落在当前那一栏）；
    只有"切完栏还要额外做事"（进新栏第一张卡 / 滚到对应区块）时才需要
-   `TvSectionSwitcher`。
+   `TvSectionSwitcher`。标签栏的 `onTap` 再按「重按当前那一栏 = 回顶 + 刷新」
+   接上 `toTopAndRefresh()`（判 `indexIsChanging`，一个标签栏一处）。
 6. 每个输入框套 `TvTextField`（里面的 `TextField` 要"一进来就能打字"的话
    补 `autofocus: !Pref.tvFocus`）；宿主自己请求焦点的地方按 `Pref.tvFocus`
    决定落在导航态还是输入框上（见「输入框」一节）。
@@ -1997,6 +2128,10 @@ TvMediaKeys.remove(target);
    别在按键层里写方向判断。**跟返回键有关的行为别写进 `PlayerFocus`**：
    桌面 Esc / 安卓返回键都到不了那里，规则要挂在 `PlPlayerController`
    上（见「返回键：全屏里亮着 OSD 就先收 OSD」）。
+   动 `_moveFocus` 时唯一要小心的地方：**"框架动得了焦点吗"只能看
+   `focusInDirection` 的返回值**，不能看 `primaryFocus` 变没变——`requestFocus`
+   是微任务才生效的，照那个判等于让粗粒度兜底扫描每次都跑
+   （见「开着总开关时，方向键一定要动得了」）。
 11. 动指针手势（`MouseInteractiveViewer` / 图片查看器 / 新的拖动缩放控件）时：
     **判"单指还是多指"一律用 `PointerLedger`**，不要读
     `ScaleStartDetails.pointerCount`（识别器的账会被漏掉的 up/cancel 污染，
@@ -2073,10 +2208,11 @@ TvMediaKeys.remove(target);
   电视盒子不划算），所以几何在**帧末**才采到，滚动/转场动画里环会比控件慢一帧。
   换精确同步就得每帧 `markNeedsPaint`，那等于让机器一直出帧；而环要画的东西
   （一根描边）本来也不参与布局，不值得。静止时两者完全一致。
-- **兜底环不缩放，只画描边**：控件不是它的子树，1.04 倍缩不了。对图标按钮这类
-  背景透明的控件本来也看不出来（`FocusRing` 那时缩的其实只有 24dp 的图标，
-  4% = 1dp），但对有底色的控件差别是有的——所以"该自己套环"的地方仍然要套，
-  这一层只管"包不进去"的那些（见「焦点必须可见」）。
+- **兜底环不缩放，只画描边**：控件不是它的子树，1.04 倍缩不了。`FocusRing` 现在
+  也是"环画在控件边界上、只有内容放大"（见「可见（焦点预选框）」），所以两种环
+  已经**完全同形**；差别只剩底纹和内容那一下弹——对图标按钮这类背景透明的控件
+  本来也看不出来（`FocusRing` 缩的其实只有 24dp 的图标，4% = 1dp）。所以"该自己
+  套环"的地方仍然要套，这一层只管"包不进去"的那些（见「焦点必须可见」）。
 - **兜底环的裁剪是"近似"的**：用的是框架的
   `describeApproximatePaintClip`，它明确说了是 approximate——`ClipOval` 这类
   返回的仍是整块 `Offset.zero & size`。所以这一层只保证不画到**确定**看不见的
@@ -2132,8 +2268,22 @@ TvMediaKeys.remove(target);
   KeepAlive 留在树上（区域还登记着、卡片却连布局都没了），标签撞了会找错栏。
 - **不移植 blbl 的 `DpadGridController`**：Flutter 的几何 traversal 已经覆盖
   它的绝大多数功能，剩下的缺口只有本文这六个准则。
-- **焦点框缩放不处理 z 序**：1.04 倍 + 12dp 间距下不会压到邻卡，
-  所以不做 `clipChildren`/层级提升（Flutter 里对应 `Overlay` 提升）。
+- **焦点框缩放不处理 z 序**：放大收在控件自己的矩形里（见「可见（焦点预选框）」），
+  压不到邻卡，所以不做 `clipChildren`/层级提升（Flutter 里对应 `Overlay` 提升）。
+- **圆形控件的内容裁剪会顺手收窄指针命中区**：`RenderClipOval.hitTest` 只认内切圆
+  （和 `clipBehavior` 无关——`Clip.none` 时它也拿内切圆去比），所以圆按钮盒子四角
+  那一条（35×30 这种非正方盒子，左右各 2.5dp）点不到了。那一条本来就在**看得见的
+  圆外面**，"看着能点"和"真能点"从此一致；要精确到"圆内且贴边"得换自定义
+  `clipper`，而自定义 clipper 的 `hitTest` 一样要拿路径去比、还多一次抗锯齿的
+  开销，不值当。
+- **内容层的树形不能随焦点变**：`FocusRing._buildContent` 里 `AnimatedScale` 和
+  裁剪层是**常驻**的（不聚焦时 `scale: 1.0` + `Clip.none`，只有 `scale: 1.0` 的
+  控件整个不建）。这是硬要求：焦点进出时换掉内容上面那一层的 widget 类型，
+  `Element`（`Widget.canUpdate` 既比类型也比 key）会把整棵子树**重建**——
+  `InkWell` 自己那个 `FocusNode`、滚动位置这些内部状态全丢，焦点当场掉到最近的
+  scope 上。`PopupMenuButton` 那种"外壳画环、落点在里面"的控件第一个中招
+  （`test/tv_focus_test.dart` 的「下栏文字按钮：外壳只当画布，落点还是里面那颗」
+  钉着它——这条就是这么被发现的）。
 - **弹层里的拖拽把手也移出焦点树**（`TvCardSubAction` 包一层）：它是个
   `InkWell`，留着就是"面板第一项是把手"这种荒唐的默认落点。
 - **收藏页（视频 / 番剧 / 笔记 / 专栏）的列表项统一成 `TvCard`**：卡内那个
@@ -2232,11 +2382,10 @@ TvMediaKeys.remove(target);
 - **标签栏自带的 `TvRegion` 让 28 处原本没有区域的标签栏多了一个 FocusScope**：
   ←/→ 走到两端时会交给相邻区域（`TraversalEdgeBehavior.parentScope`）而不是
   原地停住。这和页面里其它 `TvRegion` 的既定语义一致，方向键更不容易"卡住"。
-- **1.04 倍缩放在滚动标签栏的最边上有不到 1px 会被裁**（`SingleChildScrollView`
-  的裁剪）：blbl 靠 `clipChildren=false` 解决，Flutter 这边视觉上看不出来，
-  不值得为它改滚动结构。要根治得把栏高从 42 加到 50 以上（标签格子的固有高度
-  是 48，被 42 夹着），比这 1px 贵得多——「可见（焦点预选框）」里那条"贴着裁剪边
-  要么留余量、要么 `scale: 1.0`"的规则，这里选的是"接受"。
+- **标签栏最边上那不到 1px 的裁切已经不存在了**（`SingleChildScrollView` 的裁剪）：
+  放大收在标签自己的矩形里，而标签矩形本来就被栏高（42）夹住了，所以再怎么弹也
+  弹不到滚动视口外。原来那版要么接受这 1px、要么把栏高从 42 加到 50 以上（标签
+  格子的固有高度是 48，被 42 夹着），现在两条都不用选。
 - **不移植 blbl 的"内容网格左右边沿切栏"**（`switchToNextTabFromContentEdge`）：
   Flutter 的几何 traversal 表达不了"网格左边沿"这个条件，而 L1/R1 加上"焦点在
   标签栏上按 ←/→"已经覆盖了同一个需求。
@@ -2309,3 +2458,45 @@ TvMediaKeys.remove(target);
   判据不同（120ms 时间窗 / 10s 无事件 / 平台手势生命周期），任一层漏掉都还有别人
   兜。代价是"按着不动超过 10s 的手指"会被当成失联（只在新手指按下时检查），
   极端情况的一次捏合会退化成单指。
+- **重按当前那一栏判的是 `indexIsChanging`，所以在换栏的那 300ms 里按确定会被
+  忽略**：`_changeIndex` 在整个切换动画期间都把 `indexIsChanging` 置真，那期间
+  的 `onTap` 一律当成"跨栏那一下"跳过。要区分"用户点的是不是当前那一栏"和
+  "动画还在跑"，只能自己记 `index` 与 `previousIndex` 比较，而那会把
+  "焦点即切换"顺手触发的 `animateTo` 也拖进来（焦点移动 ≠ 用户想刷新），
+  不值得。手感上的代价很小：那一下不亮数据，再按一次就是了。
+- **这几处标签栏刻意没接「重按 = 回顶 + 刷新」**：
+  - **视频详情页的标签**：它们不是"换一栏列表"，而是"滚到某个区块"
+    （`onFocusTab` 也是同一件事），点了就滚，没有"重新拉这一栏"的意思。
+  - **番剧简介页（`intro_detail`）的「详情 / 点评」**：重按「详情」只回顶——
+    这个面板自己只持一个 `ScrollController`（数据在外面 `PgcIntroController`
+    手里），要接刷新得先把控制器透传进来，暂时不值当。
+  - **我的页（`member`）**：标签承载的是整块子页面（`onTapTab` 里
+    `scrollKey.currentState?.animToTop()`），重拉整个子页面属于子页面自己的事，
+    这里保持"只回顶"。
+  - **动态详情页**：它的 `onTap` 已经手写了这条语义（`jumpTo(0)` + 按栏
+    `onRefresh()`），换不成 `toTopAndRefresh()` 是因为那一页的滚动在
+    `PrimaryScrollController` 的嵌套两层上（`positions.elementAt(1)` 才是列表
+    那一层），`ScrollOrRefreshMixin` 只认单个 `scrollController`。
+  - **表情面板（`emote` / `live_emote`）、弹幕屏蔽词（`danmaku_block` /
+    `live_dm_block`）、选集面板（`episode_panel`）、登录页、通讯录
+    （`contact`）、我的投稿（`member_contribute`）**：一栏就一屏甚至半屏，
+    "回顶"和"刷新"都看不出差别，等有反馈再补。
+- **视频页 UP 主那一块（头像 + 昵称 + 粉丝数 + 视频数）当成一个 `TvCard`**
+  （`introduction/ugc/view.dart` 的 `_buildAvatar`）：这几样点哪儿都是跳 UP 主
+  个人页，拆成几个焦点只会让方向键在这几件东西之间绕（准则 1）；整块给一个节点、
+  确定键 = 跳个人页，桌面右键（`onSecondaryTap`）照旧走横向个人页。写法和旁边
+  那颗「简介展开」一模一样，连 `Padding(.symmetric(horizontal: 5, vertical: 5))`
+  那圈余量都一样——预选框画在控件边界**之内**，不留余量环会贴着字/头像走。
+  注意它没设 `onMore`/`onHold`，所以确定键是立即 `ActivateIntent`，不会被长按
+  抢一拍。**有合作 staff 时（`videoDetail.staff` 非空）走的是另一条分支**：
+  `_buildStaff` 那一行还是裸 `GestureDetector`（每位 UP 身上还挂着一颗自己的
+  `InkWell`），要一起改得先想清楚那颗「关注 / 已关注」往哪儿放
+  （`TvCardSubAction` + `onMore`），暂时留着靠兜底环。
+- **「我的」页那三格（动态数 / 关注数 / 粉丝数）不需要补代码**：`_btn` 从
+  `739b185fa` 起就包着 `FocusRing`（`_buildActions` 那四格才是裸 `InkWell`，
+  靠兜底环）。拿真页面（`TvShortcuts` + `TvFocusOverlay` + `TvInputMode.init()`）
+  在 400×800 和 1280×800 两档各跑一遍：三格都有自己的环，入口是「我的-头像」，
+  ↓ 落在**中间那一格（关注）**上，再从关注按 ←/→ 到 动态 / 粉丝，兜底环在这三格上
+  让位。要记住的只有这一条：**↑/↓ 进这一行先进中间那格**——框架的
+  `_sortByDistancePreferVertical` 按"离水平中心最近"挑，左右两边各需一次 ←/→。
+  这是几何 traversal 的正常结果，不是漏配。

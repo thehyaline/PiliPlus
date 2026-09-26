@@ -51,6 +51,29 @@ abstract final class TvInputMode {
   /// （见 `main/view.dart` 的底栏）。
   static bool get fromKeys => !_pointer;
 
+  /// 自**上一次换页**以来，用户用手动过没有（按过键、点/触过屏幕）。
+  ///
+  /// 只读它一件事、只有一个读者：[TvPlayerSurface] 的"入口焦点要不要接手"
+  /// （见那里的 `_claimFocus`）。视频页 / 直播页的画面是等详情、等流地址之后
+  /// 才建出来的，比路由入口那一下晚得多——那时焦点已经落在简介区第一项或者
+  /// 内容区第一张卡上，画面这一层要是只认"悬空"这一种情况就再也接不过来，
+  /// 用户看到的是"进了视频页，预选框停在简介上"。
+  ///
+  /// 没动过手 = 现在这个落点不是用户挑的，画面可以接手（**只抢这一次**：
+  /// 动过一下就不再抢，用户后面走到哪儿是哪儿，包括他自己退回来那一下）。
+  ///
+  /// 置位在 [init] 挂的那两个全局钩子里（按键按下、指针按下）；
+  /// **换页清零**交给 [TvRouteFocusObserver]——只有它知道"一页"从哪儿算起。
+  /// 注意按下/抬起要分开：进这一页的那颗确定键，它的**抬起**是在 push 之后
+  /// 才派发的，跟着抬起置位的话，每次进页面都会立刻把这次机会用掉。
+  static bool get userActedSinceEntry => _userActed;
+
+  static void noteUserInput() => _userActed = true;
+
+  static void resetUserInput() => _userActed = false;
+
+  static bool _userActed = false;
+
   /// 在 `main()` 里挂两个全局监听。要在 `WidgetsFlutterBinding` 之后调用。
   static void init() {
     if (_initialized) return;
@@ -109,6 +132,7 @@ abstract final class TvInputMode {
     }
     _pointer = true;
     if (event is! PointerDownEvent) return;
+    noteUserInput();
     _apply(FocusHighlightStrategy.alwaysTouch);
     switch (event.kind) {
       case PointerDeviceKind.mouse:
@@ -130,8 +154,10 @@ abstract final class TvInputMode {
       return false;
     }
     _pointer = false;
-    // 按下和长按重复都算"在用按键"；抬起不算，免得松开手柄时把环收起来
+    // 按下和长按重复都算"在用按键"；抬起不算，免得松开手柄时把环收起来，
+    // 也免得"进这一页那颗确定键的抬起"白占掉一次画面接手的机会
     if (event is! KeyUpEvent) {
+      noteUserInput();
       _apply(FocusHighlightStrategy.alwaysTraditional);
     }
     return false;

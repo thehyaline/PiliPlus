@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
 import 'package:PiliPlus/pages/fav/note/child_view.dart';
 import 'package:PiliPlus/pages/fav/note/controller.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -79,7 +78,7 @@ class _FavNotePageState extends State<FavNotePage>
                     if (!_tabController.indexIsChanging) {
                       Get.find<FavNoteController>(
                         tag: index == 0 ? 'false' : 'true',
-                      ).scrollController.animToTop();
+                      ).toTopAndRefresh();
                     }
                   } catch (_) {}
                 },

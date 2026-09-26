@@ -64,7 +64,7 @@ class _RankPageState extends State<RankPage>
       tabs: RankType.values.map((e) => VerticalTab(text: e.label)).toList(),
       onTap: (index) {
         if (!_rankController.tabController.indexIsChanging) {
-          _rankController.animateToTop();
+          _rankController.toTopAndRefresh();
         } else {
           select(index);
         }

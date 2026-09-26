@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_back.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/tv_keys.dart';
 import 'package:flutter/services.dart' show KeyDownEvent, KeyEvent;
@@ -14,8 +15,15 @@ import 'package:material_ui/material_ui.dart';
 /// - **导航态**：外面这层节点拿着焦点（画焦点环），键盘不弹，方向键照常进出这一格；
 ///   按确定（手柄 A / 遥控器确定）才把焦点交给下面的输入框——"按 A 才能输入"。
 /// - **编辑态**：输入框自己的节点拿着焦点，软键盘弹起来，按键都进输入框；
-///   按返回键（B / Esc）把焦点交回导航态：键盘收起、焦点环还在这一格上，
-///   再按确定可以接着改——这就是"脱出逻辑"，退出编辑态不会顺手退出页面。
+///   按返回键（B / Esc / 安卓与遥控器返回键）把焦点交回导航态：键盘收起、
+///   焦点环还在这一格上，再按确定可以接着改——这就是"脱出逻辑"，
+///   退出编辑态不会顺手退出页面。
+///
+/// "返回键先脱出"这一条要同时盖住三条路（它们不在焦点树里汇合，见
+/// `docs/tv_focus.md` 的「返回键：一套语义」）：手柄 B 走焦点树的
+/// `onKeyEvent`、桌面 Esc 走 `TvBack` 拦截栈（它在焦点树**之前**）、
+/// 安卓 / 遥控器返回键走路由的 `popDisposition`（`PopScope`）。
+/// 三条都只做一件事：把焦点交回外层，然后接着走各自原来的逻辑。
 ///
 /// 用法（别自己再给里面的 `TextField` 传 `focusNode:`，用 [builder] 给的 [FocusNode]）：
 ///
@@ -91,19 +99,38 @@ class _TvTextFieldState extends State<TvTextField> {
 
   @override
   void dispose() {
+    TvBack.remove(_handleBack);
     _editNode.removeListener(_handleEditFocus);
     _internalNavNode?.dispose();
     _internalEditNode?.dispose();
     super.dispose();
   }
 
+  /// 这一格现在是不是"两段式焦点"：总开关开着、控件也可用。
+  ///
+  /// 关掉「手柄/遥控器模式」（或者控件是禁用态）时一个指头都不许伸出去，
+  /// 返回键的行为退回改动前。
+  bool get _navMode => Pref.tvFocus && widget.enabled;
+
+  /// 编辑态要拦住返回键（见 [_handleBack]）。
+  bool get _blockBack => _editing && _navMode;
+
   /// 焦点进/出输入框时同步状态。
   ///
   /// 触摸也能走到这里——点一下输入框，框架直接把焦点给了输入框，
   /// 那就算进了编辑态（键盘该弹就弹）。
-  void _handleEditFocus() {
-    final editing = _editNode.hasFocus;
+  void _handleEditFocus() => _setEditing(_editNode.hasFocus);
+
+  /// 进出编辑态的唯一入口：状态、返回键拦截、重建一起换。
+  void _setEditing(bool editing) {
     if (editing == _editing) return;
+    // 拦返回键要在**焦点已经在输入框里**的时候挂上；摘掉则不挑条件，
+    // 免得开关中途变过、或者焦点被别处抢走时留下一个吃键的处理函数。
+    if (editing && _navMode) {
+      TvBack.push(_handleBack);
+    } else {
+      TvBack.remove(_handleBack);
+    }
     setState(() => _editing = editing);
   }
 
@@ -111,12 +138,30 @@ class _TvTextFieldState extends State<TvTextField> {
     if (_editing) return;
     _editNode.requestFocus();
     // 焦点变化是在帧末统一应用的，这里先自己切状态：焦点环要立刻稳住
-    setState(() => _editing = true);
+    _setEditing(true);
   }
 
   void _exitEdit() {
     _editNode.unfocus();
     _navNode.requestFocus();
+  }
+
+  /// 编辑态下的返回键：**先脱离输入状态，这一下到此为止**。
+  ///
+  /// 桌面 Esc 走 `TvBack` 拦截栈（`main.dart` 的 early handler 跑在焦点树
+  /// 之前，所以 `onKeyEvent` 抢不到它），安卓 / 遥控器返回键走 `PopScope`
+  /// 那一层（它经路由的 `popDisposition`）。手柄 B 则是 [_handleKey] 直接接。
+  /// 三条路都在这里汇合，语义只有一条：退出编辑态不等于退出页面。
+  bool _handleBack() {
+    if (!_blockBack) return false;
+    if (!_editNode.hasFocus) {
+      // 焦点已经不在输入框里了（触摸点到别处、被别的控件抢走），
+      // 状态跟着修正，但这一下返回不归我们接手。
+      _setEditing(false);
+      return false;
+    }
+    _exitEdit();
+    return true;
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
@@ -156,19 +201,26 @@ class _TvTextFieldState extends State<TvTextField> {
     if (!Pref.tvFocus) {
       return widget.builder(context, _editNode);
     }
-    return FocusRing(
-      focusNode: _navNode,
-      enabled: widget.enabled,
-      // 进了编辑态焦点在输入框自己身上，但这一格仍然是"当前目标"
-      showRing: _editing,
-      radius: widget.radius,
-      debugLabel: widget.debugLabel,
-      onKeyEvent: _handleKey,
-      builder: (context, node, _) => Focus(
-        focusNode: node,
-        autofocus: widget.autofocus,
-        debugLabel: '${widget.debugLabel}.nav',
-        child: widget.builder(context, _editNode),
+    return PopScope(
+      // 编辑态里返回键先"脱出输入框"，再按一次才是真的返回（见 [_handleBack]）
+      canPop: !_blockBack,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _handleBack();
+      },
+      child: FocusRing(
+        focusNode: _navNode,
+        enabled: widget.enabled,
+        // 进了编辑态焦点在输入框自己身上，但这一格仍然是"当前目标"
+        showRing: _editing,
+        radius: widget.radius,
+        debugLabel: widget.debugLabel,
+        onKeyEvent: _handleKey,
+        builder: (context, node, _) => Focus(
+          focusNode: node,
+          autofocus: widget.autofocus,
+          debugLabel: '${widget.debugLabel}.nav',
+          child: widget.builder(context, _editNode),
+        ),
       ),
     );
   }

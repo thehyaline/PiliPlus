@@ -153,6 +153,14 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                                   );
                                 },
                               ).toList(),
+                              onTap: (index) {
+                                // 重按当前那个日期：整页回顶 + 重新拉时间表
+                                if (!DefaultTabController.of(
+                                  context,
+                                ).indexIsChanging) {
+                                  controller.toTopAndRefresh();
+                                }
+                              },
                             ),
                           ),
                         ],
@@ -272,7 +280,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                                       ).indexIsChanging) {
                                         Get.find<PgcIndexController>(
                                           tag: types[index].toString(),
-                                        ).animateToTop();
+                                        ).toTopAndRefresh();
                                       }
                                     } catch (_) {}
                                   },

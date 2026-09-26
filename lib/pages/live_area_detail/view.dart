@@ -97,7 +97,7 @@ class _LiveAreaDetailPageState extends State<LiveAreaDetailPage> {
                                 final item = response[index];
                                 Get.find<LiveAreaChildController>(
                                   tag: '${item.id}${item.parentId}',
-                                ).animateToTop();
+                                ).toTopAndRefresh();
                               }
                             } catch (_) {}
                           },

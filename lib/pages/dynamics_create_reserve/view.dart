@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/time_picker.dart';
 import 'package:PiliPlus/pages/dynamics_create_reserve/controller.dart';
@@ -194,21 +195,25 @@ class _CreateReservePageState extends State<CreateReservePage> {
           ),
         ),
         Expanded(
-          child: TextFormField(
-            key: key,
-            initialValue: initialValue,
-            onChanged: onChanged,
-            decoration: InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              hintText: hintText ?? desc,
-              hintStyle: TextStyle(
-                fontSize: 15,
-                color: theme.colorScheme.outline.withValues(alpha: 0.7),
+          child: TvTextField(
+            debugLabel: 'CreateReserveInput',
+            builder: (context, node) => TextFormField(
+              key: key,
+              focusNode: node,
+              initialValue: initialValue,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: hintText ?? desc,
+                hintStyle: TextStyle(
+                  fontSize: 15,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.7),
+                ),
               ),
+              inputFormatters: inputFormatters,
             ),
-            inputFormatters: inputFormatters,
           ),
         ),
       ],

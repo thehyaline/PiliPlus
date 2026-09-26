@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -7,6 +8,7 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliPlus/pages/live_dm_block/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
@@ -113,15 +115,22 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     showConfirmDialog(
       context: context,
       title: Text('${isKeyword ? '关键词' : '用户'}屏蔽'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
         autofocus: true,
-        initialValue: value,
-        onChanged: (val) => value = val,
-        decoration: isKeyword ? null : const InputDecoration(hintText: 'UID'),
-        keyboardType: isKeyword ? null : TextInputType.number,
-        inputFormatters: isKeyword
-            ? null
-            : [FilteringTextInputFormatter.digitsOnly],
+        debugLabel: 'LiveDmBlockInput',
+        builder: (context, node) => TextFormField(
+          // 非 TV 模式保持"打开就能输入"的老行为
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: value,
+          onChanged: (val) => value = val,
+          decoration: isKeyword ? null : const InputDecoration(hintText: 'UID'),
+          keyboardType: isKeyword ? null : TextInputType.number,
+          inputFormatters: isKeyword
+              ? null
+              : [FilteringTextInputFormatter.digitsOnly],
+        ),
       ),
       onConfirm: () {
         if (value.isNotEmpty) {

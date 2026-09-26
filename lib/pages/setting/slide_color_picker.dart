@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/utils/danmaku_utils.dart';
 import 'package:flutter/services.dart'
     show LengthLimitingTextInputFormatter, FilteringTextInputFormatter;
@@ -95,25 +96,30 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
           ),
           const SizedBox(height: 10),
           IntrinsicWidth(
-            child: TextField(
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(6),
-                FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
-              ],
-              controller: _textController,
-              decoration: const InputDecoration(
-                isDense: true,
-                prefixText: '#',
-                contentPadding: EdgeInsets.zero,
+            child: TvTextField(
+              // TV：焦点落在这格但不弹键盘，按 A 才输入
+              debugLabel: 'ColorHexInput',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(6),
+                  FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+                ],
+                controller: _textController,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  prefixText: '#',
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: (value) {
+                  _textController.text = value.toUpperCase();
+                  if (value.length == 6) {
+                    setState(() {
+                      _rgb = int.tryParse(value, radix: 16) ?? 0;
+                    });
+                  }
+                },
               ),
-              onChanged: (value) {
-                _textController.text = value.toUpperCase();
-                if (value.length == 6) {
-                  setState(() {
-                    _rgb = int.tryParse(value, radix: 16) ?? 0;
-                  });
-                }
-              },
             ),
           ),
           _slider(

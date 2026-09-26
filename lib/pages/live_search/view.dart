@@ -91,9 +91,9 @@ class _LiveSearchPageState extends State<LiveSearchPage> {
                   onTap: (index) {
                     if (!_controller.tabController.indexIsChanging) {
                       if (index == 0) {
-                        _controller.roomCtr.animateToTop();
+                        _controller.roomCtr.toTopAndRefresh();
                       } else {
-                        _controller.userCtr.animateToTop();
+                        _controller.userCtr.toTopAndRefresh();
                       }
                     }
                   },

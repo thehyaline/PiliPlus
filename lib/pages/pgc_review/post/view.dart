@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/pgc.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -139,15 +140,19 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
         Flexible(
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              maxLength: 100,
-              minLines: 5,
-              maxLines: 5,
-              controller: _controller,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
+            child: TvTextField(
+              debugLabel: '长评正文',
+              builder: (context, node) => TextField(
+                focusNode: node,
+                maxLength: 100,
+                minLines: 5,
+                maxLines: 5,
+                controller: _controller,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.done,
               ),
-              textInputAction: TextInputAction.done,
             ),
           ),
         ),

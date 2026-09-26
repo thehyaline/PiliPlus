@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
@@ -221,10 +222,16 @@ Future<void> _showLiveCDNDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('输入CDN host'),
-      content: TextFormField(
-        initialValue: host,
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        onChanged: (value) => host = value,
+        debugLabel: 'LiveCdnHostInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: host,
+          onChanged: (value) => host = value,
+        ),
       ),
       actions: [
         TextButton(
@@ -492,12 +499,18 @@ void _showAutoSyncDialog(BuildContext context, VoidCallback setState) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('自动同步'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: autosync,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => autosync = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        debugLabel: 'AutosyncInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: autosync,
+          keyboardType: TextInputType.number,
+          onChanged: (value) => autosync = value,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        ),
       ),
       actions: [
         TextButton(
@@ -539,13 +552,21 @@ void _showDecimalDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: value,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (val) => value = val,
-        inputFormatters: FilteringText.decimal,
-        decoration: suffix == null ? null : InputDecoration(suffixText: suffix),
+        debugLabel: 'DecimalInputDialog',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: value,
+          keyboardType: const .numberWithOptions(decimal: true),
+          onChanged: (val) => value = val,
+          inputFormatters: FilteringText.decimal,
+          decoration: suffix == null
+              ? null
+              : InputDecoration(suffixText: suffix),
+        ),
       ),
       actions: [
         TextButton(

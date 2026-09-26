@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -12,6 +13,7 @@ import 'package:PiliPlus/pages/danmaku_block/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -176,14 +178,21 @@ class _DanmakuBlockPageState extends State<DanmakuBlockPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(hintText),
-            TextFormField(
+            TvTextField(
+              // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
               autofocus: true,
-              initialValue: filter,
-              onChanged: (value) => filter = value,
-              keyboardType: isUid ? TextInputType.number : null,
-              inputFormatters: isUid
-                  ? [FilteringTextInputFormatter.digitsOnly]
-                  : null,
+              debugLabel: 'DanmakuFilterInput',
+              builder: (context, node) => TextFormField(
+                // 非 TV 模式保持"打开就能输入"的老行为
+                autofocus: !Pref.tvFocus,
+                focusNode: node,
+                initialValue: filter,
+                onChanged: (value) => filter = value,
+                keyboardType: isUid ? TextInputType.number : null,
+                inputFormatters: isUid
+                    ? [FilteringTextInputFormatter.digitsOnly]
+                    : null,
+              ),
             ),
           ],
         ),

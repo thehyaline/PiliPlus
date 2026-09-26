@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -18,6 +19,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -110,21 +112,28 @@ class PostPanel extends CommonSlidePage {
               onPressed: () async {
                 String initV = value;
                 final String? res;
-                final textField = TextFormField(
-                  initialValue: value,
+                final textField = TvTextField(
+                  // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                   autofocus: true,
-                  onChanged: (value) => initV = value,
-                  decoration: PlatformUtils.isMobile
-                      ? const InputDecoration(
-                          border: .none,
-                          isDense: true,
-                          contentPadding: .zero,
-                        )
-                      : null,
-                  onFieldSubmitted: (value) => Get.back(result: initV),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
-                  ],
+                  debugLabel: isFirst ? '开始时间' : '结束时间',
+                  builder: (context, node) => TextFormField(
+                    focusNode: node,
+                    // 非 TV 模式保持"打开就能输入"的老行为
+                    autofocus: !Pref.tvFocus,
+                    initialValue: value,
+                    onChanged: (value) => initV = value,
+                    decoration: PlatformUtils.isMobile
+                        ? const InputDecoration(
+                            border: .none,
+                            isDense: true,
+                            contentPadding: .zero,
+                          )
+                        : null,
+                    onFieldSubmitted: (value) => Get.back(result: initV),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
+                    ],
+                  ),
                 );
                 if (PlatformUtils.isDesktop || context.isTablet) {
                   res = await showDialog<String>(

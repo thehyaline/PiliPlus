@@ -6,6 +6,7 @@ import 'package:PiliPlus/common/widgets/color_palette.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_slider.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -518,28 +519,33 @@ void _showUiScaleDialog(
                 }),
               ),
             ),
-            TextFormField(
-              controller: textController,
-              keyboardType: const .numberWithOptions(decimal: true),
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(4),
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
-              ],
-              decoration: const InputDecoration(
-                labelText: '缩放比例',
-                hintText: '0.50 - 2.00',
-                border: OutlineInputBorder(),
+            TvTextField(
+              // TV：焦点落在这格但不弹键盘，按 A 才输入
+              debugLabel: 'UiScaleInput',
+              builder: (context, node) => TextFormField(
+                controller: textController,
+                focusNode: node,
+                keyboardType: const .numberWithOptions(decimal: true),
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(4),
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: '缩放比例',
+                  hintText: '0.50 - 2.00',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  final parsed = double.tryParse(value);
+                  if (parsed != null &&
+                      parsed >= minUiScale &&
+                      parsed <= maxUiScale) {
+                    setDialogState(() {
+                      uiScale = parsed;
+                    });
+                  }
+                },
               ),
-              onChanged: (value) {
-                final parsed = double.tryParse(value);
-                if (parsed != null &&
-                    parsed >= minUiScale &&
-                    parsed <= maxUiScale) {
-                  setDialogState(() {
-                    uiScale = parsed;
-                  });
-                }
-              },
             ),
           ],
         ),
@@ -650,24 +656,30 @@ void _showSpringDialog(BuildContext context, _) {
         mainAxisSize: .min,
         children: List.generate(
           physicalMode ? 3 : 2,
-          (index) => TextFormField(
+          (index) => TvTextField(
+            // TV：焦点落在这格但不弹键盘，按 A 才输入
             autofocus: index == 0,
-            initialValue: springDescription[index],
-            keyboardType: .numberWithOptions(
-              signed: !physicalMode && index == 1,
-              decimal: true,
-            ),
-            onChanged: (value) => springDescription[index] = value,
-            inputFormatters: [
-              !physicalMode && index == 1
-                  ? FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+'))
-                  : FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
-            ],
-            decoration: InputDecoration(
-              labelText: (physicalMode
-                  ? const ['mass', 'stiffness', 'damping']
-                  : const ['duration', 'bounce'])[index],
-              suffixText: !physicalMode && index == 0 ? 's' : null,
+            debugLabel: 'SpringDescriptionInput',
+            builder: (context, node) => TextFormField(
+              autofocus: !Pref.tvFocus && index == 0,
+              focusNode: node,
+              initialValue: springDescription[index],
+              keyboardType: .numberWithOptions(
+                signed: !physicalMode && index == 1,
+                decimal: true,
+              ),
+              onChanged: (value) => springDescription[index] = value,
+              inputFormatters: [
+                !physicalMode && index == 1
+                    ? FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+'))
+                    : FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
+              ],
+              decoration: InputDecoration(
+                labelText: (physicalMode
+                    ? const ['mass', 'stiffness', 'damping']
+                    : const ['duration', 'bounce'])[index],
+                suffixText: !physicalMode && index == 0 ? 's' : null,
+              ),
             ),
           ),
         ),

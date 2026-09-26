@@ -90,6 +90,13 @@ class _LiveAreaPageState extends State<LiveAreaPage> {
                     tabAlignment: TabAlignment.start,
                     controller: _controller.tabController,
                     tabs: response.map((e) => Tab(text: e.name)).toList(),
+                    // 重按当前那一栏：分区格子是只读网格、没有自己的滚动控制器，
+                    // 靠重拉数据回到第一屏（回顶那一半在这里是空操作）
+                    onTap: (index) {
+                      if (!_controller.tabController!.indexIsChanging) {
+                        _controller.toTopAndRefresh();
+                      }
+                    },
                   ),
                   Expanded(
                     child: tabBarView(

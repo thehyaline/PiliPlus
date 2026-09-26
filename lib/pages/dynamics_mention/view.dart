@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -103,64 +104,71 @@ class _DynMentionPanelState
         ),
         Padding(
           padding: const EdgeInsets.only(left: 16, right: 16, bottom: 5),
-          child: TextField(
-            focusNode: _controller.focusNode,
-            controller: _controller.controller,
-            onChanged: ctr!.add,
-            decoration: InputDecoration(
-              visualDensity: .standard,
-              border: const OutlineInputBorder(
-                gapPadding: 0,
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.all(Radius.circular(25)),
-              ),
-              isDense: true,
-              filled: true,
-              fillColor: theme.colorScheme.onInverseSurface,
-              hintText: '输入你想@的人',
-              hintStyle: const TextStyle(fontSize: 14),
-              prefixIcon: const Padding(
-                padding: EdgeInsets.only(left: 12, right: 4),
-                child: Icon(Icons.search, size: 20),
-              ),
-              prefixIconConstraints: const .new(minHeight: 0, minWidth: 0),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 6,
-              ),
-              suffixIcon: Obx(
-                () => _controller.enableClear.value
-                    ? Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: GestureDetector(
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: theme.colorScheme.secondaryContainer,
+          child: TvTextField(
+            editFocusNode: _controller.focusNode,
+            debugLabel: 'MentionInput',
+            // 环要贴着这一格的胶囊边（对齐搜索框那一套）
+            radius: const BorderRadius.all(Radius.circular(25)),
+            builder: (context, node) => TextField(
+              focusNode: node,
+              controller: _controller.controller,
+              onChanged: ctr!.add,
+              decoration: InputDecoration(
+                visualDensity: .standard,
+                border: const OutlineInputBorder(
+                  gapPadding: 0,
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.all(Radius.circular(25)),
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: theme.colorScheme.onInverseSurface,
+                hintText: '输入你想@的人',
+                hintStyle: const TextStyle(fontSize: 14),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 12, right: 4),
+                  child: Icon(Icons.search, size: 20),
+                ),
+                prefixIconConstraints: const .new(minHeight: 0, minWidth: 0),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                suffixIcon: Obx(
+                  () => _controller.enableClear.value
+                      ? Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: GestureDetector(
+                            child: Container(
+                              padding: const EdgeInsetsDirectional.all(2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: theme.colorScheme.secondaryContainer,
+                              ),
+                              child: Icon(
+                                Icons.clear,
+                                size: 16,
+                                color: theme.colorScheme.onSecondaryContainer,
+                              ),
                             ),
-                            child: Icon(
-                              Icons.clear,
-                              size: 16,
-                              color: theme.colorScheme.onSecondaryContainer,
-                            ),
+                            onTap: () => _controller
+                              ..enableClear.value = false
+                              ..controller.clear()
+                              ..onRefresh().whenComplete(
+                                () => WidgetsBinding.instance
+                                    .addPostFrameCallback(
+                                      (_) =>
+                                          widget.scrollController?.jumpToTop(),
+                                    ),
+                              ),
                           ),
-                          onTap: () => _controller
-                            ..enableClear.value = false
-                            ..controller.clear()
-                            ..onRefresh().whenComplete(
-                              () =>
-                                  WidgetsBinding.instance.addPostFrameCallback(
-                                    (_) => widget.scrollController?.jumpToTop(),
-                                  ),
-                            ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minHeight: 0,
-                minWidth: 0,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                suffixIconConstraints: const BoxConstraints(
+                  minHeight: 0,
+                  minWidth: 0,
+                ),
               ),
             ),
           ),

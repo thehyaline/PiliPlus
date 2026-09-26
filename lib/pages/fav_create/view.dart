@@ -342,26 +342,30 @@ class _CreateFavPageState extends State<CreateFavPage> {
                     ),
                   ),
                   Expanded(
-                    child: TextField(
-                      minLines: 6,
-                      maxLines: 6,
-                      controller: _introController,
-                      style: const TextStyle(fontSize: 14),
-                      inputFormatters: [
-                        LengthLimitingTextInputFormatter(200),
-                      ],
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: '可填写简介',
-                        hintStyle: TextStyle(
-                          fontSize: 14,
-                          color: theme.colorScheme.outline,
+                    child: TvTextField(
+                      debugLabel: '简介',
+                      builder: (context, node) => TextField(
+                        focusNode: node,
+                        minLines: 6,
+                        maxLines: 6,
+                        controller: _introController,
+                        style: const TextStyle(fontSize: 14),
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(200),
+                        ],
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: '可填写简介',
+                          hintStyle: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.outline,
+                          ),
+                          border: const OutlineInputBorder(
+                            borderSide: BorderSide.none,
+                            gapPadding: 0,
+                          ),
+                          contentPadding: EdgeInsets.zero,
                         ),
-                        border: const OutlineInputBorder(
-                          borderSide: BorderSide.none,
-                          gapPadding: 0,
-                        ),
-                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ),

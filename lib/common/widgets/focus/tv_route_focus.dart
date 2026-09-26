@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_return.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
@@ -96,6 +97,11 @@ class TvRouteFocusObserver extends NavigatorObserver {
     // 从 A 进 B：先记住 A 上待着的地方，退回 A 时还给人家
     TvFocusReturn.remember(previousRoute);
     TvFocusReturn.forget(route);
+    // 新的一页从现在算起："用户还没动过手"这一条（`TvInputMode`）只对
+    // **刚进来这一页**成立，见 `TvPlayerSurface._claimFocus`。
+    // 只在 push / replace 时清零：pop 回来的那一页，用户在它上面早就动过手了，
+    // 清零会让"后建出来的画面"把人家自己挑的落点抢走。
+    TvInputMode.resetUserInput();
     _current = route;
     _watch(route);
   }
@@ -104,6 +110,7 @@ class TvRouteFocusObserver extends NavigatorObserver {
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     TvFocusReturn.forget(oldRoute);
     if (newRoute == null) return;
+    TvInputMode.resetUserInput();
     _current = newRoute;
     _watch(newRoute);
   }

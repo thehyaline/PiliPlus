@@ -32,9 +32,10 @@ import 'package:material_ui/material_ui.dart';
 /// 形状：方方正正的小控件（图标按钮、头像）画成**圆**，和 `FocusRing(circle: true)`
 /// 那一档同一套视觉；其余按圆角矩形来。描边宽度和圆角取 [TvFocusSpec]。
 ///
-/// 和 [FocusRing] 的唯一差别是**不缩放**：控件不是我们的子树，缩不了。对这几类
-/// 控件本来也看不出来——它们的 `Material` 背景是透明的，`FocusRing` 那时缩的
-/// 其实只有图标本身（4% 的 24dp 图标 = 1dp）。
+/// 和 [FocusRing] 的差别是**内容不缩放**：控件不是我们的子树，缩不了。对这几类
+/// 控件本来也看不出来——它们的 `Material` 背景是透明的，`FocusRing` 那边缩的
+/// 其实只有图标本身（4% 的 24dp 图标 = 1dp），而那点放大现在收在控件自己的矩形里
+/// （见 [FocusRing.scale]），两边画出来的框是同一个。
 class TvFocusOverlay extends StatefulWidget {
   const TvFocusOverlay({super.key});
 

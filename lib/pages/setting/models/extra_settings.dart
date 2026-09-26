@@ -829,13 +829,19 @@ void _showDynDialog(BuildContext context) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('检查周期'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: dynamicPeriod,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => dynamicPeriod = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'min'),
+        debugLabel: 'DynamicPeriodInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: dynamicPeriod,
+          keyboardType: TextInputType.number,
+          onChanged: (value) => dynamicPeriod = value,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(suffixText: 'min'),
+        ),
       ),
       actions: [
         TextButton(
@@ -869,13 +875,19 @@ void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('评论折叠行数'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: replyLengthLimit,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => replyLengthLimit = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: '行'),
+        debugLabel: 'ReplyLengthInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: replyLengthLimit,
+          keyboardType: TextInputType.number,
+          onChanged: (value) => replyLengthLimit = value,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(suffixText: '行'),
+        ),
       ),
       actions: [
         TextButton(
@@ -910,12 +922,18 @@ void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('弹幕行高'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: danmakuLineHeight,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (value) => danmakuLineHeight = value,
-        inputFormatters: FilteringText.decimal,
+        debugLabel: 'DanmakuLineHeightInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: danmakuLineHeight,
+          keyboardType: const .numberWithOptions(decimal: true),
+          onChanged: (value) => danmakuLineHeight = value,
+          inputFormatters: FilteringText.decimal,
+        ),
       ),
       actions: [
         TextButton(
@@ -952,12 +970,18 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('横向滑动阈值'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入
         autofocus: true,
-        initialValue: initialValue,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (value) => initialValue = value,
-        inputFormatters: FilteringText.decimal,
+        debugLabel: 'TouchSlopInput',
+        builder: (context, node) => TextFormField(
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: initialValue,
+          keyboardType: const .numberWithOptions(decimal: true),
+          onChanged: (value) => initialValue = value,
+          inputFormatters: FilteringText.decimal,
+        ),
       ),
       actions: [
         TextButton(
@@ -1230,28 +1254,38 @@ void _showProxyDialog(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 6),
-          TextFormField(
-            initialValue: systemProxyHost,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: '请输入Host，使用 . 分割',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(6)),
+          TvTextField(
+            // TV：焦点落在这格但不弹键盘，按 A 才输入
+            debugLabel: 'ProxyHostInput',
+            builder: (context, node) => TextFormField(
+              focusNode: node,
+              initialValue: systemProxyHost,
+              decoration: const InputDecoration(
+                isDense: true,
+                labelText: '请输入Host，使用 . 分割',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
+                ),
               ),
+              onChanged: (e) => systemProxyHost = e,
             ),
-            onChanged: (e) => systemProxyHost = e,
           ),
           const SizedBox(height: 10),
-          TextFormField(
-            initialValue: systemProxyPort,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: '请输入Port',
-              border: OutlineInputBorder(borderRadius: .all(.circular(6))),
+          TvTextField(
+            // TV：焦点落在这格但不弹键盘，按 A 才输入
+            debugLabel: 'ProxyPortInput',
+            builder: (context, node) => TextFormField(
+              focusNode: node,
+              initialValue: systemProxyPort,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                isDense: true,
+                labelText: '请输入Port',
+                border: OutlineInputBorder(borderRadius: .all(.circular(6))),
+              ),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (e) => systemProxyPort = e,
             ),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (e) => systemProxyPort = e,
           ),
         ],
       ),

@@ -69,7 +69,8 @@ class SearchPanelController<R extends SearchNumData<T>, T>
       searchResultController = Get.find<SearchResultController>(tag: tag);
       _listener = searchResultController!.toTopIndex.listen((index) {
         if (index == searchType.index) {
-          scrollController.animToTop();
+          // 搜索结果页重按当前那一栏：回顶 + 重新搜一次
+          toTopAndRefresh();
         }
       });
     } catch (_) {}

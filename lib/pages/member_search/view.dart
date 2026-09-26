@@ -94,9 +94,9 @@ class _MemberSearchPageState extends State<MemberSearchPage> {
                       onTap: (index) {
                         if (!_controller.tabController.indexIsChanging) {
                           if (index == 0) {
-                            _controller.arcCtr.animateToTop();
+                            _controller.arcCtr.toTopAndRefresh();
                           } else {
-                            _controller.dynCtr.animateToTop();
+                            _controller.dynCtr.toTopAndRefresh();
                           }
                         }
                       },

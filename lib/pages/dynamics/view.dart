@@ -250,7 +250,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                         .toList(),
                     onTap: (index) {
                       if (!_dynamicsController.tabController.indexIsChanging) {
-                        _dynamicsController.animateToTop();
+                        _dynamicsController.toTopAndRefresh();
                       }
                     },
                   ),

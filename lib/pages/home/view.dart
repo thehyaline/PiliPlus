@@ -110,8 +110,10 @@ class _HomePageState extends CommonPageState<HomePage>
             tabAlignment: TabAlignment.center,
             onTap: (_) {
               feedBack();
+              // 重按当前那一栏（鼠标点 / A 键 / 确定 / 回车）：列表回顶 + 刷新；
+              // 换栏那一下 `indexIsChanging` 为真，交给 TabBarView 自己滑
               if (!_homeController.tabController.indexIsChanging) {
-                _homeController.animateToTop();
+                _homeController.toTopAndRefresh();
               }
             },
           ),

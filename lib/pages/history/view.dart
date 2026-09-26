@@ -15,7 +15,6 @@ import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/pages/history/base_controller.dart';
 import 'package:PiliPlus/pages/history/controller.dart';
 import 'package:PiliPlus/pages/history/widgets/item.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:get/get.dart';
@@ -131,7 +130,7 @@ class _HistoryPageState extends State<HistoryPage>
                         if (!_historyController
                             .tabController!
                             .indexIsChanging) {
-                          currCtr().scrollController.animToTop();
+                          currCtr().toTopAndRefresh();
                         } else {
                           if (enableMultiSelect) {
                             currCtr(

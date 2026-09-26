@@ -74,7 +74,8 @@ class _HotPageState extends State<HotPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Container(
-      // 焦点缩放（1.04）在左右边沿会被视口裁切，留出安全内边距
+      // 左右留白。原来兼作焦点缩放的安全内边距（1.04 倍会顶出视口被裁），
+      // 放大收进控件自己的矩形之后它就不是必需的，留着只是别贴边
       margin: const .symmetric(horizontal: TvFocusSpec.safeSpace),
       child: TvRegion(
         debugLabel: HotPage.tvRegion,

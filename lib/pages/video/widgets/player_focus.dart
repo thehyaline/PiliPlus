@@ -204,12 +204,18 @@ class _PlayerFocusState extends State<PlayerFocus> {
       TvRegions.focusRouteEntry();
       return;
     }
-    // ② 框架那一套
-    if (primary.context != null) {
-      primary.focusInDirection(direction);
-      if (!identical(FocusManager.instance.primaryFocus, primary)) return;
+    // ② 框架那一套：看 `focusInDirection` 的**返回值**，不能看 `primaryFocus`
+    //    变没变——`requestFocus` 只是记下"下一个焦点是谁"，真正应用要等一个
+    //    微任务（`_markNextFocus`），在同一个同步按键处理器里读到的
+    //    `primaryFocus` 永远是老的那个。照那个条件判，兜底扫描就没有不发生的时候，
+    //    而它的评分（`dx + 2|dy|`）比框架的"同一条带里取最近"粗得多：
+    //    OSD 下栏左下最后一颗按 → 时，框架挑的是居右一组的第一个按钮，
+    //    兜底扫描却会挑中横跨整屏的进度条（它的中心离得很近）。
+    if (primary.context != null && primary.focusInDirection(direction)) {
+      return;
     }
-    // ③ 兜底扫描
+    // ③ 兜底扫描：框架真的一个候选都挑不出来（起点跨满了一整维、那个方向上
+    //    没有"完整在它边之外"的候选）才走这里
     TvRegions.focusInDirection(direction, from: primary);
   }
 

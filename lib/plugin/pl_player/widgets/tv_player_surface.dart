@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/tv_keys.dart';
@@ -209,18 +210,29 @@ class _TvPlayerSurfaceState extends State<TvPlayerSurface> {
     });
   }
 
-  /// 焦点"悬空"时把它接到画面这一层。
+  /// 焦点"悬空"、或者**用户还没动过手**时，把它接到画面这一层。
   ///
   /// 悬空 = 没有焦点、停在某个 scope 上（换页之后框架只把焦点交给路由的
   /// scope）、或者停在 `PlayerFocus` 的页面级节点上。这三种情况都说明这一页
   /// 还没有真正的落点，画面该接下来。
+  ///
+  /// 后一条要宽一些：**用户还没动过手**时也接手，哪怕焦点已经落在一个真控件上。
+  /// 视频页 / 直播页的画面是等详情、等流地址之后才建出来的，比路由入口那一下
+  /// 晚得多（`TvRouteFocusObserver` 的看护窗口只有 90 帧，超了就不再动手），
+  /// 那时焦点已经停在简介区第一项、内容区第一张卡、或者顶栏下面第一个控件上。
+  /// 用户还没按过任何键、没点过屏幕，说明那个落点不是他挑的——这一页真正的主角
+  /// 是画面，入口就该是它（视频页 / 直播页的"进页面预选框落在视频 / 直播上"）。
+  ///
+  /// 动过手之后一律不抢（[TvInputMode.userActedSinceEntry]）：用户走到哪儿是哪儿，
+  /// 包括他自己从别的页面退回这一页的那一下。
   void _claimFocus() {
     final primary = FocusManager.instance.primaryFocus;
     final dangling =
         primary == null ||
         primary is FocusScopeNode ||
         identical(primary, TvRegions.anchor(TvLabels.playerPage));
-    if (!dangling || !TvRegions.isCurrentRoute(context)) return;
+    if (!dangling && TvInputMode.userActedSinceEntry) return;
+    if (!TvRegions.isCurrentRoute(context)) return;
     _node.requestFocus();
   }
 

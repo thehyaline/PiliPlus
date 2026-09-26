@@ -11,7 +11,6 @@ import 'package:PiliPlus/models_new/live/live_contribution_rank/item.dart';
 import 'package:PiliPlus/pages/live_room/contribution_rank/controller.dart';
 import 'package:PiliPlus/pages/member/widget/medal_widget.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
@@ -70,7 +69,7 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
                 Get.find<ContributionRankController>(
                   tag:
                       '${widget.roomId}${LiveContributionRankType.values[index].name}',
-                ).scrollController.animToTop();
+                ).toTopAndRefresh();
               }
             },
           ),

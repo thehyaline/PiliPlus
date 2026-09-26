@@ -136,12 +136,12 @@ class _UpowerRankPageState extends State<UpowerRankPage>
                                   ).indexIsChanging) {
                                     try {
                                       if (index == 0) {
-                                        _controller.animateToTop();
+                                        _controller.toTopAndRefresh();
                                       } else {
                                         Get.find<UpowerRankController>(
                                           tag:
                                               '$_upMid${tabs[index].privilegeType}',
-                                        ).animateToTop();
+                                        ).toTopAndRefresh();
                                       }
                                     } catch (_) {}
                                   }

@@ -34,8 +34,8 @@ const tabletNavTileRadius = BorderRadius.all(Radius.circular(16));
 ///
 /// 环**只框住格子本体**（那 56 高的 [SizedBox]，也就是选中指示条那 72×56 的
 /// 范围），框架的 `tilePadding` 留在环外面：这样描边正好压在指示条的边上、
-/// 12% 底纹就是这一枚自己的背景色（"预选框框住各自的背景色"），放大 4% 多出来
-/// 的 1.4dp 也落在留白里，不会被抽屉视口裁掉两侧。
+/// 12% 底纹就是这一枚自己的背景色（"预选框框住各自的背景色"）。放大 4% 收在
+/// 格子本体里（见 [FocusRing.scale]），顶不出去、也不会被抽屉视口裁到两侧。
 class TabletNavItem extends StatefulWidget {
   const TabletNavItem({
     super.key,
@@ -90,8 +90,8 @@ class _TabletNavItemState extends State<TabletNavItem>
   /// 格子的外圈留白，框架的 `tilePadding` 默认值。
   ///
   /// 它留在 [FocusRing] **外面**，于是环只框住 56 高的格子本体——也就是选中
-  /// 指示条那 72×56 的范围，描边恰好压在指示条的边上（见 [build]）；
-  /// 同时它还兼作缩放余量：1.04 倍只多出 1.4dp，5/12 的留白装得下。
+  /// 指示条那 72×56 的范围，描边恰好压在指示条的边上（见 [build]）。
+  /// （它原来还兼作缩放余量，现在放大收在格子本体里，就是纯留白了。）
   static const _tilePadding = EdgeInsets.symmetric(vertical: 5, horizontal: 12);
 
   /// 格子本体：选中指示条 + 图标 + 文字，不含外圈的 [_tilePadding]。

@@ -12,7 +12,6 @@ import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/pages/later/controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -127,7 +126,7 @@ class _LaterPageState extends State<LaterPage>
                     }).toList(),
                     onTap: (_) {
                       if (!_tabController.indexIsChanging) {
-                        currCtr().scrollController.animToTop();
+                        currCtr().toTopAndRefresh();
                       } else if (enableMultiSelect) {
                         currCtr(_tabController.previousIndex).handleSelect();
                       }

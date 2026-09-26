@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
@@ -16,6 +17,7 @@ import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:get/get.dart';
@@ -207,7 +209,7 @@ class _FollowPageState extends State<FollowPage>
                   try {
                     Get.find<FollowChildController>(
                       tag: '$_tag${item.tagid}',
-                    ).animateToTop();
+                    ).toTopAndRefresh();
                   } catch (_) {}
                 }
               },
@@ -239,13 +241,20 @@ class _FollowPageState extends State<FollowPage>
               showConfirmDialog(
                 context: context,
                 title: const Text('编辑分组名称'),
-                content: TextFormField(
+                content: TvTextField(
+                  // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                   autofocus: true,
-                  initialValue: tagName,
-                  onChanged: (value) => tagName = value,
-                  inputFormatters: [LengthLimitingTextInputFormatter(16)],
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
+                  debugLabel: '编辑分组名称',
+                  builder: (context, node) => TextFormField(
+                    // 非 TV 模式保持"打开就能输入"的老行为
+                    autofocus: !Pref.tvFocus,
+                    focusNode: node,
+                    initialValue: tagName,
+                    onChanged: (value) => tagName = value,
+                    inputFormatters: [LengthLimitingTextInputFormatter(16)],
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
                 onConfirm: () {

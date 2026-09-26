@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/constants.dart';
@@ -83,12 +84,19 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             context: context,
             builder: (_) => AlertDialog(
               title: Text('最短片段时长', style: titleStyle),
-              content: TextFormField(
-                keyboardType: const .numberWithOptions(decimal: true),
-                controller: _textController,
+              content: TvTextField(
+                // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                 autofocus: true,
-                decoration: const InputDecoration(suffixText: 's'),
-                inputFormatters: FilteringText.decimal,
+                debugLabel: 'BlockLimitInput',
+                builder: (context, node) => TextFormField(
+                  // 非 TV 模式保持"打开就能输入"的老行为
+                  autofocus: !Pref.tvFocus,
+                  focusNode: node,
+                  keyboardType: const .numberWithOptions(decimal: true),
+                  controller: _textController,
+                  decoration: const InputDecoration(suffixText: 's'),
+                  inputFormatters: FilteringText.decimal,
+                ),
               ),
               actions: [
                 TextButton(
@@ -153,22 +161,29 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             builder: (_) {
               return AlertDialog(
                 title: Text('用户ID', style: titleStyle),
-                content: TextFormField(
-                  key: key,
-                  minLines: 1,
-                  maxLines: 4,
+                content: TvTextField(
+                  // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                   autofocus: true,
-                  controller: _textController,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\d]+')),
-                  ],
-                  decoration: const InputDecoration(errorMaxLines: 2),
-                  validator: (value) {
-                    if ((value?.length ?? -1) < 30) {
-                      return '用户ID要求至少为30个字符长度的纯字符串';
-                    }
-                    return null;
-                  },
+                  debugLabel: 'UserIdInput',
+                  builder: (context, node) => TextFormField(
+                    // 非 TV 模式保持"打开就能输入"的老行为
+                    autofocus: !Pref.tvFocus,
+                    focusNode: node,
+                    key: key,
+                    minLines: 1,
+                    maxLines: 4,
+                    controller: _textController,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\d]+')),
+                    ],
+                    decoration: const InputDecoration(errorMaxLines: 2),
+                    validator: (value) {
+                      if ((value?.length ?? -1) < 30) {
+                        return '用户ID要求至少为30个字符长度的纯字符串';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -318,10 +333,17 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             context: context,
             builder: (_) => AlertDialog(
               title: Text('服务器地址', style: titleStyle),
-              content: TextFormField(
-                keyboardType: TextInputType.url,
-                controller: _textController,
+              content: TvTextField(
+                // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                 autofocus: true,
+                debugLabel: 'BlockServerInput',
+                builder: (context, node) => TextFormField(
+                  // 非 TV 模式保持"打开就能输入"的老行为
+                  autofocus: !Pref.tvFocus,
+                  focusNode: node,
+                  keyboardType: TextInputType.url,
+                  controller: _textController,
+                ),
               ),
               actions: [
                 TextButton(

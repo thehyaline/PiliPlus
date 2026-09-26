@@ -81,10 +81,25 @@ class FocusRing extends StatefulWidget {
 
   /// 聚焦时内容放大的倍数。
   ///
-  /// 环画在控件边界**之内**，所以放大是"往外顶"：控件要是紧贴某个容器的裁剪
-  /// 边（ `Clip.hardEdge` 的抽屉、列表视口），顶出去的那一点就会被切掉一条。
-  /// 两种解法：在那个位置上留余量（`TabletNavItem` 的 `tilePadding`、抽屉头部
-  /// 给头像留的那 4dp），或者这里传 1.0 不放大。
+  /// **放大只允许发生在控件自己的矩形里**（见 [_buildContent]）：内容照原尺寸
+  /// 布局，聚焦时整体放大这个倍数、再按控件自己的形状（[radius] / [circle]）
+  /// 裁一刀，顶出去的那部分不画。环（描边 / [fillColor] / [overlay]）画在控件
+  /// 边界上、**不跟着放大**，于是"预选框"恒等于控件自己的矩形。
+  ///
+  /// 这一条是"预选框永远看得见"的全部保证：环再也不出控件边界，就不会被邻卡
+  /// 邻行盖住（后画的一律压在前画的上面）、被 `AppBar` 底边压住、被列表视口 /
+  /// 抽屉 / `SingleChildScrollView` 的裁剪线削掉，也不会被屏幕边切掉。
+  ///
+  /// 比例缩放最难受的是**宽/高的大控件**：1.04 倍 = 每边顶出控件尺寸的 2%，
+  /// 一条 1000 逻辑像素宽的评论卡左右各顶出去 20px——两条竖描边整个跑到屏幕
+  /// 外面，看着就是"预选框被挡住了"（用户报的就是这个）。放大收进控件里之后
+  /// 这类位置一律正常，代价只是那 20px 的放大被裁掉：有内边距的卡片看着仍是
+  /// "整块弹一下"（溢出本来就落在内边距里），贴边的图/背景则变成"框不动、
+  /// 里面的内容放大"。
+  ///
+  /// 传 1.0 = 完全不放大（连 `AnimatedScale` 都不建）。**不是**"留余量就别传"——
+  /// 余量那套规则（`TabletNavItem` 的 `tilePadding`、抽屉头部给头像留的 4dp）
+  /// 已经不需要了，留在那儿只是布局上的留白。
   final double scale;
 
   final double borderWidth;
@@ -358,43 +373,80 @@ class _FocusRingState extends State<FocusRing> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
-    return AnimatedScale(
-      scale: _showRing ? widget.scale : 1.0,
-      duration: TvFocusSpec.duration,
-      curve: Curves.easeOut,
-      child: Stack(
-        clipBehavior: Clip.none,
-        // 约束原样透传：焦点环不该改变内容的尺寸行为
-        // （`loose` 会把紧约束放宽，调用方靠 `Expanded`/`SizedBox` 撑开的宽度就没了）
-        fit: StackFit.passthrough,
-        children: [
-          // 底纹垫在内容下面，所以标签文字不会被染色
-          if (widget.fillColor case final fill?)
-            _paintIfFits(
-              () => AnimatedContainer(
-                duration: TvFocusSpec.duration,
-                curve: Curves.easeOut,
-                decoration: _decoration(color: _showRing ? fill : null),
-              ),
-            ),
-          widget.builder(context, _node, _showRing),
+    return Stack(
+      clipBehavior: Clip.none,
+      // 约束原样透传：焦点环不该改变内容的尺寸行为
+      // （`loose` 会把紧约束放宽，调用方靠 `Expanded`/`SizedBox` 撑开的宽度就没了）
+      fit: StackFit.passthrough,
+      children: [
+        // 底纹垫在内容下面，所以标签文字不会被染色
+        if (widget.fillColor case final fill?)
           _paintIfFits(
             () => AnimatedContainer(
               duration: TvFocusSpec.duration,
               curve: Curves.easeOut,
-              decoration: _decoration(
-                border: Border.all(
-                  width: widget.borderWidth,
-                  color: _showRing ? colorScheme.primary : Colors.transparent,
-                ),
+              decoration: _decoration(color: _showRing ? fill : null),
+            ),
+          ),
+        _buildContent(context),
+        _paintIfFits(
+          () => AnimatedContainer(
+            duration: TvFocusSpec.duration,
+            curve: Curves.easeOut,
+            decoration: _decoration(
+              border: Border.all(
+                width: widget.borderWidth,
+                color: _showRing ? colorScheme.primary : Colors.transparent,
               ),
             ),
           ),
-          if (widget.overlay case final overlay?)
-            Positioned.fill(child: IgnorePointer(child: overlay)),
-        ],
-      ),
+        ),
+        if (widget.overlay case final overlay?)
+          Positioned.fill(child: IgnorePointer(child: overlay)),
+      ],
     );
+  }
+
+  /// 内容层——整个 [FocusRing] 里**唯一**会缩放的层，而且放大只在自己的矩形内。
+  ///
+  /// 缩放和环是分开的两件事：
+  ///
+  /// - 环（描边 / 底纹 / [FocusRing.overlay]）画在控件边界上，**不缩放**；
+  /// - 内容按 [FocusRing.scale] 放大，超出控件矩形的部分由这里裁掉。
+  ///
+  /// 所以"预选框"永远等于控件自己的矩形：既不会被后画的邻卡邻行盖住，也不会
+  /// 被祖先的裁剪线（`AppBar` 底边、列表视口、抽屉、屏幕边）切掉——详情见
+  /// [FocusRing.scale]。
+  ///
+  /// **树形结构不跟着焦点变**：焦点进出只改 `AnimatedScale.scale` 和
+  /// `clipBehavior` 两个参数，包的还是同一个 widget。本来只在聚焦时才套裁剪
+  /// 更省，但那样等于在焦点变化时换掉内容上面那一层的类型——`Element` 认类型
+  /// （`Widget.canUpdate`），换掉就把整棵子树重建一遍：`InkWell` 自己那个
+  /// `FocusNode`、滚动位置这些内部状态全丢，焦点当场掉到最近的 scope 上
+  /// （`PopupMenuButton` 这种"外壳画环、落点在里面"的控件就是这么被踩到的）。
+  ///
+  /// `scale: 1.0` 的控件连 `AnimatedScale` 都不建，和改动前一个字节不差
+  /// （准则 6「默认零侵入」）——这条只看控件自己的配置，不随焦点变。
+  Widget _buildContent(BuildContext context) {
+    final content = widget.builder(context, _node, _showRing);
+    if (widget.scale == 1.0) return content;
+    final scaled = AnimatedScale(
+      scale: _showRing ? widget.scale : 1.0,
+      duration: TvFocusSpec.duration,
+      curve: Curves.easeOut,
+      child: content,
+    );
+    // 不聚焦时 `Clip.none`：内容本来就在框里，不用裁（也不会建裁剪层）
+    final clipBehavior = _showRing ? Clip.hardEdge : Clip.none;
+    // 裁成控件自己的形状：和环（描边）同一套圆角，贴边的图/背景放大了之后
+    // 看着仍是"这一格的形状"，而不是被切出一个方角
+    return widget.circle
+        ? ClipOval(clipBehavior: clipBehavior, child: scaled)
+        : ClipRRect(
+            clipBehavior: clipBehavior,
+            borderRadius: widget.radius,
+            child: scaled,
+          );
   }
 }
 
@@ -409,9 +461,10 @@ class _FocusRingState extends State<FocusRing> {
 /// 手机顶栏、平板抽屉、「我的」页头部），环加在这里四处就一致了。
 ///
 /// 放大（1.04 倍）照旧：它是焦点框的通用逻辑，这几颗和别的控件一样会弹一下。
-/// 代价是环会顶出控件边界 4%，所以**紧贴容器裁剪边的位置得留余量**——平板抽屉
-/// 里头像就在抽屉最上沿，`_sideBar()` 的头部因此留了 4dp（见
-/// `docs/tv_focus.md` 的「主界面导航栏（平板抽屉）」）。
+/// 不过放大现在只发生在**控件自己的矩形里**（见 [FocusRing.scale]），所以
+/// "紧贴容器裁剪边要留余量"这条老规矩在这里也不用守了——平板抽屉里头像就在
+/// 抽屉最上沿，环也不会被抽屉的 `Clip.hardEdge` 削掉（`_sideBar()` 头部那 4dp
+/// 留着只是留白，见 `docs/tv_focus.md` 的「主界面导航栏（平板抽屉）」）。
 Widget circularFocusRing({
   required String debugLabel,
   required Widget Function(FocusNode? focusNode) builder,

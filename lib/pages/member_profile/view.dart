@@ -1,6 +1,7 @@
 import 'dart:io' show File;
 
 import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -294,25 +295,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
         final theme = Theme.of(context);
         return AlertDialog(
           title: Text('修改$title'),
-          content: TextField(
-            controller: _textController,
-            minLines: lines,
-            maxLines: lines,
+          content: TvTextField(
+            // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
             autofocus: true,
-            style: const TextStyle(fontSize: 14),
-            textInputAction: type == ProfileType.sign
-                ? TextInputAction.newline
-                : null,
-            inputFormatters: [
-              LengthLimitingTextInputFormatter(
-                type == ProfileType.uname ? 16 : 70,
-              ),
-            ],
-            decoration: InputDecoration(
-              hintText: text,
-              hintStyle: TextStyle(
-                fontSize: 14,
-                color: theme.colorScheme.outline,
+            debugLabel: '修改$title',
+            builder: (context, node) => TextField(
+              // 非 TV 模式保持"打开就能输入"的老行为
+              autofocus: !Pref.tvFocus,
+              focusNode: node,
+              controller: _textController,
+              minLines: lines,
+              maxLines: lines,
+              style: const TextStyle(fontSize: 14),
+              textInputAction: type == ProfileType.sign
+                  ? TextInputAction.newline
+                  : null,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(
+                  type == ProfileType.uname ? 16 : 70,
+                ),
+              ],
+              decoration: InputDecoration(
+                hintText: text,
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: theme.colorScheme.outline,
+                ),
               ),
             ),
           ),

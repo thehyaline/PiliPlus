@@ -3,6 +3,7 @@ import 'dart:math' show min;
 import 'dart:ui';
 
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
@@ -1520,14 +1521,18 @@ class VideoDetailController extends GetxController
       required String label,
       required String initialValue,
       required ValueChanged<String> onChanged,
-    }) => TextFormField(
-      minLines: 1,
-      maxLines: 3,
-      onChanged: onChanged,
-      initialValue: initialValue,
-      decoration: InputDecoration(
-        label: Text(label),
-        border: const OutlineInputBorder(),
+    }) => TvTextField(
+      debugLabel: label,
+      builder: (context, node) => TextFormField(
+        focusNode: node,
+        minLines: 1,
+        maxLines: 3,
+        onChanged: onChanged,
+        initialValue: initialValue,
+        decoration: InputDecoration(
+          label: Text(label),
+          border: const OutlineInputBorder(),
+        ),
       ),
     );
     showDialog(

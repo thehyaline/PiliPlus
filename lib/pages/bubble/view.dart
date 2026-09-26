@@ -9,7 +9,6 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/bubble/dyn_list.dart';
 import 'package:PiliPlus/pages/bubble/controller.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:collection/collection.dart';
 import 'package:get/get.dart';
@@ -157,7 +156,7 @@ class _BubblePageState extends State<BubblePage>
                 controller: _controller.tabController,
                 onTap: (index) {
                   if (!_controller.tabController!.indexIsChanging) {
-                    currCtr().scrollController.animToTop();
+                    currCtr().toTopAndRefresh();
                   }
                 },
                 tabs: tabs.map((item) => Tab(text: item.name!)).toList(),

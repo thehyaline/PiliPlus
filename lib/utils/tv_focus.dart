@@ -9,6 +9,11 @@ import 'package:material_ui/material_ui.dart' show BorderRadius, Radius;
 /// `blbl_focus_stroke.xml`（2dp 主题色描边）。
 abstract final class TvFocusSpec {
   /// 焦点态缩放倍数。
+  ///
+  /// 放大**只发生在控件自己的矩形里**：`FocusRing` 把内容放大这个倍数之后按
+  /// 控件自己的形状裁一刀，环（描边 / 底纹）本身不动、就画在控件边界上。
+  /// 所以这个数只决定"内容弹得多明显"，不牵动任何布局——四周不用留余量，
+  /// 预选框也不会被邻卡、`AppBar` 底边、视口或屏幕边切掉。
   static const scale = 1.04;
 
   /// 焦点态过渡时长。
@@ -24,10 +29,12 @@ abstract final class TvFocusSpec {
   /// `ViewConfiguration.getLongPressTimeout()` 一致）。
   static const longPressDuration = Duration(milliseconds: 500);
 
-  /// 焦点缩放的安全空隙。
+  /// 焦点缩放的安全空隙（**现在只剩布局意义**）。
   ///
-  /// 1.04 倍缩放每边溢出约卡片尺寸的 2%；网格列间距为 12 时不会压到邻卡，
-  /// 但最外侧一行/列会超出视口被裁切，所以滚动区域左右各留这么多内边距。
+  /// 1.04 倍那会儿这是必需的：网格最外侧一列放大后每边顶出卡片尺寸的 2%，
+  /// 顶到视口外的那一条会被裁掉，所以滚动区域左右各留这么多内边距兜着。
+  /// 放大收进控件自己的矩形之后，预选框一律画在控件边界之内，这一条就不是
+  /// 安全措施了——`hot` 页那 8dp 留着只是左右留白。
   static const safeSpace = 8.0;
 
   /// 网格/列表的 `scrollCacheExtent`。
@@ -44,7 +51,11 @@ abstract final class TvFocusSpec {
   /// 播放器控件的焦点环。
   ///
   /// 播放器按钮只有 30~34 见方、紧挨着排，卡片那套（1.04 倍 + 2dp）会互相压边，
-  /// 所以描边细一点、圆角小一点、缩放也更克制。
+  /// 所以描边细一点、圆角小一点、缩放倍数反而给得大一点。
+  ///
+  /// 这个 1.1 和卡片那套一样只作用在**控件自己的内切圆里**（[scale] 那条规则）：
+  /// 圆底色的放大长不出按钮的圆，看得见的是图标变大 + 环亮起来。播放器按钮小，
+  /// 4% 的图标变化看不出来，1.1 才够。
   static const playerRadius = BorderRadius.all(Radius.circular(8));
   static const playerBorderWidth = 1.5;
   static const playerScale = 1.1;

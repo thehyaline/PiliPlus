@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/grpc/bilibili/im/type.pbenum.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -112,14 +113,21 @@ abstract final class RequestUtils {
     final onCreate = await showConfirmDialog(
       context: context,
       title: const Text('新建分组'),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
         autofocus: true,
-        initialValue: tagName,
-        onChanged: (value) => tagName = value,
-        inputFormatters: [
-          LengthLimitingTextInputFormatter(16),
-        ],
-        decoration: const InputDecoration(border: OutlineInputBorder()),
+        debugLabel: '新建分组',
+        builder: (context, node) => TextFormField(
+          // 非 TV 模式保持"打开就能输入"的老行为
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: tagName,
+          onChanged: (value) => tagName = value,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(16),
+          ],
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
       ),
     );
     if (onCreate) {

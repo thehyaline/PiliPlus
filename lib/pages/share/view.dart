@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/self_sized_horizontal_list.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
@@ -222,29 +223,34 @@ class _SharePanelState extends State<SharePanel> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    minLines: 1,
-                    maxLines: 2,
-                    textInputAction: TextInputAction.newline,
-                    decoration: InputDecoration(
-                      hintText: '说说你的想法吧...',
-                      visualDensity: .standard,
-                      hintStyle: const TextStyle(fontSize: 14),
-                      border: const OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                        borderRadius: BorderRadius.all(Radius.circular(20)),
+                  child: TvTextField(
+                    // 调用方自己持有输入框节点（`_focusNode.unfocus()` 还在用）
+                    editFocusNode: _focusNode,
+                    debugLabel: '分享留言',
+                    builder: (context, node) => TextField(
+                      focusNode: node,
+                      controller: _controller,
+                      minLines: 1,
+                      maxLines: 2,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        hintText: '说说你的想法吧...',
+                        visualDensity: .standard,
+                        hintStyle: const TextStyle(fontSize: 14),
+                        border: const OutlineInputBorder(
+                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                        ),
+                        filled: true,
+                        isDense: true,
+                        contentPadding: const .symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        fillColor: theme.colorScheme.onInverseSurface,
                       ),
-                      filled: true,
-                      isDense: true,
-                      contentPadding: const .symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      fillColor: theme.colorScheme.onInverseSurface,
+                      inputFormatters: [LengthLimitingTextInputFormatter(100)],
                     ),
-                    inputFormatters: [LengthLimitingTextInputFormatter(100)],
                   ),
                 ),
                 const SizedBox(width: 12),

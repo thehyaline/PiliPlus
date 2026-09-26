@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
@@ -8,6 +9,7 @@ import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart'
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/whisper_block/controller.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -187,27 +189,34 @@ class _WhisperBlockPageState extends State<WhisperBlockPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                TvTextField(
+                  // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
                   autofocus: true,
-                  maxLength: _controller.charLimit,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: '请输入',
-                    visualDensity: .standard,
-                    hintStyle: const TextStyle(fontSize: 14),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                  debugLabel: 'WhisperKeywordInput',
+                  builder: (context, node) => TextFormField(
+                    // 非 TV 模式保持"打开就能输入"的老行为
+                    autofocus: !Pref.tvFocus,
+                    focusNode: node,
+                    maxLength: _controller.charLimit,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '请输入',
+                      visualDensity: .standard,
+                      hintStyle: const TextStyle(fontSize: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      border: const OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.all(Radius.circular(25)),
+                      ),
+                      filled: true,
+                      fillColor: theme.colorScheme.onInverseSurface,
                     ),
-                    border: const OutlineInputBorder(
-                      borderSide: BorderSide.none,
-                      borderRadius: BorderRadius.all(Radius.circular(25)),
-                    ),
-                    filled: true,
-                    fillColor: theme.colorScheme.onInverseSurface,
+                    onChanged: (value) => keyword = value,
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
                   ),
-                  onChanged: (value) => keyword = value,
-                  inputFormatters: [LengthLimitingTextInputFormatter(20)],
                 ),
                 const SizedBox(height: 12),
                 FilledButton.tonal(

@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
@@ -13,6 +14,7 @@ import 'package:PiliPlus/models/horizontal_video_model.dart';
 import 'package:PiliPlus/pages/member_video_web/base/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -203,19 +205,26 @@ abstract class BaseVideoWebState<
     showConfirmDialog(
       context: context,
       title: const Text('跳至: '),
-      content: TextFormField(
+      content: TvTextField(
+        // TV：焦点落在这格但不弹键盘，按 A 才输入、按返回脱出
         autofocus: true,
-        initialValue: pageStr,
-        onChanged: (value) => pageStr = value,
-        decoration: const InputDecoration(
-          labelText: '页数',
-          border: OutlineInputBorder(),
+        debugLabel: '跳页',
+        builder: (context, node) => TextFormField(
+          // 非 TV 模式保持"打开就能输入"的老行为
+          autofocus: !Pref.tvFocus,
+          focusNode: node,
+          initialValue: pageStr,
+          onChanged: (value) => pageStr = value,
+          decoration: const InputDecoration(
+            labelText: '页数',
+            border: OutlineInputBorder(),
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onFieldSubmitted: (_) {
+            Get.back();
+            onSubmit();
+          },
         ),
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onFieldSubmitted: (_) {
-          Get.back();
-          onSubmit();
-        },
       ),
       onConfirm: onSubmit,
     );
