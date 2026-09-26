@@ -54,7 +54,7 @@ void _showEmoteDialog(ModuleDynamicModel? moduleDynamic) {
     builder: (context) => Dialog(
       child: Padding(
         padding: const .symmetric(horizontal: 20, vertical: 16),
-        child: SelectionArea(
+        child: TvSelectionArea(
           contextMenuBuilder: openUrlMenuBuilder,
           child: SingleChildScrollView(
             child: Text.rich(
@@ -95,7 +95,7 @@ void _showTextDialog(String text) {
     builder: (context) => Dialog(
       child: Padding(
         padding: const .symmetric(horizontal: 20, vertical: 16),
-        child: SelectionArea(
+        child: TvSelectionArea(
           contextMenuBuilder: openUrlMenuBuilder,
           child: SingleChildScrollView(
             child: Text(

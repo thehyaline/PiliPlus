@@ -5,6 +5,7 @@
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
+import 'package:PiliPlus/common/widgets/gesture/pointer_ledger.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
@@ -276,10 +277,16 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
 
   bool _isSinglePointer = false;
 
+  /// 自己记的"还按着几个手指"，见 [PointerLedger]。
+  ///
+  /// **不看 `details.pointerCount`**：那是识别器的账，一次 up 没送到就会让
+  /// 它永远 ≥ 2，之后每次单指拖动都被当成双指捏合——用户说的"幽灵触摸"。
+  final _ledger = PointerLedger();
+
   // Handle the start of a gesture. All of pan, scale, and rotate are handled
   // with GestureDetector's scale gesture.
   void _onScaleStart(ScaleStartDetails details) {
-    if (_isSinglePointer = details.pointerCount == 1) {
+    if (_isSinglePointer = _ledger.isSingleTouch) {
       widget.onPanStart(details);
       return;
     }
@@ -689,10 +696,14 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       key: _parentKey,
       behavior: HitTestBehavior.opaque,
       onPointerSignal: _receivedPointerSignal,
-      onPointerDown: widget.onPointerDown,
-      onPointerPanZoomStart: _scaleGestureRecognizer.addPointerPanZoom,
+      // 指针账自己记（见 [PointerLedger]）：up/cancel 一定要接住，
+      // 否则这一层和识别器都以为那根手指还按着
+      onPointerDown: _handlePointerDown,
+      onPointerUp: (event) => _ledger.up(event.pointer),
+      onPointerCancel: (event) => _ledger.up(event.pointer),
+      onPointerPanZoomStart: _handlePanZoomStart,
       onPointerPanZoomUpdate: widget.onPointerPanZoomUpdate,
-      onPointerPanZoomEnd: widget.onPointerPanZoomEnd,
+      onPointerPanZoomEnd: _handlePanZoomEnd,
       child: _InteractiveViewerBuilt(
         childKey: widget.childKey,
         clipBehavior: widget.clipBehavior,
@@ -702,6 +713,21 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
         child: widget.child,
       ),
     );
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _ledger.down(event.pointer, event.timeStamp);
+    widget.onPointerDown(event);
+  }
+
+  void _handlePanZoomStart(PointerPanZoomStartEvent event) {
+    _ledger.panZoomStart();
+    _scaleGestureRecognizer.addPointerPanZoom(event);
+  }
+
+  void _handlePanZoomEnd(PointerPanZoomEndEvent event) {
+    _ledger.panZoomEnd();
+    widget.onPointerPanZoomEnd?.call(event);
   }
 }
 

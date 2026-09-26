@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/grpc/bilibili/im/type.pbenum.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -448,78 +450,85 @@ abstract final class RequestUtils {
         showDialog(
           context: context,
           builder: (context) {
-            return AlertDialog(
-              title: Text('${isCopy ? '复制' : '移动'}到'),
-              contentPadding: const EdgeInsets.only(top: 5),
-              content: SingleChildScrollView(
-                child: RadioGroup(
-                  onChanged: (value) {
-                    checkedId = value;
-                    (context as Element).markNeedsBuild();
-                  },
-                  groupValue: checkedId,
-                  child: Column(
-                    children: list.map((item) {
-                      return RadioListTile<int>(
-                        dense: true,
-                        title: Text(item.title),
-                        value: item.id,
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: Get.back,
-                  child: Text(
-                    '取消',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.outline,
+            return TvFocusOnOpen(
+              child: AlertDialog(
+                title: Text('${isCopy ? '复制' : '移动'}到'),
+                contentPadding: const EdgeInsets.only(top: 5),
+                content: SingleChildScrollView(
+                  child: RadioGroup(
+                    onChanged: (value) {
+                      checkedId = value;
+                      (context as Element).markNeedsBuild();
+                    },
+                    groupValue: checkedId,
+                    child: Column(
+                      children: list.map((item) {
+                        return tvRadioTile<int>(
+                          debugLabel: '收藏夹选项',
+                          value: item.id,
+                          builder: (focusNode) => RadioListTile<int>(
+                            dense: true,
+                            title: Text(item.title),
+                            value: item.id,
+                            focusNode: focusNode,
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    if (checkedId != null) {
-                      final removeList = ctr.allChecked.toSet();
-                      SmartDialog.showLoading();
-                      FavHttp.copyOrMoveFav(
-                        isCopy: isCopy,
-                        isFav: ctr is BaseFavController,
-                        srcMediaId: mediaId,
-                        tarMediaId: checkedId,
-                        resources: removeList
-                            .map(
-                              (e) => switch (e) {
-                                LaterItemModel _ => e.aid,
-                                FavDetailItemModel _ => '${e.id}:${e.type}',
-                                _ => throw UnsupportedError(e.toString()),
-                              },
-                            )
-                            .join(','),
-                        mid: isCopy ? mid : null,
-                      ).then((res) {
-                        if (res.isSuccess) {
-                          ctr.handleSelect(checked: false);
-                          if (!isCopy) {
-                            ctr.loadingState
-                              ..value.data!.removeWhere(removeList.contains)
-                              ..refresh();
+                actions: [
+                  TextButton(
+                    onPressed: Get.back,
+                    child: Text(
+                      '取消',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      if (checkedId != null) {
+                        final removeList = ctr.allChecked.toSet();
+                        SmartDialog.showLoading();
+                        FavHttp.copyOrMoveFav(
+                          isCopy: isCopy,
+                          isFav: ctr is BaseFavController,
+                          srcMediaId: mediaId,
+                          tarMediaId: checkedId,
+                          resources: removeList
+                              .map(
+                                (e) => switch (e) {
+                                  LaterItemModel _ => e.aid,
+                                  FavDetailItemModel _ => '${e.id}:${e.type}',
+                                  _ => throw UnsupportedError(e.toString()),
+                                },
+                              )
+                              .join(','),
+                          mid: isCopy ? mid : null,
+                        ).then((res) {
+                          if (res.isSuccess) {
+                            ctr.handleSelect(checked: false);
+                            if (!isCopy) {
+                              ctr.loadingState
+                                ..value.data!.removeWhere(removeList.contains)
+                                ..refresh();
+                            }
+                            SmartDialog.dismiss();
+                            SmartDialog.showToast('${isCopy ? '复制' : '移动'}成功');
+                            Get.back();
+                          } else {
+                            SmartDialog.dismiss();
+                            res.toast();
                           }
-                          SmartDialog.dismiss();
-                          SmartDialog.showToast('${isCopy ? '复制' : '移动'}成功');
-                          Get.back();
-                        } else {
-                          SmartDialog.dismiss();
-                          res.toast();
-                        }
-                      });
-                    }
-                  },
-                  child: const Text('确认'),
-                ),
-              ],
+                        });
+                      }
+                    },
+                    child: const Text('确认'),
+                  ),
+                ],
+              ),
             );
           },
         );

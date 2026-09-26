@@ -918,7 +918,6 @@ class VerticalTabBar extends StatefulWidget {
     this.textScaler,
     this.indicatorAnimation,
     required this.regionLabel,
-    this.switchOnFocus,
     this.onFocusTab,
   }) : _isPrimary = true,
        assert(indicator != null || (indicatorWeight > 0.0));
@@ -976,16 +975,12 @@ class VerticalTabBar extends StatefulWidget {
     this.textScaler,
     this.indicatorAnimation,
     required this.regionLabel,
-    this.switchOnFocus,
     this.onFocusTab,
   }) : _isPrimary = false,
        assert(indicator != null || (indicatorWeight > 0.0));
 
   /// 焦点区域标签，见 `TvRegion.debugLabel`。**同一个页面里要唯一**。
   final String regionLabel;
-
-  /// 焦点落到标签上时是否立刻切过去；不传则实时读 `Pref.tabSwitchOnFocus`。
-  final bool? switchOnFocus;
 
   /// 覆写"焦点即切换"的动作；不传则用 `TabController.animateTo`。
   final ValueChanged<int>? onFocusTab;
@@ -1699,7 +1694,6 @@ class _VerticalTabBarState extends State<VerticalTabBar>
       if (target != null) focusTab(target);
       return;
     }
-    if (!(widget.switchOnFocus ?? Pref.tabSwitchOnFocus)) return;
     final onFocusTab = widget.onFocusTab;
     if (onFocusTab != null) {
       onFocusTab(index);

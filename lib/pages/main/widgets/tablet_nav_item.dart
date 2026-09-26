@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 /// 改一处两边一起变。
 const tabletNavTileRadius = BorderRadius.all(Radius.circular(16));
 
-/// 平板导航栏（设置项「优化平板导航栏」，`optTabletNav`）里的一枚导航项
+/// 平板导航栏（侧边栏唯一的那套写法）里的一枚导航项
 /// （首页 / 动态 / 我的）。
 ///
 /// 为什么不用框架的 [NavigationDrawerDestination]：那个 destination 内部的

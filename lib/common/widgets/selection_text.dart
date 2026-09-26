@@ -1,5 +1,11 @@
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// 一段**只读**的可选文本。
+///
+/// 走 [TvSelectionArea] 而不是裸的 `SelectionArea`：后者把方向键绑成了
+/// "扩展选区 / 移光标"，手柄的焦点一旦停上去就再也走不掉（视频简介那一块，
+/// 见 [TvSelectionArea] 的说明）。
 class SelectionText extends StatelessWidget {
   const SelectionText(
     String this.data, {
@@ -34,7 +40,7 @@ class SelectionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectionArea(
+    return TvSelectionArea(
       contextMenuBuilder: contextMenuBuilder,
       child: Text.rich(
         style: style,

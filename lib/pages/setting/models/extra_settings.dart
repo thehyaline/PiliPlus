@@ -5,8 +5,8 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
-import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_text_field.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop, touchSlopH;
@@ -1057,32 +1057,38 @@ Future<void> _showFavDialog(BuildContext context) async {
             clipBehavior: Clip.hardEdge,
             title: const Text('选择默认收藏夹'),
             contentPadding: const EdgeInsets.only(top: 5, bottom: 18),
-            content: SingleChildScrollView(
-              child: RadioGroup(
-                onChanged: (value) {
-                  Get.back();
-                  GStorage.setting.put(SettingBoxKey.quickFavId, value);
-                  SmartDialog.showToast('设置成功');
-                },
-                groupValue: quickFavId,
-                child: Column(
-                  children: list
-                      .map(
-                        (item) => listTileFocusRing(
-                          debugLabel: '收藏夹选项',
-                          builder: (focusNode) => RadioListTile(
-                            toggleable: true,
-                            dense: true,
-                            title: Text(item.title),
-                            value: item.id,
-                            focusNode: focusNode,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
+        content: SingleChildScrollView(
+          child: RadioGroup(
+            onChanged: (value) {
+              Get.back();
+              GStorage.setting.put(SettingBoxKey.quickFavId, value);
+              SmartDialog.showToast('设置成功');
+            },
+            groupValue: quickFavId,
+            child: Column(
+              children: list
+                  .map(
+                    (item) => tvRadioTile<int>(
+                      debugLabel: '收藏夹选项',
+                      value: item.id,
+                      toggleable: true,
+                      // 当前值可能在视口外（收藏夹多的时候），滚进视野
+                      reveal: item.id == quickFavId,
+                      builder: (focusNode) => RadioListTile<int>(
+                        toggleable: true,
+                        dense: true,
+                        title: Text(item.title),
+                        value: item.id,
+                        focusNode: focusNode,
+                        // 打开就停在当前值上，而不是第一项
+                        autofocus: Pref.tvFocus && item.id == quickFavId,
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
+          ),
+        ),
           ),
         ),
       );

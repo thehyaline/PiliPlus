@@ -9,6 +9,7 @@ import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart';

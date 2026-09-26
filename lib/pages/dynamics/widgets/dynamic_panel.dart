@@ -47,14 +47,14 @@ class DynamicPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    /// 「遥控器适配」：外部动态卡片退回"一条动态一个焦点"——
+    /// 总开关「手柄/遥控器模式」下的动态卡片：外部卡片退回"一条动态一个焦点"——
     /// 卡里的更多 / 转发 / 评论 / 点赞不再显示，卡片内部也没有任何焦点，
     /// 方向键只在卡片之间跳，确定键直接进视频 / 动态详情（`showMore` 还在，
     /// 长按仍然能打开「更多」）。详情页和触摸操作都不受影响。
-    final remote = !isDetail && Pref.remoteAdaptation;
+    final remote = !isDetail && Pref.tvFocus;
 
-    // 折叠进去的同批动态（接口给的 `visible == false` 那几条）：开着「遥控器适配」
-    // 时卡里没有「更多」，卡内元素也不在焦点树上，「展开x条相关动态」根本点不到，
+    // 折叠进去的同批动态（接口给的 `visible == false` 那几条）：简化浏览时
+    // 卡里没有「更多」，卡内元素也不在焦点树上，「展开x条相关动态」根本点不到，
     // 于是直接把它们放出来——等价于默认展开。
     if (item.visible == false && !remote) {
       return const SizedBox.shrink();
@@ -74,7 +74,7 @@ class DynamicPanel extends StatelessWidget {
 
     void showMore() => authorWidget.morePanel(context);
 
-    // 「展开x条相关动态」这一行：开着「遥控器适配」就不展示（折叠的同批动态
+    // 「展开x条相关动态」这一行：简化浏览时不展示（折叠的同批动态
     // 已经在上面放出来了），留着也是点不到的装饰。
     final fold = remote ? null : item.modules.moduleFold;
 

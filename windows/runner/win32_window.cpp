@@ -27,6 +27,9 @@ namespace {
 #ifndef DWMWCP_ROUND
 #define DWMWCP_ROUND 2
 #endif
+#ifndef DWMWCP_DONOTROUND
+#define DWMWCP_DONOTROUND 1
+#endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -187,10 +190,11 @@ bool Win32Window::Create(const std::wstring& title,
   UpdateTheme(window);
 
   // Win11: 显式使用 WinUI3 标准圆角（8px），带不带系统标题栏都一致，
-  // 不依赖系统对窗口形态的默认判断；最大化/全屏时系统会自动保持直角。
-  DWORD corner_preference = DWMWCP_ROUND;
-  DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE,
-                        &corner_preference, sizeof(corner_preference));
+  // 不依赖系统对窗口形态的默认判断；最大化时系统会自动保持直角。
+  // 此后样式变化（「窗口全屏」/播放器原生全屏进出，见
+  // FlutterWindow::MessageHandler 的 WM_STYLECHANGED）由
+  // SyncWindowCornerPreference 跟着样式位同步。
+  SyncWindowCornerPreference(window);
 
   return OnCreate();
 }
@@ -473,6 +477,14 @@ void Win32Window::UpdateTheme(HWND const window) {
     DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border_color,
                           sizeof(border_color));
   }
+}
+
+void SyncWindowCornerPreference(HWND hwnd) {
+  const LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  DWORD corner_preference =
+      (style & WS_OVERLAPPEDWINDOW) ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
+  DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
+                        &corner_preference, sizeof(corner_preference));
 }
 
 LRESULT HitTestResizeBorder(HWND hwnd, POINT pt) {

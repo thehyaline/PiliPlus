@@ -49,8 +49,12 @@ class _HomePageState extends CommonPageState<HomePage>
   ///
   /// 切栏之后焦点还留在旧栏：那一页没被销毁，只是看不见了——这时按确定会打开
   /// 旧栏的视频，所以必须把焦点接走。新栏已经接过手柄适配（有 `TvRegion`）就送
-  /// 进它的第一张卡；还没有（分区/番剧/影视）或者它还停在很下面、首项没被懒加载
-  /// 构建出来时，把焦点放到 TabBar 上：看得见，按 ↓ 还能进新栏的列表。
+  /// 进它**上次待着的那张卡**（`TvRegions.focusEntry`；没记过就是里头第一张
+  /// 看得见的卡）；还没有（分区/番剧/影视）或者现在给不出落点时，把焦点放到
+  /// TabBar 上：看得见，按 ↓ 还能进新栏的列表。
+  ///
+  /// 交接按帧重试：新栏这会儿还在滑动（`focusEntry` 不往屏幕外的区域送焦点），
+  /// 列表也可能还在加载，得等它露出来。
   ///
   /// `TvTabBar` 自己也能切栏（L1/R1 → [TvTabBars]），但这里是**页面自己声明**的，
   /// 优先走这条：只有首页知道"切完还得把焦点送进新栏"。
@@ -60,13 +64,30 @@ class _HomePageState extends CommonPageState<HomePage>
     final target = tabController.index + offset;
     if (target < 0 || target >= tabController.length) return;
     tabController.animateTo(target);
-    // 等这一帧把新栏建出来，下一帧再把焦点送进去
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // 起点是切栏这一下之前的焦点（就是旧栏里那张卡）
+    final id = ++_tabHandOffId;
+    final from = FocusManager.instance.primaryFocus;
+    var frames = 0;
+    void tryFocus(Duration _) {
+      if (!mounted || id != _tabHandOffId) return;
       final region = _homeController.tabs[target].tvRegion;
-      if (region != null && TvRegions.focusFirst(region)) return;
+      if (region != null && TvRegions.focusEntry(region)) return;
+      if (!identical(FocusManager.instance.primaryFocus, from)) return;
+      if (region != null && ++frames < _tabHandOffMaxFrames) {
+        WidgetsBinding.instance.addPostFrameCallback(tryFocus);
+        return;
+      }
       TvRegions.focusFirst(_tabBarRegion, index: target);
-    });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(tryFocus);
   }
+
+  /// 最多等几帧（≈330ms）：够 `TabBarView` 滑过去、列表第一屏建出来。
+  static const int _tabHandOffMaxFrames = 20;
+
+  /// 同上，防止两次切栏的交接互相打架。
+  int _tabHandOffId = 0;
 
   @override
   Widget build(BuildContext context) {

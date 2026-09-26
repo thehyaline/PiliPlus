@@ -8,6 +8,7 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_card.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
@@ -82,6 +83,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   @override
   void initState() {
     super.initState();
+    // 手柄/遥控器模式关掉时，直播页和视频页一样全程不出现预选框
+    // （方向键在这里只调音量）。见 `TvInputMode`。
+    TvInputMode.pushPlayerPage();
     addObserverMobile(this);
     _liveRoomController = Get.put(
       LiveRoomController(heroTag),
@@ -186,6 +190,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         tag: '${_liveRoomController.roomId}${e.name}',
       );
     }
+    // 和 `initState` 里的压栈配对
+    TvInputMode.popPlayerPage();
     super.dispose();
   }
 

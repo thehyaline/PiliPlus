@@ -17,7 +17,8 @@ import 'package:material_ui/material_ui.dart';
 ///    （blbl 的 `blbl_focus_scale` + `blbl_focus_bg_round`），比 `InkWell`
 ///    自带的那点 `focusColor` 明显得多。
 /// 3. 焦点落到某个标签上就立刻切到那一栏（对齐 blbl 的
-///    `tabSwitchFollowsFocus`），可以在设置里关掉（`Pref.tabSwitchOnFocus`）。
+///    `tabSwitchFollowsFocus`），只有这一种行为（原来那个设置项已经合并进
+///    「手柄/遥控器模式」总开关）。
 /// 4. 把整条标签栏包成一个 [TvRegion]，于是 L1/R1 在**任何**页面都能切栏
 ///    （见 [TvTabBars]；页面自己声明的 `TvSectionSwitcher` 优先）。
 /// 5. **进栏锁**：焦点从栏外进到标签栏上时，落点固定在当前选中的那一栏
@@ -61,16 +62,12 @@ class TvTabBar extends TabBar {
     super.tabAlignment,
     super.textScaler,
     super.indicatorAnimation,
-    this.switchOnFocus,
     this.onFocusTab,
   });
 
   /// 焦点区域标签，见 [TvRegion.debugLabel]。**同一个页面里要唯一**，
-  /// 否则 `TvRegions.focusFirst` 会找错地方。
+  /// 否则 `TvRegions.focusFirst` / `focusEntry` 会找错地方。
   final String regionLabel;
-
-  /// 焦点落到标签上时是否立刻切到那一栏；不传则实时读 [Pref.tabSwitchOnFocus]。
-  final bool? switchOnFocus;
 
   /// 覆写"焦点即切换"的动作。
   ///
@@ -146,7 +143,6 @@ class TvTabBarState extends TabBarState implements TvTabBarHandle {
       if (target != null) focusTab(target);
       return;
     }
-    if (!(_tabBar.switchOnFocus ?? Pref.tabSwitchOnFocus)) return;
     final onFocusTab = _tabBar.onFocusTab;
     if (onFocusTab != null) {
       onFocusTab(index);

@@ -12,7 +12,7 @@ void showReplyCopyDialog(
       constraints: const BoxConstraints.tightFor(width: 380),
       child: Padding(
         padding: const .symmetric(horizontal: 20, vertical: 16),
-        child: SelectionArea(
+        child: TvSelectionArea(
           contextMenuBuilder: (_, state) {
             final buttonItems = state.contextMenuButtonItems;
             if (emotes.isNotEmpty) {

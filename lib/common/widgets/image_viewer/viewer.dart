@@ -20,6 +20,8 @@ import 'dart:math' as math;
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show touchSlopH;
 import 'package:PiliPlus/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
+import 'package:PiliPlus/common/widgets/gesture/player_gesture_recognizer.dart';
+import 'package:PiliPlus/common/widgets/gesture/pointer_ledger.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart';
@@ -106,6 +108,9 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   Offset? _downPos;
   late final AnimationController _animationController;
 
+  /// 自己记的"还按着几个手指"（见 [PointerLedger]）。
+  final _ledger = PointerLedger();
+
   late double _scaleFrom, _scaleTo;
   late Offset _positionFrom, _positionTo;
 
@@ -152,7 +157,9 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     _doubleTapGestureRecognizer = widget.doubleTapGestureRecognizer;
     _horizontalDragGestureRecognizer = widget.horizontalDragGestureRecognizer;
 
-    _scaleGestureRecognizer = ScaleGestureRecognizer(debugOwner: this)
+    // PlayerScaleGestureRecognizer 会顺手清理"漏了 up/cancel 的幽灵指针"
+    // （见 PointerLedger / PlayerScaleGestureRecognizer 的说明）
+    _scaleGestureRecognizer = PlayerScaleGestureRecognizer(debugOwner: this)
       ..dragStartBehavior = .start
       ..onStart = _onScaleStart
       ..onUpdate = _onScaleUpdate
@@ -270,7 +277,10 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       _animationController.stop();
     }
 
-    if (details.pointerCount == 1) {
+    // 单指/多指的判断走自己的活指针账，不看 `details.pointerCount`：
+    // 后者在有一次 up/cancel 没送到时会永远 ≥ 2，把单指拖动判成捏合
+    // （见 `PointerLedger`）
+    if (_ledger.isSingleTouch) {
       if (widget.isLongPic) {
         final imageHeight = _scale * _imageSize.height;
         final containerHeight = widget.containerSize.height;
@@ -468,7 +478,12 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     return Listener(
       behavior: .opaque,
       onPointerDown: _onPointerDown,
+      // 指针账自己记（见 [PointerLedger]）：up/cancel 一定要接住，
+      // 否则这一层和识别器都以为那根手指还按着
+      onPointerUp: (event) => _ledger.up(event.pointer),
+      onPointerCancel: (event) => _ledger.up(event.pointer),
       onPointerPanZoomStart: _onPointerPanZoomStart,
+      onPointerPanZoomEnd: (_) => _ledger.panZoomEnd(),
       onPointerSignal: _onPointerSignal,
       child: ClipRect(
         child: Transform(
@@ -481,6 +496,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
   void _onPointerDown(PointerDownEvent event) {
     _stopFling();
+    _ledger.down(event.pointer, event.timeStamp);
     _scalePos = event.position;
     _doubleTapGestureRecognizer
       ..onDoubleTapDown = _onDoubleTapDown
@@ -493,6 +509,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+    _ledger.panZoomStart();
     _scaleGestureRecognizer.addPointerPanZoom(event);
   }
 

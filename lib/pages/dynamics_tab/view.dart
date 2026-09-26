@@ -68,11 +68,12 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
     super.build(context);
     return TvRegion(
       // 一块栏 = 一块区域：进页面（[TvRouteFocusObserver] 按
-      // `TvRegions.entryNodeFor` 挑入口）或者切栏之后，焦点能落到本栏第一条
-      // 动态上；列表还没加载出来时入口是空的，会退到当前选中的那个 tab。
+      // `TvRegions.entryNodeFor` 挑入口）或者切栏之后，焦点能落到本栏的落点上
+      // （`TvRegions` 记着"离开这一栏时待着的那条动态"，没记过就是第一条）；
+      // 列表还没加载出来时入口是空的，会退到当前选中的那个 tab。
       //
       // 标签必须**一栏一个**：切走的栏被 `TabBarView` 用 KeepAlive 留在树上，
-      // 区域也还登记着，标签撞了的话 `TvRegions.focusFirst` 会找错栏。
+      // 区域也还登记着，标签撞了的话 `TvRegions.focusEntry` 会找错栏。
       debugLabel: DynamicsTabPage.tvRegionOf(widget.dynamicsType),
       child: refreshIndicator(
         onRefresh: onRefresh,

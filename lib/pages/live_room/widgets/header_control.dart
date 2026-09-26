@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_osd_button.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -268,86 +269,92 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
             ),
           ),
           if (plPlayerController.videoPlayerController case final player?)
-            SizedBox.square(
-              dimension: 30,
-              child: PopupMenuButton(
-                iconSize: 18,
-                padding: .zero,
-                iconColor: Colors.white,
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    height: 35,
-                    onTap: _showLiveStreamDialog,
-                    child: const Row(
-                      spacing: 8,
-                      children: [
-                        Icon(Icons.alt_route, size: 17),
-                        Text('切换路线', style: TextStyle(fontSize: 14)),
-                      ],
+            // 直播页上下栏从头到尾都是 `ComBtn`，只有这一颗是裸的
+            // `PopupMenuButton`——手柄模式下要么没框、要么被兜底环画成
+            // 另一种规格，所以给它单独套一圈（圆，和旁边的 `ComBtn` 一套）
+            TvOsdPopupButton.circle(
+              debugLabel: '更多设置',
+              child: SizedBox.square(
+                dimension: 30,
+                child: PopupMenuButton(
+                  iconSize: 18,
+                  padding: .zero,
+                  iconColor: Colors.white,
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      height: 35,
+                      onTap: _showLiveStreamDialog,
+                      child: const Row(
+                        spacing: 8,
+                        children: [
+                          Icon(Icons.alt_route, size: 17),
+                          Text('切换路线', style: TextStyle(fontSize: 14)),
+                        ],
+                      ),
                     ),
-                  ),
-                  PopupMenuItem(
-                    onTap: showSetVideoFit,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Row(
-                          spacing: 8,
-                          children: [
-                            Icon(Icons.aspect_ratio, size: 17),
-                            Text('画面比例', style: TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                        Obx(
-                          () => Padding(
-                            padding: const EdgeInsets.only(left: 25),
-                            child: Text(
-                              '当前比例 ${plPlayerController.videoFit.value.desc}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.outline,
+                    PopupMenuItem(
+                      onTap: showSetVideoFit,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Row(
+                            spacing: 8,
+                            children: [
+                              Icon(Icons.aspect_ratio, size: 17),
+                              Text('画面比例', style: TextStyle(fontSize: 14)),
+                            ],
+                          ),
+                          Obx(
+                            () => Padding(
+                              padding: const EdgeInsets.only(left: 25),
+                              child: Text(
+                                '当前比例 ${plPlayerController.videoFit.value.desc}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    height: 35,
-                    child: const Row(
-                      spacing: 8,
-                      children: [
-                        Icon(Icons.info_outline, size: 17),
-                        Text('播放信息', style: TextStyle(fontSize: 14)),
-                      ],
-                    ),
-                    onTap: () => HeaderControlState.showPlayerInfo(
-                      context,
-                      player: player,
-                    ),
-                  ),
-                  if (PlatformUtils.isMobile)
-                    PopupMenuItem(
-                      height: 35,
-                      child: Row(
-                        spacing: 8,
-                        children: [
-                          const Icon(Icons.volume_up, size: 17),
-                          Text(
-                            '播放器音量: ${player.getProperty('volume').subLength(3)}%',
-                            style: const TextStyle(fontSize: 14),
-                          ),
                         ],
                       ),
-                      onTap: () => showPlayerVolumeDialog(
+                    ),
+                    PopupMenuItem(
+                      height: 35,
+                      child: const Row(
+                        spacing: 8,
+                        children: [
+                          Icon(Icons.info_outline, size: 17),
+                          Text('播放信息', style: TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                      onTap: () => HeaderControlState.showPlayerInfo(
                         context,
-                        () {},
-                        onChanged: player.setVolume,
+                        player: player,
                       ),
                     ),
-                ],
+                    if (PlatformUtils.isMobile)
+                      PopupMenuItem(
+                        height: 35,
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            const Icon(Icons.volume_up, size: 17),
+                            Text(
+                              '播放器音量: ${player.getProperty('volume').subLength(3)}%',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        onTap: () => showPlayerVolumeDialog(
+                          context,
+                          () {},
+                          onChanged: player.setVolume,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
         ],

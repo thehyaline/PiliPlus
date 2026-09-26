@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliPlus/common/dial_prefix.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart' show TvRadioAxis;
 import 'package:PiliPlus/common/widgets/radio_widget.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -708,6 +709,8 @@ class LoginPageController extends GetxController
                                 value: entry.key,
                                 title: entry.value,
                                 mainAxisSize: .max,
+                                // 竖排：左右键不移动（见 TvRadioAxis）
+                                axis: TvRadioAxis.vertical,
                                 padding: PlatformUtils.isDesktop
                                     ? const .only(left: 12)
                                     : const .only(left: 12, top: 2, bottom: 2),

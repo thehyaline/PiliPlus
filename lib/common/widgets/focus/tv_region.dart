@@ -1,4 +1,5 @@
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 区域的种类。[TvRegions.entryNodeFor] 挑入口时要区分。
@@ -92,31 +93,108 @@ class _TvRegionState extends State<TvRegion> {
 ///
 /// [TvRegion] 挂载时按 [TvRegion.debugLabel] 登记自己，所以**标签要唯一**
 /// （同一个标签同时存在两个活得区域时，后登记的会把先登记的顶掉）。
+///
+/// 除了登记，它还替每块区域记着"上次焦点待在这块区域里的哪个控件"——切栏、切页
+/// 之后回来时，落点是那个控件，而不是"树序第一项"那条粗糙规则（见 [focusEntry]）。
 abstract final class TvRegions {
   static final Map<String, _RegionEntry> _scopes = {};
   static final Map<String, FocusNode> _anchors = {};
+
+  /// [_anchors] 里那些"落脚点"（`registerAnchor(..., lastResort: true)`）。
+  /// 挑页面入口时跳过它们，见 [entryNodeFor]。
+  static final Set<String> _lastResortAnchors = {};
+
+  /// 每块区域"上次待着的地方"。
+  ///
+  /// 键是**区域节点**不是标签：标签会重（`video-intro-panel` 就有三处），
+  /// 用节点当键才分得清哪一块是哪一块。
+  static final Map<FocusScopeNode, _Landing> _landings = {};
+
+  /// 焦点记录器挂在哪个 `FocusManager` 上（换个实例要重挂）。
+  static FocusManager? _watcher;
 
   static void register(
     String label,
     FocusScopeNode node, {
     TvRegionKind kind = TvRegionKind.content,
-  }) => _scopes[label] = _RegionEntry(node, kind);
+  }) {
+    _scopes[label] = _RegionEntry(node, kind);
+    _watch();
+  }
 
   static void unregister(String label, FocusScopeNode node) {
     if (identical(_scopes[label]?.node, node)) _scopes.remove(label);
+    _landings.remove(node);
+  }
+
+  /// 保证"焦点一动就记落点"那个监听器挂着。
+  ///
+  /// 跟着第一个区域挂上、之后一直不摘：区域会跟着页面反复建了又拆，按"现在还有
+  /// 没有区域"来决定挂摘容易漏（监听器是静态的，漏一次就再也不记了）。
+  static void _watch() {
+    final manager = FocusManager.instance;
+    if (identical(_watcher, manager)) return;
+    _watcher?.removeListener(_rememberLanding);
+    _watcher = manager;
+    manager.addListener(_rememberLanding);
+  }
+
+  /// 焦点变了：如果它停在某块登记过的区域里，记下是哪个控件、第几项。
+  ///
+  /// 只记不改（这里一个指头都不碰焦点），所以挂在 `FocusManager` 上不会和谁打架；
+  /// 手柄模式之外也没人读这份记忆（[focusEntry] 的调用方都先问 `Pref.tvFocus`）。
+  static void _rememberLanding() {
+    final focus = FocusManager.instance.primaryFocus;
+    // 焦点浮在 scope（路由 / 区域自己 / 弹层）上时不属于任何控件
+    if (focus == null || focus is FocusScopeNode) return;
+    final scope = focus.nearestScope;
+    if (scope == null) return;
+    // 只记"直接待在这块区域里"的控件：区域里再嵌一层（面板、更里层的小区域）时，
+    // 那层的落点是它自己的事，别顶掉外面这层的
+    var mine = false;
+    for (final entry in _scopes.values) {
+      if (identical(entry.node, scope)) {
+        mine = true;
+        break;
+      }
+    }
+    if (!mine) return;
+    final nodes = scope.traversalDescendants.toList();
+    final index = nodes.indexOf(focus);
+    if (index < 0) return;
+    _landings[scope] = _Landing(focus, index);
   }
 
   /// 登记一个"锚点"节点：不是区域，但需要在别处把焦点**送回去**。
   ///
   /// 播放器画面、播放/暂停按钮、返回按钮都用它（见 [TvLabels]）。
   /// 调用方可能在 build 里反复调用，所以同一个节点重复登记直接跳过。
-  static void registerAnchor(String label, FocusNode node) {
+  ///
+  /// [lastResort] 给"**落脚点**"用（整页那一层、画面被移出树时接管的那一层）：
+  /// 它接得住焦点、也确实该接（画面没了总不能把焦点丢了），但它不是控件——
+  /// [entryNodeFor] 挑页面入口时会**跳过**它，留给画面/标签栏/真控件；
+  /// 确实没有别的入口时才用它。挑成落脚点的话，进页面那一下焦点停在整页大小
+  /// 的节点上，用户看到的就是"窗口大小的预选框"，方向键也会卡住
+  /// （框架的几何寻焦以它为基准挑候选，页内一个都够不着）。
+  static void registerAnchor(
+    String label,
+    FocusNode node, {
+    bool lastResort = false,
+  }) {
+    if (lastResort) {
+      _lastResortAnchors.add(label);
+    } else {
+      _lastResortAnchors.remove(label);
+    }
     if (identical(_anchors[label], node)) return;
     _anchors[label] = node;
   }
 
   static void unregisterAnchor(String label, FocusNode node) {
-    if (identical(_anchors[label], node)) _anchors.remove(label);
+    if (identical(_anchors[label], node)) {
+      _anchors.remove(label);
+      _lastResortAnchors.remove(label);
+    }
   }
 
   /// 登记过的锚点节点；没登记过返回 null。
@@ -165,6 +243,10 @@ abstract final class TvRegions {
 
   /// 把焦点送进这个区域里的第 [index] 个可聚焦项（默认首项，一般是列表第一张卡）。
   ///
+  /// **明确按序号落项**的口子：标签栏"切到第 N 栏就把焦点放到第 N 个标签上"、
+  /// 列表里删了一张卡按位置补位。日常的"切栏 / 切页之后进新区域"别用它，用
+  /// [focusEntry]——那个记着上次待着的地方，而且保证落点看得见。
+  ///
   /// 返回 false 表示区域不存在、里面没有可聚焦项（懒加载还没构建出来），
   /// 或者它属于**被盖住的路由**——那种情况下不该抢焦点。
   static bool focusFirst(String label, {int index = 0}) {
@@ -188,14 +270,72 @@ abstract final class TvRegions {
     return false;
   }
 
-  /// 把焦点送进**这个**区域里的第一个可见项（刚才聚焦的项被销毁、焦点浮到区域
-  /// 自己身上时用）。区域空着返回 false。
-  static bool focusFirstInScope(FocusScopeNode node) {
+  /// 把焦点送进这个区域，落在"上次待着的地方"。
+  ///
+  /// 这是**进区域**的正路（切栏、切页交接、看护循环唤醒都走它），里面按三级
+  /// 往下退：
+  ///
+  /// 1. 上次待着的那个控件，还看得见的话（见 [canLandOn]）；
+  /// 2. 它没了（列表刷新过、卡片换过 Key）→ 同一块区域里的**同一序号**，
+  ///    位置大差不差；
+  /// 3. 都没有 → 区域里第一个看得见的项。
+  ///
+  /// 一条硬约束贯穿三级：**落点得是预选框画得出来的地方**。列表滚过之后树序
+  /// 第一项在视口**上面**（缓存范围里的卡还在焦点树上），"取第一项"那条粗糙
+  /// 规则选中它，预选框就画到屏幕外面去了——用户看到的就是"焦点丢了"。
+  ///
+  /// 返回 false 表示这块区域现在给不出落点：不存在、属于被盖住的路由、自己还在
+  /// 屏幕外（页面正切栏滑动、切走的栏还挂在树上），或者里面一项都画不出来。
+  /// 调用方（按帧重试的交接、看护循环）该等下一帧再来，而不是硬塞一个看不见的
+  /// 落点进去。
+  static bool focusEntry(String label) {
+    final node = _scopes[label]?.node;
+    if (node == null) return false;
+    return focusEntryInScope(node);
+  }
+
+  /// [focusEntry] 的 scope 版：焦点浮在**区域自己**身上（区域里的项被销毁）时，
+  /// 看护循环手里只有这个 scope，没有标签。
+  static bool focusEntryInScope(FocusScopeNode node) {
     if (!isCurrentRoute(node.context)) return false;
-    final first = _firstVisibleOf(node);
-    if (first == null) return false;
-    first.requestFocus();
+    final target = _landingOf(node);
+    if (target == null) return false;
+    target.requestFocus();
     return true;
+  }
+
+  /// 这块区域现在的落点，见 [focusEntry]；给不出返回 null。
+  static FocusNode? _landingOf(FocusScopeNode scope) {
+    // 区域自己还在屏幕外（切走的栏、被滚出屏幕的板块）：往里送等于把预选框画到
+    // 看不见的地方，返回 null 让调用方等下一帧
+    if (!_onScreen(scope)) return null;
+    final landing = _landings[scope];
+    if (landing != null) {
+      if (canLandOn(landing.node)) return landing.node;
+      // 记的那个没了：同一序号顶上（列表重建、卡片换过 Key）
+      final nodes = scope.traversalDescendants.toList();
+      if (nodes.isNotEmpty) {
+        final node = nodes[landing.index.clamp(0, nodes.length - 1)];
+        if (!identical(node, landing.node) && canLandOn(node)) return node;
+      }
+    }
+    return _firstLandingOf(scope);
+  }
+
+  /// 区域里第一个"画得出预选框"的项；一项都没有返回 null。
+  ///
+  /// 先用"在不在区域的可见窗口里"（[_visibleIn]）筛一道：滚上去的卡在这一步就
+  /// 出局，省下逐项去求可见矩形的开销；再用 [canLandOn] 确认它真的画得出来
+  /// （区域被别的层盖住、页面正滑动时，光"在窗口里"还不够）。
+  static FocusNode? _firstLandingOf(FocusScopeNode scope) {
+    final area = scope.rect;
+    for (final node in scope.traversalDescendants) {
+      final rect = node.rect;
+      if (!rect.width.isFinite || !rect.height.isFinite) continue;
+      if (!_visibleIn(node, area)) continue;
+      if (canLandOn(node)) return node;
+    }
+    return null;
   }
 
   /// 把焦点送到"屏幕上这个点底下的那个控件"（鼠标/触摸板点击用）。
@@ -228,15 +368,84 @@ abstract final class TvRegions {
     return best != null;
   }
 
+  /// 兜底的方向键寻焦：框架那套挑不出候选时，退到这里按方向挑**最近的真控件**。
+  ///
+  /// 框架的 `inDirection` 有一条硬规则：候选必须**完全落在起点的边之外**。
+  /// 起点自己"跨满了一整维"时（整块视频画面、整页宽的横幅、整页大小的落脚点），
+  /// 四周剩下的控件全都和它重叠，于是方向键按下去什么也不发生——用户手上的
+  /// 感觉就是"焦点卡死了"。
+  ///
+  /// 这一层把规矩放宽成"往那个方向有进展就算"：打分 = 主轴距离 + 2 × 垂直偏移，
+  /// 取最小。候选来自起点所在 scope 的 [FocusScopeNode.traversalDescendants]
+  /// （`skipTraversal` 的、`ExcludeFocus` 里的自动出局），再过一遍 [canLandOn]
+  /// （画得出来、属于最上面那一层路由），并排掉整页大小的落脚点
+  /// （[TvFocusSpec.coversWholeView]）——送过去等于把焦点藏起来。
+  ///
+  /// 返回 false = 这个方向上确实没地方可去，调用方把按键还给框架。
+  static bool focusInDirection(TraversalDirection direction, {FocusNode? from}) {
+    final node = from ?? FocusManager.instance.primaryFocus;
+    if (node == null) return false;
+    final scope = node.nearestScope;
+    if (scope == null) return false;
+    final origin = _rectOf(node);
+    if (origin == null) return false;
+    final viewSize = _viewSizeOf(node);
+
+    // 主轴上的最小进展：滤掉"中心几乎对齐"的邻居，又不至于挡掉正常的相邻项
+    const epsilon = 0.5;
+    final center = origin.center;
+    FocusNode? best;
+    var bestScore = double.infinity;
+    for (final candidate in scope.traversalDescendants) {
+      if (candidate is FocusScopeNode || identical(candidate, node)) continue;
+      if (!canLandOn(candidate)) continue;
+      final rect = visibleRect(candidate) ?? candidate.rect;
+      if (viewSize != null && TvFocusSpec.coversWholeView(rect, viewSize)) {
+        continue;
+      }
+      final delta = rect.center - center;
+      final (double primary, double cross) = switch (direction) {
+        TraversalDirection.up => (-delta.dy, delta.dx.abs()),
+        TraversalDirection.down => (delta.dy, delta.dx.abs()),
+        TraversalDirection.left => (-delta.dx, delta.dy.abs()),
+        TraversalDirection.right => (delta.dx, delta.dy.abs()),
+      };
+      if (primary <= epsilon) continue;
+      final score = primary + 2 * cross;
+      if (score < bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+    if (best == null) return false;
+    best.requestFocus();
+    return true;
+  }
+
+  /// 节点的可见矩形（全局坐标）；问不出来返回 null。
+  static Rect? _rectOf(FocusNode node) {
+    if (node.context == null) return null;
+    final rect = visibleRect(node) ?? node.rect;
+    return rect.width.isFinite && rect.height.isFinite ? rect : null;
+  }
+
+  /// 这个节点所在视图的逻辑尺寸；拿不到返回 null。
+  static Size? _viewSizeOf(FocusNode node) {
+    final context = node.context;
+    if (context == null || !context.mounted) return null;
+    final view = View.maybeOf(context);
+    return view == null ? null : view.physicalSize / view.devicePixelRatio;
+  }
+
   /// 这个节点现在会不会被画出来。
   ///
   /// 先看它还挂不挂在焦点树上；再看尺寸是不是有限值（没布局过的连一帧都没画过，
-  /// 见 [_firstVisible]）；最后排掉 `Offstage`（`TabBarView` 切走的那些栏、
+  /// [visibleRect] 也因此给不出矩形）；最后排掉 `Offstage`（`TabBarView` 切走的那些栏、
   /// `Visibility` 保留状态的那种）——它们还挂在树上、矩形也是旧的，点它们等于
   /// 把焦点送进看不见的地方。
   ///
-  /// 给"按坐标找落点"（[focusAt]）和"归还焦点"（`TvFocusReturn`）用。
-  /// 只接普通节点，scope 节点不算。
+  /// 给"按坐标找落点"（[focusAt]）、"能不能当落点"（[canLandOn]）和"归还焦点"
+  /// （`TvFocusReturn`）用。只接普通节点，scope 节点不算。
   static bool isPainted(FocusNode node) {
     // 还在焦点树上吗——`context` **当不了依据**：框架只在 `attach` 时写它、
     // `detach` 时不清，而那个 element 常常已经被列表复用给同位置的**另一个**
@@ -263,26 +472,115 @@ abstract final class TvRegions {
     return painted;
   }
 
+  /// 这个节点现在能不能当落点：还挂得住、属于最上面那一层路由，而且**预选框
+  /// 画得出来**。
+  ///
+  /// "画得出来"和兜底焦点环（`TvFocusOverlay`）用的是同一套判断（[visibleRect]）：
+  /// 控件自己的矩形，跟祖先里所有会裁剪的盒子求交，交空了就是看不见——列表滚上去
+  /// 的卡（被视口裁掉）、切走的栏、页面正切栏滑动时还没进场的那一半，全在这里
+  /// 落选。再加上"它所在的那一块自己也得在屏幕上"：区域被滚出屏幕时，里面的项
+  /// 虽然没被裁掉，送过去同样是画在看不见的地方。
+  ///
+  /// [within] 是"把它放在哪一块里看"，默认取它的最近 scope（区域里的卡就是那块
+  /// 区域）。`TvFocusReturn` 归还焦点时用它核对记下来的那个控件。
+  static bool canLandOn(FocusNode node, {FocusNode? within}) {
+    if (!node.canRequestFocus) return false;
+    if (!isPainted(node)) return false;
+    if (!isCurrentRoute(node.context)) return false;
+    if (visibleRect(node) == null) return false;
+    final area = within ?? node.nearestScope;
+    return area == null || _onScreen(area);
+  }
+
+  /// 这个控件的**可见**矩形（全局坐标）；一点都看不见返回 null。
+  ///
+  /// 控件自己的矩形，和祖先里所有会裁剪的盒子自己的矩形求交。
+  /// `describeApproximatePaintClip` 是框架给"这个祖辈会不会裁掉子节点"的官方
+  /// 口子（`RenderViewportBase` / `RenderClip*` / `RenderSingleChildViewport` /
+  /// `RenderStack` / `RenderFlex` 都实现了），它给的裁剪框在**它自己**的坐标系里
+  /// （见 SDK `RenderObject.describeApproximatePaintClip` 的说明），所以拿它自己的
+  /// 变换送到全局再交。不交这一下的话，列表滚过之后（焦点还停在那张卡上、卡已经
+  /// 出了视口）预选框会画在 AppBar 或者相邻区域上。
+  ///
+  /// 框架原话是"approximate"：`ClipOval` 这类给回来的还是整块 `Offset.zero & size`，
+  /// 所以这一层只保证不画到**确定**看不见的地方去，不保证裁得一丝不差。
+  ///
+  /// 兜底焦点环用它决定"画不画"（画不出来就不画），[canLandOn] 用它决定"能不能
+  /// 落"——同一个定义，不会出现"焦点落在环画不出来的地方"。
+  static Rect? visibleRect(FocusNode node) {
+    final object = node.context?.findRenderObject();
+    if (object is! RenderBox || !object.attached) return null;
+    var rect = node.rect;
+    // 还没布局过 / 已经被收走（`KeepAlive` 里的旧栏、正在销毁的节点）的矩形是
+    // NaN，拿它去求交会得到"非空"的假象
+    if (!rect.width.isFinite || !rect.height.isFinite) return null;
+    RenderObject? child = object;
+    for (
+      RenderObject? parent = object.parent;
+      parent != null;
+      parent = parent.parent
+    ) {
+      final clip = parent.describeApproximatePaintClip(child!);
+      if (clip != null) {
+        rect = rect.intersect(_globalRect(parent, clip));
+        if (rect.isEmpty) return null;
+      }
+      child = parent;
+    }
+    return rect;
+  }
+
+  /// 这个控件现在能不能看到一点，见 [visibleRect]。
+  static bool isVisible(FocusNode node) => visibleRect(node) != null;
+
+  /// 这个节点（区域 / 路由 scope 那一层）自己还在屏幕上吗。
+  ///
+  /// 和 [visibleRect] 的区别是"问不出来就不拦"：渲染对象还没挂上、或者压根没布局
+  /// 过时，宁可当作"在"——拦错了会把落点整个憋掉，而"东西还没建出来"本身有
+  /// [canLandOn] 那几道检查兜着。
+  static bool _onScreen(FocusNode node) {
+    final object = node.context?.findRenderObject();
+    if (object is! RenderBox || !object.attached) return true;
+    return visibleRect(node) != null;
+  }
+
+  static Rect _globalRect(RenderObject object, Rect rect) =>
+      MatrixUtils.transformRect(object.getTransformTo(null), rect);
+
   /// 进入 [route] 时预选框该落在哪儿；给不出像样的落点时返回 null。
   ///
   /// 换页时框架只把焦点交给路由自己的 scope，页面里一个控件都没选中，
   /// 于是第一下方向键会落到"树序第一项"上——通常是 AppBar 的返回键。
   /// 这里按下面的顺序挑一个真正的入口（[TvRouteFocusObserver] 用它）：
   ///
-  /// 1. 这一页登记的**锚点**（播放器页面：画面那一层）；
-  /// 2. 第一个**内容区**（[TvRegionKind.content]）的首项，空着就往下找；
-  /// 3. 标签栏区域（[TvRegionKind.tabBar]）的首项——页面还在加载时的退路；
+  /// 1. 这一页登记的**锚点**——真控件优先（播放器的播放/暂停按钮、画面那一层），
+  ///    标了 `lastResort` 的"整页那一层"（见 [registerAnchor]）排到最后；
+  /// 2. 第一个**内容区**（[TvRegionKind.content]）的落点（[_landingOf]：上次待着
+  ///    的那一项，没记过就是里头的第一项），空着就往下找；
+  /// 3. 标签栏区域（[TvRegionKind.tabBar]）的落点——页面还在加载时的退路；
   /// 4. 这一页里**不在顶栏**的第一个可聚焦项（没套区域的页面靠这条）。
   ///
   /// 两条筛选：顶栏（[AppBar] / [SliverAppBar]）里的控件一律不算入口——AppBar
   /// 在树序上排在内容前面，不排除掉的话任何带返回键 / 搜索键的页面都会把预选框
-  /// 停在顶栏上；**看不见的**也不算（见 [_firstVisible]），否则列表滚过之后预选框
-  /// 会画在屏幕外面，看着还是"焦点丢了"。想指定别的入口（例如顶栏里的搜索框）
+  /// 停在顶栏上；**画不出预选框的**也不算（见 [canLandOn]），否则列表滚过之后
+  /// 预选框会画在屏幕外面，看着还是"焦点丢了"。想指定别的入口（例如顶栏里的搜索框）
   /// 就给内容 `autofocus`，或者把目标套进一个 [TvRegion]。
+  ///
+  /// `lastResort` 锚点为什么排最后：它常常就是**视口大小**的节点（播放器画面那一层、
+  /// 整页的兜底层）。焦点停在那种节点上时，框架的 `inDirection` 要求候选节点
+  /// 完全落在它的边之外——页内一个都挑不出来，方向键就"死"了。宁可退到第 2~4 步
+  /// 里的真控件上。
   static FocusNode? entryNodeFor(Route<dynamic>? route) {
-    // 1. 锚点
-    for (final node in _anchors.values) {
-      if (node.canRequestFocus && _isInRoute(node, route)) return node;
+    // 1. 锚点：真控件一轮，`lastResort` 存着备用
+    FocusNode? lastResort;
+    for (final entry in _anchors.entries) {
+      final node = entry.value;
+      if (!node.canRequestFocus || !_isInRoute(node, route)) continue;
+      if (_lastResortAnchors.contains(entry.key)) {
+        lastResort ??= node;
+        continue;
+      }
+      return node;
     }
     // 2. 内容区 / 3. 标签栏
     FocusScopeNode? tabBar;
@@ -292,15 +590,16 @@ abstract final class TvRegions {
         tabBar ??= entry.node;
         continue;
       }
-      final first = _firstVisibleOf(entry.node);
-      if (first != null) return first;
+      final landing = _landingOf(entry.node);
+      if (landing != null) return landing;
     }
-    final tabBarFirst = tabBar == null ? null : _firstVisibleOf(tabBar);
-    if (tabBarFirst != null) return tabBarFirst;
-    // 4. 没套区域的页面：这一页里第一个不在顶栏里的可聚焦项
+    final tabBarLanding = tabBar == null ? null : _landingOf(tabBar);
+    // 4. 没套区域的页面：这一页里第一个不在顶栏里的可聚焦项；再挑不出就退回
+    //    `lastResort` 锚点——整页节点当入口不理想，总好过"没有入口"。
+    if (tabBarLanding != null) return tabBarLanding;
     final scope = _currentRouteScope(route);
-    if (scope == null) return null;
-    return _firstNotInTopBar(scope.traversalDescendants, scope.rect);
+    if (scope == null) return lastResort;
+    return _firstNotInTopBar(scope.traversalDescendants, scope.rect) ?? lastResort;
   }
 
   /// 焦点悬在**页面自己那一层**（路由的 scope，不是任何控件）时，把预选框
@@ -349,30 +648,6 @@ abstract final class TvRegions {
     if (context == null || !context.mounted) return null;
     if (route != null && !identical(ModalRoute.of(context), route)) return null;
     return focus;
-  }
-
-  /// 区域里第一个**看得见**的可聚焦项；区域是空的（懒加载还没建出来）返回 null。
-  static FocusNode? _firstVisibleOf(FocusScopeNode node) =>
-      _firstVisible(node.traversalDescendants, node.rect);
-
-  /// 序列里第一个"落在 [area] 里"的节点；一个都看不见时退而取第一个。
-  ///
-  /// 不挑看得见的会踩两类坑：列表滚过之后树序第一项在视口**上面**（预选框画在
-  /// 屏幕外，看着还是"焦点丢了"）；被 `Offstage` / `KeepAlive` 留住的旧页
-  /// （`TabBarView` 里切走的那些）区域还登记着，但项都已经不在屏幕上。
-  ///
-  /// 兜底只兜"画在屏幕外、但还有布局"的项：`rect` 不是有限值的连一帧都不会画
-  /// 出来（`KeepAlive` 把切走的栏收走之后就是这样，连尺寸都是 NaN），选中它就是
-  /// 真的把焦点弄丢了——这时宁可返回 null，让调用方接着去下一块区域找。
-  static FocusNode? _firstVisible(Iterable<FocusNode> nodes, Rect area) {
-    FocusNode? first;
-    for (final node in nodes) {
-      final rect = node.rect;
-      if (!rect.width.isFinite || !rect.height.isFinite) continue;
-      first ??= node;
-      if (_visibleIn(node, area)) return node;
-    }
-    return first;
   }
 
   /// 序列里第一个**不在顶栏里**、且看得见的节点；实在没有就退到第一个
@@ -489,4 +764,15 @@ class _RegionEntry {
 
   final FocusScopeNode node;
   final TvRegionKind kind;
+}
+
+/// 落点记忆里的一条：上次焦点停在区域里的哪个控件 + 它在区域里的序号。
+///
+/// 序号跟着一起记是因为控件随时可能被销毁（列表刷新、卡片换 Key）——那时至少
+/// 还有"上次是第几项"这个位置信息，能从同一序号上接回来。
+class _Landing {
+  const _Landing(this.node, this.index);
+
+  final FocusNode node;
+  final int index;
 }

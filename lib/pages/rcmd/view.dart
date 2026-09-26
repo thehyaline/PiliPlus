@@ -18,7 +18,7 @@ class RcmdPage extends StatefulWidget {
   const RcmdPage({super.key});
 
   /// TV 焦点区域的标签（`TvRegion.debugLabel`）：切栏之后靠它把焦点送回这个网格
-  /// （见 `TvRegions.focusFirst`），所以要和首页 tab 那边的映射对上。
+  /// 的落点（见 `TvRegions.focusEntry`），所以要和首页 tab 那边的映射对上。
   static const tvRegion = 'home-rcmd-grid';
 
   @override

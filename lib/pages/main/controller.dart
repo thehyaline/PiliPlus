@@ -60,7 +60,13 @@ class MainController extends GetxController
   final floatingNavBar = Pref.floatingNavBar;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
-  late final optTabletNav = Pref.optTabletNav;
+
+  /// 平板导航栏（96 宽的抽屉）是否已经露面过。
+  ///
+  /// 一露面就钉住：窗口之后收窄/变成竖屏比例也不再换成底部导航栏
+  /// （见 `MainPage.build` 里的 `useBottomNav`）。侧边栏现在只有这一套写法，
+  /// 所以固定打开、只剩这一个运行时状态。
+  bool tabletNavPinned = false;
 
   late bool directExitOnBack = Pref.directExitOnBack;
   late bool showTrayIcon = Pref.showTrayIcon;

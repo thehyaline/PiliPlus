@@ -4,6 +4,7 @@ import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_osd_button.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -130,35 +131,38 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
               onTap: () => showSetDanmaku(isLive: true),
             ),
             Obx(
-              () => PopupMenuButton<int>(
-                tooltip: '画质',
-                padding: EdgeInsets.zero,
-                initialValue: liveRoomCtr.currentQn,
-                color: Colors.black.withValues(alpha: 0.8),
-                itemBuilder: (context) {
-                  return liveRoomCtr.acceptQnList
-                      .map(
-                        (e) => PopupMenuItem<int>(
-                          height: 35,
-                          padding: const EdgeInsets.only(left: 30),
-                          value: e.code,
-                          onTap: () => liveRoomCtr.changeQn(e.code),
-                          child: Text(
-                            e.desc,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
+              () => TvOsdPopupButton.capsule(
+                debugLabel: '画质',
+                child: PopupMenuButton<int>(
+                  tooltip: '画质',
+                  padding: EdgeInsets.zero,
+                  initialValue: liveRoomCtr.currentQn,
+                  color: Colors.black.withValues(alpha: 0.8),
+                  itemBuilder: (context) {
+                    return liveRoomCtr.acceptQnList
+                        .map(
+                          (e) => PopupMenuItem<int>(
+                            height: 35,
+                            padding: const EdgeInsets.only(left: 30),
+                            value: e.code,
+                            onTap: () => liveRoomCtr.changeQn(e.code),
+                            child: Text(
+                              e.desc,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                      .toList();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    liveRoomCtr.currentQnDesc.value,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                        )
+                        .toList();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      liveRoomCtr.currentQnDesc.value,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
                   ),
                 ),
               ),

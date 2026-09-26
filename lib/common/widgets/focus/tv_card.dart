@@ -98,9 +98,13 @@ class _TvCardState extends State<TvCard> with SingleTickerProviderStateMixin {
   /// 手柄 Y / 遥控器菜单键：任何时候都可用
   VoidCallback? get _moreAction => widget.onMore ?? widget.onLongPress;
 
-  /// 长按确定：受设置开关控制，关掉后确定键完全交还给框架（长按=短按）
+  /// 长按确定 = 打开「更多」（`_moreAction`），长按环走 [_hold]。
+  ///
+  /// 挂在总开关下面：关掉「手柄/遥控器模式」时手柄键位层（`TvShortcuts`）
+  /// 根本不挂载，没人把长按那次按下的剩余按键吃掉，留着长按就会出现
+  /// "菜单弹出来又被立刻点掉第一项"，所以这里跟着一起收掉（长按 = 短按）。
   VoidCallback? get _holdAction =>
-      Pref.tvLongPressOk ? (widget.onHold ?? _moreAction) : null;
+      Pref.tvFocus ? (widget.onHold ?? _moreAction) : null;
 
   static void _noop() {}
 

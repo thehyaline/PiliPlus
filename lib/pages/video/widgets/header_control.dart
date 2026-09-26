@@ -41,6 +41,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_osd_button.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService, ShutdownPanel;
 import 'package:PiliPlus/utils/accounts.dart';
@@ -1745,6 +1746,30 @@ class HeaderControlState extends State<HeaderControl>
 
   late final isFileSource = videoDetailCtr.isFileSource;
 
+  /// 上栏那一排的格子和样式：返回键、[_topBarButton] 和第二排的
+  /// `ActionItem` 共用，三处的尺寸必须一模一样，不然预选框一排高矮不齐。
+  static const double _btnWidth = 42.0;
+  static const double _btnHeight = 34.0;
+  static const ButtonStyle _btnStyle = ButtonStyle(
+    padding: WidgetStatePropertyAll(.zero),
+  );
+
+  /// 上栏的一颗按钮：`IconButton` + 播放器规格的圆形预选框（见 [TvOsdIconButton]）。
+  ///
+  /// 原来这一排是裸的 `IconButton`：手柄模式下兜底环会兜住它们，但画出来是
+  /// "圆角矩形 + 默认描边"，跟紧挨着的返回键（圆 + 1.1 倍缩放）不是一个规格。
+  Widget _topBarButton({
+    required String tooltip,
+    required Widget icon,
+    VoidCallback? onPressed,
+  }) => TvOsdIconButton(
+    tooltip: tooltip,
+    icon: icon,
+    onPressed: onPressed,
+    width: _btnWidth,
+    height: _btnHeight,
+  );
+
   @override
   Widget build(BuildContext context) {
     final isFullScreen = this.isFullScreen;
@@ -1816,10 +1841,6 @@ class HeaderControlState extends State<HeaderControl>
       title = const Spacer();
     }
 
-    const btnWidth = 42.0;
-    const btnHeight = 34.0;
-    const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
-
     return Column(
       mainAxisSize: .min,
       children: [
@@ -1827,8 +1848,8 @@ class HeaderControlState extends State<HeaderControl>
         Row(
           children: [
             SizedBox(
-              width: btnWidth,
-              height: btnHeight,
+              width: _btnWidth,
+              height: _btnHeight,
               // 播放器里少数几个自带焦点环的按钮：它是上栏的入口落点
               // （手柄模式下的返回键语义就是"退出播放器"，bbll 的返回键
               // 干脆不可聚焦，这里反过来把它当成上栏的默认落点）
@@ -1847,7 +1868,7 @@ class HeaderControlState extends State<HeaderControl>
                 builder: (context, focusNode, focused) => IconButton(
                   focusNode: focusNode,
                   tooltip: '返回',
-                  style: btnStyle,
+                  style: _btnStyle,
                   icon: const Icon(
                     FontAwesomeIcons.arrowLeft,
                     size: 15,
@@ -1859,19 +1880,14 @@ class HeaderControlState extends State<HeaderControl>
             ),
             if (!plPlayerController.isDesktopPip &&
                 (!isFullScreen || !isPortrait))
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: '返回主页',
-                  style: btnStyle,
-                  icon: const Icon(
-                    FontAwesomeIcons.house,
-                    size: 15,
-                    color: Colors.white,
-                  ),
-                  onPressed: plPlayerController.onCloseAll,
+              _topBarButton(
+                tooltip: '返回主页',
+                icon: const Icon(
+                  FontAwesomeIcons.house,
+                  size: 15,
+                  color: Colors.white,
                 ),
+                onPressed: plPlayerController.onCloseAll,
               ),
             title,
             // show current datetime
@@ -1879,89 +1895,64 @@ class HeaderControlState extends State<HeaderControl>
             if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
               Obx(() {
                 final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
-                return SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    style: btnStyle,
-                    tooltip: '${isAlwaysOnTop ? '取消' : ''}置顶',
-                    onPressed: () =>
-                        plPlayerController.setAlwaysOnTop(!isAlwaysOnTop),
-                    icon: isAlwaysOnTop
-                        ? const Icon(
-                            size: 19,
-                            Icons.push_pin,
-                            color: Colors.white,
-                          )
-                        : const Icon(
-                            size: 19,
-                            Icons.push_pin_outlined,
-                            color: Colors.white,
-                          ),
-                  ),
+                return _topBarButton(
+                  tooltip: '${isAlwaysOnTop ? '取消' : ''}置顶',
+                  icon: isAlwaysOnTop
+                      ? const Icon(
+                          size: 19,
+                          Icons.push_pin,
+                          color: Colors.white,
+                        )
+                      : const Icon(
+                          size: 19,
+                          Icons.push_pin_outlined,
+                          color: Colors.white,
+                        ),
+                  onPressed: () =>
+                      plPlayerController.setAlwaysOnTop(!isAlwaysOnTop),
                 );
               }),
             if (!isFileSource) ...[
               if (!isFSOrPip) ...[
                 if (videoDetailCtr.isUgc)
-                  SizedBox(
-                    width: btnWidth,
-                    height: btnHeight,
-                    child: IconButton(
-                      tooltip: '听音频',
-                      style: btnStyle,
-                      onPressed: videoDetailCtr.toAudioPage,
-                      icon: const Icon(
-                        Icons.headphones_outlined,
-                        size: 19,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    tooltip: '投屏',
-                    style: btnStyle,
-                    onPressed: videoDetailCtr.onCast,
+                  _topBarButton(
+                    tooltip: '听音频',
+                    onPressed: videoDetailCtr.toAudioPage,
                     icon: const Icon(
-                      Icons.cast,
+                      Icons.headphones_outlined,
                       size: 19,
                       color: Colors.white,
                     ),
                   ),
+                _topBarButton(
+                  tooltip: '投屏',
+                  onPressed: videoDetailCtr.onCast,
+                  icon: const Icon(
+                    Icons.cast,
+                    size: 19,
+                    color: Colors.white,
+                  ),
                 ),
               ],
               if (kDebugMode || plPlayerController.enableSponsorBlock)
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    tooltip: '提交片段',
-                    style: btnStyle,
-                    onPressed: () => videoDetailCtr.onBlock(context),
-                    icon: const Icon(
-                      CustomIcons.shield_play_arrow,
-                      size: 20,
-                      color: Colors.white,
-                    ),
+                _topBarButton(
+                  tooltip: '提交片段',
+                  onPressed: () => videoDetailCtr.onBlock(context),
+                  icon: const Icon(
+                    CustomIcons.shield_play_arrow,
+                    size: 20,
+                    color: Colors.white,
                   ),
                 ),
               Obx(
                 () => videoDetailCtr.segmentProgressList.isNotEmpty
-                    ? SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: IconButton(
-                          tooltip: '片段信息',
-                          style: btnStyle,
-                          onPressed: videoDetailCtr.showSBDetail,
-                          icon: const Icon(
-                            MdiIcons.advertisements,
-                            size: 19,
-                            color: Colors.white,
-                          ),
+                    ? _topBarButton(
+                        tooltip: '片段信息',
+                        onPressed: videoDetailCtr.showSBDetail,
+                        icon: const Icon(
+                          MdiIcons.advertisements,
+                          size: 19,
+                          color: Colors.white,
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -1977,70 +1968,55 @@ class HeaderControlState extends State<HeaderControl>
                             isFullScreen ||
                             PlatformUtils.isDesktop) &&
                         !wide) ...[
-                      SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: IconButton(
-                          tooltip: '发弹幕',
-                          style: btnStyle,
-                          onPressed: videoDetailCtr.showShootDanmakuSheet,
-                          icon: const Icon(
-                            Icons.comment_outlined,
-                            size: 19,
-                            color: Colors.white,
-                          ),
+                      _topBarButton(
+                        tooltip: '发弹幕',
+                        onPressed: videoDetailCtr.showShootDanmakuSheet,
+                        icon: const Icon(
+                          Icons.comment_outlined,
+                          size: 19,
+                          color: Colors.white,
                         ),
                       ),
-                      SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: Obx(
-                          () {
-                            final enableShowDanmaku =
-                                plPlayerController.enableShowDanmaku.value;
-                            return IconButton(
-                              tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
-                              style: btnStyle,
-                              onPressed: () {
-                                final newVal = !enableShowDanmaku;
-                                plPlayerController.enableShowDanmaku.value =
-                                    newVal;
-                                if (!plPlayerController.tempPlayerConf) {
-                                  setting.put(
-                                    SettingBoxKey.enableShowDanmaku,
-                                    newVal,
-                                  );
-                                }
-                              },
-                              icon: enableShowDanmaku
-                                  ? const Icon(
-                                      size: 20,
-                                      CustomIcons.dm_on,
-                                      color: Colors.white,
-                                    )
-                                  : const Icon(
-                                      size: 20,
-                                      CustomIcons.dm_off,
-                                      color: Colors.white,
-                                    ),
-                            );
-                          },
-                        ),
+                      Obx(
+                        () {
+                          final enableShowDanmaku =
+                              plPlayerController.enableShowDanmaku.value;
+                          return _topBarButton(
+                            tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+                            onPressed: () {
+                              final newVal = !enableShowDanmaku;
+                              plPlayerController.enableShowDanmaku.value =
+                                  newVal;
+                              if (!plPlayerController.tempPlayerConf) {
+                                setting.put(
+                                  SettingBoxKey.enableShowDanmaku,
+                                  newVal,
+                                );
+                              }
+                            },
+                            icon: enableShowDanmaku
+                                ? const Icon(
+                                    size: 20,
+                                    CustomIcons.dm_on,
+                                    color: Colors.white,
+                                  )
+                                : const Icon(
+                                    size: 20,
+                                    CustomIcons.dm_off,
+                                    color: Colors.white,
+                                  ),
+                          );
+                        },
                       ),
                     ],
                     if (!wide)
-                      SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: IconButton(
-                          tooltip: '弹幕设置',
-                          style: btnStyle,
-                          onPressed: showSetDanmaku,
-                          icon: const Icon(
-                            size: 20,
-                            CustomIcons.dm_settings,
-                            color: Colors.white,
-                          ),
+                      _topBarButton(
+                        tooltip: '弹幕设置',
+                        onPressed: showSetDanmaku,
+                        icon: const Icon(
+                          size: 20,
+                          CustomIcons.dm_settings,
+                          color: Colors.white,
                         ),
                       ),
                   ],
@@ -2049,40 +2025,30 @@ class HeaderControlState extends State<HeaderControl>
             ),
             if (Platform.isAndroid ||
                 (PlatformUtils.isDesktop && !isFullScreen))
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: '画中画',
-                  style: btnStyle,
-                  onPressed: () {
-                    if (PlatformUtils.isDesktop) {
-                      plPlayerController.toggleDesktopPip();
-                      return;
-                    }
-                    if (AndroidHelper.isPipAvailable) {
-                      plPlayerController.enterPip();
-                    }
-                  },
-                  icon: const Icon(
-                    Icons.picture_in_picture_outlined,
-                    size: 19,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            SizedBox(
-              width: btnWidth,
-              height: btnHeight,
-              child: IconButton(
-                tooltip: "更多设置",
-                style: btnStyle,
-                onPressed: showSettingSheet,
+              _topBarButton(
+                tooltip: '画中画',
+                onPressed: () {
+                  if (PlatformUtils.isDesktop) {
+                    plPlayerController.toggleDesktopPip();
+                    return;
+                  }
+                  if (AndroidHelper.isPipAvailable) {
+                    plPlayerController.enterPip();
+                  }
+                },
                 icon: const Icon(
-                  Icons.more_vert_outlined,
+                  Icons.picture_in_picture_outlined,
                   size: 19,
                   color: Colors.white,
                 ),
+              ),
+            _topBarButton(
+              tooltip: "更多设置",
+              onPressed: showSettingSheet,
+              icon: const Icon(
+                Icons.more_vert_outlined,
+                size: 19,
+                color: Colors.white,
               ),
             ),
           ],
@@ -2093,8 +2059,8 @@ class HeaderControlState extends State<HeaderControl>
             crossAxisAlignment: .start,
             children: [
               SizedBox(
-                width: btnWidth,
-                height: btnHeight,
+                width: _btnWidth,
+                height: _btnHeight,
                 child: Obx(
                   () => ActionItem(
                     expand: false,
@@ -2121,8 +2087,8 @@ class HeaderControlState extends State<HeaderControl>
               ),
               if (introController case final UgcIntroController ugc)
                 SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
+                  width: _btnWidth,
+                  height: _btnHeight,
                   child: Obx(
                     () => ActionItem(
                       expand: false,
@@ -2140,8 +2106,8 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               SizedBox(
-                width: btnWidth,
-                height: btnHeight,
+                width: _btnWidth,
+                height: _btnHeight,
                 child: Obx(
                   () => ActionItem(
                     expand: false,
@@ -2158,8 +2124,8 @@ class HeaderControlState extends State<HeaderControl>
                 ),
               ),
               SizedBox(
-                width: btnWidth,
-                height: btnHeight,
+                width: _btnWidth,
+                height: _btnHeight,
                 child: Obx(
                   () => ActionItem(
                     expand: false,
@@ -2180,8 +2146,8 @@ class HeaderControlState extends State<HeaderControl>
                 ),
               ),
               SizedBox(
-                width: btnWidth,
-                height: btnHeight,
+                width: _btnWidth,
+                height: _btnHeight,
                 child: ActionItem(
                   expand: false,
                   icon: const Icon(

@@ -137,9 +137,9 @@ class AuthorPanel extends StatelessWidget {
     } else {
       header = Row(spacing: 10, children: children);
     }
-    // 「遥控器适配」下外部动态卡片不显示「更多」：卡片只要一个焦点
+    // 总开关下外部动态卡片不显示「更多」：卡片只要一个焦点
     // （菜单本身还在，长按确定仍然打得开）
-    Widget? moreBtn = isSave || (!isDetail && Pref.remoteAdaptation)
+    Widget? moreBtn = isSave || (!isDetail && Pref.tvFocus)
         ? null
         : SizedBox(
             width: 32,

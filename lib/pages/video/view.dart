@@ -6,6 +6,7 @@ import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_section_switcher.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_tab_bar.dart';
@@ -156,6 +157,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void initState() {
     super.initState();
+
+    // 手柄/遥控器模式关掉时，视频页全程不出现预选框（方向键在这里是音量/进度）：
+    // 压栈期间高亮策略被钉在 alwaysTouch，按键也唤不回来。见 `TvInputMode`。
+    TvInputMode.pushPlayerPage();
 
     PlPlayerController.setPlayCallBack(playCallBack);
     videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
@@ -378,6 +383,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
     removeObserverMobile(this);
     _layoutSwitchTimer?.cancel();
+
+    // 和 `initState` 里的压栈配对：退出这一页后预选框恢复原来的规则
+    TvInputMode.popPlayerPage();
 
     super.dispose();
   }

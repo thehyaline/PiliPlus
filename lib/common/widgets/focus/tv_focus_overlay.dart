@@ -24,6 +24,8 @@ import 'package:material_ui/material_ui.dart';
 ///   落点在里面"的控件也照让不误。
 /// - **看不见的不画**：先过 [TvRegions.isPainted]（`Offstage`、还没布局的），
 ///   再和祖先里所有**会裁剪**的盒子求交——列表滚过之后预选框不会画到视口外面去。
+///   这一条就是 [TvRegions.visibleRect]，而"能不能把焦点落到这儿"
+///   （[TvRegions.canLandOn]）用的是同一个定义：环画不出来的地方不会成为落点。
 /// - **零侵入**：关掉「手柄/遥控器模式」、或者这一下是鼠标/触摸来的，一个字都不画，
 ///   判定直接读 [FocusRing.highlightEnabled]（和 [FocusRing] 同一个口子）。
 ///
@@ -136,45 +138,28 @@ class _TvFocusOverlayState extends State<TvFocusOverlay> {
     // 自己会画环的（FocusRing / TvCard / TvButton / TvTabBar / TvTextField…）不插手
     if (TvFocusRings.covers(focus)) return null;
     if (!TvRegions.isPainted(focus)) return null;
-    final rect = _visibleRect(focus);
+    // "看得见"的定义在 [TvRegions.visibleRect] 一处，落点规则和这里共用它
+    final rect = TvRegions.visibleRect(focus);
     if (rect == null || rect.width <= 0 || rect.height <= 0) return null;
+    // 整窗口那么大的一圈不画：进页面/切布局的头一两帧、焦点被路由入口按在
+    // "页面那一层"上时，兜底层会照着整页描一圈（用户看到的就是
+    // "窗口大小的预选框闪一下"）。详见 [TvFocusSpec.coversWholeView]
+    final viewSize = _viewSize(focus);
+    if (viewSize != null && TvFocusSpec.coversWholeView(rect, viewSize)) {
+      TvFocusSpec.reportWholeViewRing('兜底环', rect, viewSize);
+      return null;
+    }
     return (rect, TvFocusOverlay.isCircular(rect));
   }
 
-  /// 焦点控件的**可见**矩形（全局坐标）：控件自己的矩形，和祖先里所有会裁剪的
-  /// 盒子自己的矩形求交。
-  ///
-  /// `describeApproximatePaintClip` 是框架给"这个祖辈会不会裁掉子节点"的官方口子
-  /// （`RenderViewportBase` / `RenderClip*` / `RenderSingleChildViewport` /
-  /// `RenderStack` / `RenderFlex` 都实现了），它给的裁剪框就在**它自己**的坐标系里
-  /// （见 SDK `RenderObject.describeApproximatePaintClip` 的说明），所以拿它自己的
-  /// 变换送到全局再交。不交这一下的话，列表滚过之后（焦点还停在那张卡上、卡已经
-  /// 出了视口）预选框会画在 AppBar 或者相邻区域上。
-  ///
-  /// 框架原话是"approximate"：`ClipOval` 这类给回来的还是整块 `Offset.zero & size`，
-  /// 所以这一层只保证不画到**确定**看不见的地方去，不保证裁得一丝不差。
-  static Rect? _visibleRect(FocusNode node) {
-    final object = node.context?.findRenderObject();
-    if (object is! RenderBox || !object.attached) return null;
-    var rect = node.rect;
-    RenderObject? child = object;
-    for (
-      RenderObject? parent = object.parent;
-      parent != null;
-      parent = parent.parent
-    ) {
-      final clip = parent.describeApproximatePaintClip(child!);
-      if (clip != null) {
-        rect = rect.intersect(_globalRect(parent, clip));
-        if (rect.isEmpty) return null;
-      }
-      child = parent;
-    }
-    return rect;
+  /// 焦点节点所在 `View` 的逻辑尺寸（拿不到就不做那条一票否决）。
+  static Size? _viewSize(FocusNode focus) {
+    final context = focus.context;
+    if (context == null) return null;
+    final view = View.maybeOf(context);
+    if (view == null) return null;
+    return view.physicalSize / view.devicePixelRatio;
   }
-
-  static Rect _globalRect(RenderObject object, Rect rect) =>
-      MatrixUtils.transformRect(object.getTransformTo(null), rect);
 
   @override
   Widget build(BuildContext context) {

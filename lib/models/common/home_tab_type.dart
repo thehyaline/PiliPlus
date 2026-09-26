@@ -45,7 +45,8 @@ enum HomeTabType implements EnumWithLabel {
   };
 
   /// TV 焦点区域的标签：页面里的 `TvRegion` 用同一个常量登记，
-  /// 手柄切栏（L1/R1）之后靠它把焦点送进新栏（`TvRegions.focusFirst`）。
+  /// 手柄切栏（L1/R1）之后靠它把焦点送进新栏的落点（`TvRegions.focusEntry`，
+  /// 也就是这一栏上次待着的那张卡）。
   /// 还没接手柄适配的栏目返回 null——切过去之后焦点就留在原地。
   String? get tvRegion => switch (this) {
     HomeTabType.live => LivePage.tvRegion,

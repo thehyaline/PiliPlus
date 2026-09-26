@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
@@ -6,6 +8,7 @@ import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class SetSwitchItem extends StatefulWidget {
@@ -42,9 +45,27 @@ class SetSwitchItem extends StatefulWidget {
 
 class _SetSwitchItemState extends State<SetSwitchItem> {
   late bool val;
+  StreamSubscription<BoxEvent>? _sub;
 
   void _setVal() {
     val = GStorage.setting.get(widget.setKey, defaultValue: widget.defaultVal);
+  }
+
+  /// 跟随存储里的值：同一条设置被别处改动（例如 F11 切换「窗口全屏」，
+  /// 见 toggleWindowFullScreen）时开关要跟着动，否则这里显示旧值、再点一下
+  /// 反而把值写回去。[GStorage.setting] 的 watch 是广播流，按 key 过滤。
+  void _watchVal() {
+    _sub?.cancel();
+    _sub = GStorage.setting.watch(key: widget.setKey).listen(
+      (event) {
+        final next = event.value;
+        if (mounted && next is bool && next != val) {
+          setState(() => val = next);
+        }
+      },
+      // 退出应用时盒子已经关了，此时的报错没有意义。
+      onError: (_) {},
+    );
   }
 
   @override
@@ -52,6 +73,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.setKey != widget.setKey) {
       _setVal();
+      _watchVal();
     }
   }
 
@@ -59,6 +81,13 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   void initState() {
     super.initState();
     _setVal();
+    _watchVal();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   Future<void> switchChange([bool? value]) async {

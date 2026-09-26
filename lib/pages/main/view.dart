@@ -104,7 +104,14 @@ class _MainAppState extends PopScopeState<MainApp>
       }
     }
     if (!_mainController.useSideBar) {
-      _mainController.useBottomNav = MediaQuery.sizeOf(context).isPortrait;
+      // 平板导航栏一旦生效就不再换回去：窗口变高（竖屏比例）只影响布局，
+      // 不该让整条导航栏换成手机那套底部导航栏——同一台设备上"两种导航栏
+      // 换着出现"是用户明确要避免的。窄到不是平板尺寸（手机）时照旧跟着
+      // 竖横屏切换。
+      if (MediaQuery.sizeOf(context).isPortrait &&
+          !_mainController.tabletNavPinned) {
+        _mainController.useBottomNav = true;
+      }
     }
   }
 
@@ -407,9 +414,12 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
-  /// 把焦点送进新页面的第一项。
+  /// 把焦点送进新页面的**落点**上（上次离开时待着的那一项，见
+  /// [TvRegions.focusEntry]——不是"这一页的第一项"：列表滚过之后第一项在视口
+  /// 上面，送过去等于把预选框画到屏幕外面）。
   ///
-  /// 目标区域可能还没建出来（懒加载的网络列表，切栏那一帧还是空的），所以按帧
+  /// 目标区域可能还没建出来（懒加载的网络列表，切栏那一帧还是空的），也可能正
+  /// 跟着页面滑动、还没进屏幕（这时 `focusEntry` 会拒绝，理由同上），所以按帧
   /// 重试几帧（同 `TvFocusOnOpen`）；一直等不到就把焦点留在导航项上——看得见，
   /// 按一下方向键也进得去，比送去一个不存在的落点强。
   ///
@@ -421,7 +431,7 @@ class _MainAppState extends PopScopeState<MainApp>
     final from = FocusManager.instance.primaryFocus;
     void tryFocus(Duration _) {
       if (!mounted || id != _navHandOffId) return;
-      if (TvRegions.focusFirst(label)) return;
+      if (TvRegions.focusEntry(label)) return;
       if (!identical(FocusManager.instance.primaryFocus, from)) return;
       if (++_navHandOffFrames < _navHandOffMaxFrames) {
         WidgetsBinding.instance.addPostFrameCallback(tryFocus);
@@ -525,106 +535,93 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _sideBar() {
+    // 侧边栏只有一套：96 宽的平板抽屉，导航项是自己搭的 [TabletNavItem]
+    // （`NavigationDrawerDestination` 内部那个 `InkWell` 自己建焦点节点、
+    // 外面拿不到，预选框就画不出来）。手机横屏、电视、平板都走它——
+    // 原来这里还分「平板抽屉 / `NavigationRail` / 只有搜索的 80 宽兜底列」
+    // 三种，前两者换着出现会让同一台设备上"有的导航栏有预选框、有的没有"
+    // （`NavigationRailDestination` 是个数据类，套不了 `TvNavDestination`），
+    // 那个设置项和 `NavigationRail` 那条分支都已经删掉了。
+    if (context.isTablet) {
+      // 平板导航栏一露面就钉住：窗口之后收窄/变高也不再换回底部导航栏
+      // （见 `build` 里的 `useBottomNav`）
+      _mainController.tabletNavPinned = true;
+    }
     if (_mainController.navigationBars.length > 1) {
-      if (context.isTablet && _mainController.optTabletNav) {
-        return Padding(
-          padding: const .only(top: 25),
-          child: MediaQuery.removePadding(
-            context: context,
-            removeRight: true,
-            child: DrawerTheme(
-              data: DrawerThemeData(width: 96 + _padding.left),
-              child: NavigationDrawerTheme(
-                data: NavigationDrawerThemeData(
-                  iconTheme: WidgetStateProperty.resolveWith((states) {
-                    return IconThemeData(
-                      size: 28,
-                      color: states.contains(WidgetState.selected)
-                          ? _colorScheme.onSecondaryContainer
-                          : _colorScheme.onSurfaceVariant,
-                    );
-                  }),
-                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                    return Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: states.contains(WidgetState.selected)
-                              ? _colorScheme.onSecondaryContainer
-                              : _colorScheme.onSurfaceVariant,
-                        );
-                  }),
-                  // 焦点环和这条选中指示条共用同一个圆角（见 TabletNavItem）
-                  indicatorShape: const RoundedRectangleBorder(
-                    borderRadius: tabletNavTileRadius,
-                  ),
+      return Padding(
+        padding: const .only(top: 25),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeRight: true,
+          child: DrawerTheme(
+            data: DrawerThemeData(width: 96 + _padding.left),
+            child: NavigationDrawerTheme(
+              data: NavigationDrawerThemeData(
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  return IconThemeData(
+                    size: 28,
+                    color: states.contains(WidgetState.selected)
+                        ? _colorScheme.onSecondaryContainer
+                        : _colorScheme.onSurfaceVariant,
+                  );
+                }),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  return Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: states.contains(WidgetState.selected)
+                            ? _colorScheme.onSecondaryContainer
+                            : _colorScheme.onSurfaceVariant,
+                      );
+                }),
+                // 焦点环和这条选中指示条共用同一个圆角（见 TabletNavItem）
+                indicatorShape: const RoundedRectangleBorder(
+                  borderRadius: tabletNavTileRadius,
                 ),
-                child: Obx(
-                  () {
-                    final selectedIndex = _mainController.selectedIndex.value;
-                    return NavigationDrawer(
-                      /// apply `lib/scripts/navigation_drawer.patch`
-                      flex: 5,
-                      backgroundColor: Colors.transparent,
-                      header: Expanded(
-                        flex: 4,
-                        child: Padding(
-                          // 头像紧贴在抽屉最上沿，而抽屉（`Drawer`）默认
-                          // `clipBehavior: Clip.hardEdge`、裁剪线就是它自己的框：
-                          // 焦点框放大 4% 往外顶的那不到 1dp（头像 34 / 未登录 38dp）
-                          // 正好落在裁剪线外，环的顶上会被削平一条。这 4dp 和导航项
-                          // 那圈 `tilePadding` 是同一个用途——给预选框的缩放让位
-                          // （余量必须在抽屉**里面**，套在外面等于连裁剪线一起挪）
-                          padding: const .only(top: 4),
-                          child: userAndSearchVertical(),
-                        ),
+              ),
+              child: Obx(
+                () {
+                  final selectedIndex = _mainController.selectedIndex.value;
+                  return NavigationDrawer(
+                    /// apply `lib/scripts/navigation_drawer.patch`
+                    flex: 5,
+                    backgroundColor: Colors.transparent,
+                    header: Expanded(
+                      flex: 4,
+                      child: Padding(
+                        // 头像紧贴在抽屉最上沿，而抽屉（`Drawer`）默认
+                        // `clipBehavior: Clip.hardEdge`、裁剪线就是它自己的框：
+                        // 焦点框放大 4% 往外顶的那不到 1dp（头像 34 / 未登录 38dp）
+                        // 正好落在裁剪线外，环的顶上会被削平一条。这 4dp 和导航项
+                        // 那圈 `tilePadding` 是同一个用途——给预选框的缩放让位
+                        // （余量必须在抽屉**里面**，套在外面等于连裁剪线一起挪）
+                        padding: const .only(top: 4),
+                        child: userAndSearchVertical(),
                       ),
-                      // 导航项是自己搭的，不是 NavigationDrawerDestination：
-                      // 后者内部那个 `InkWell` 自己建焦点节点、外面拿不到，
-                      // 焦点预选框就画不出来（见 TabletNavItem）
-                      children: [
-                        for (final (index, e)
-                            in _mainController.navigationBars.indexed)
-                          TabletNavItem(
-                            label: e.label,
-                            icon: _buildIcon(type: e),
-                            selectedIcon: _buildIcon(type: e, selected: true),
-                            selected: index == selectedIndex,
-                            debugLabel: 'tablet-nav-${e.name}',
-                            onTap: () => _selectNav(index),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                    ),
+                    // 导航项是自己搭的，不是 NavigationDrawerDestination：
+                    // 后者内部那个 `InkWell` 自己建焦点节点、外面拿不到，
+                    // 焦点预选框就画不出来（见 TabletNavItem）
+                    children: [
+                      for (final (index, e)
+                          in _mainController.navigationBars.indexed)
+                        TabletNavItem(
+                          label: e.label,
+                          icon: _buildIcon(type: e),
+                          selectedIcon: _buildIcon(type: e, selected: true),
+                          selected: index == selectedIndex,
+                          debugLabel: 'tablet-nav-${e.name}',
+                          onTap: () => _selectNav(index),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
-        );
-      }
-      // 窄侧栏（手机横屏走这支；电视/平板是上面那支抽屉）：导航项仍然是框架的
-      // `NavigationRailDestination`，而它**不是 widget**（和
-      // `BottomNavigationBarItem` 一样是个数据类），套不了 [TvNavDestination]。
-      // 所以这里只有"焦点停上去有框架自带的底纹"，没有预选框——要补得上
-      // 是自己搭一列导航项（照 `TabletNavItem` 抄），见 `docs/tv_focus.md`。
-      // 切页交接不受影响：`onDestinationSelected` 一样走 [_selectNav]。
-      return Obx(
-        () => NavigationRail(
-          groupAlignment: 0.5,
-          labelType: .selected,
-          leading: userAndSearchVertical(),
-          backgroundColor: Colors.transparent,
-          onDestinationSelected: _selectNav,
-          selectedIndex: _mainController.selectedIndex.value,
-          destinations: _mainController.navigationBars
-              .map(
-                (e) => NavigationRailDestination(
-                  label: Text(e.label),
-                  icon: _buildIcon(type: e),
-                  selectedIcon: _buildIcon(type: e, selected: true),
-                ),
-              )
-              .toList(),
         ),
       );
     }
+    // 只剩一项导航（用户把 Navbar 编辑到就一条）时没有导航栏可言，
+    // 只留搜索/头像那一列
     return Container(
       width: 80,
       margin: .only(top: 12 + _padding.top, left: _padding.left),

@@ -1,5 +1,6 @@
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/rendering.dart' show Rect, ScrollCacheExtent, Size;
 import 'package:material_ui/material_ui.dart' show BorderRadius, Radius;
 
 /// 10-foot 焦点相关的共享常量与判定。
@@ -74,6 +75,40 @@ abstract final class TvFocusSpec {
   /// 底纹画在标签文字**底下**（见 [FocusRing.fillColor]），所以可以比描边明显
   /// 一点，但不能压过"当前选中的那一栏"的指示条——调的时候看着指示条调。
   static const tabFillAlpha = 0.12;
+
+  /// 这个矩形是不是"整个视图那么大"——**预选框一律不许画成这样**。
+  ///
+  /// 判断"该不该画环"的结构性规则在别处（见 `FocusRing._coversSubtree` 和
+  /// `TvFocusRings.covers`）：环会不会替子树里的焦点亮着。那套规则管不到
+  /// 一种情况——**落脚点本身**就是一整页大小时画的框。用户看到的
+  /// "窗口大小的预选框（不含标题栏）"就是它：进页面/切布局的头一两帧、
+  /// 焦点被路由入口按在页面那一层上时，照着整页描一圈。
+  ///
+  /// 所以绘制这一层多一道一票否决：两个方向都盖满整个视图的框直接不画
+  /// （[-1] 的容差只用来放过"差一两像素"的取整，不给任何控件留空子）。
+  /// 这一条**只**挡绘制，不动 [TvFocusRings] 的登记语义——正常控件没有一个
+  /// 能盖满整个视图，`TvNavDestination` / `TvTextField` 那种"外壳画环"的
+  /// 祖先仍然照旧替子树挡着兜底环。
+  ///
+  /// 视口尺寸给 `View` 的物理尺寸（`physicalSize / devicePixelRatio`），
+  /// Win32 的窗口标题栏在 Flutter 视图之外，正好对上"不含标题栏"这一条。
+  static const wholeViewTolerance = 1.0;
+
+  static bool coversWholeView(Rect rect, Size viewSize) =>
+      rect.width >= viewSize.width - wholeViewTolerance &&
+      rect.height >= viewSize.height - wholeViewTolerance;
+
+  /// [coversWholeView] 命中时的上报：整窗口的框一旦被挡下来，就在调试日志里
+  /// 留一行"是谁在画"——这一条是兜底规则，真正的修法是把那个落点从
+  /// "[TvFocusRings] 认得的落脚点"里补上（或者让它别再整页那么大）。
+  static void reportWholeViewRing(String from, Rect rect, Size viewSize) {
+    assert(() {
+      debugPrint(
+        '[tv_focus] 挡下整窗口大小的预选框：$from ${rect.size} / 视图 $viewSize',
+      );
+      return true;
+    }());
+  }
 }
 
 /// 播放器是不是按"手柄播放器模型"走。**视频页和直播页一样**（对齐 BBLL）。

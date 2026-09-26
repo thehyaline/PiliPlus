@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -28,7 +29,7 @@ List<SettingsGroup> get privacySettings => [
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('账号模式详情'),
-              content: SelectionArea(
+              content: TvSelectionArea(
                 child: SingleChildScrollView(
                   child: _getAccountDetail(context),
                 ),

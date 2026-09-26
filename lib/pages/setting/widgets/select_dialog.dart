@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_on_open.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -15,7 +15,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 
-class SelectDialog<T> extends StatelessWidget {
+class SelectDialog<T> extends StatefulWidget {
   final T? value;
   final String title;
   final List<(T, String)> values;
@@ -32,13 +32,20 @@ class SelectDialog<T> extends StatelessWidget {
   });
 
   @override
+  State<SelectDialog<T>> createState() => _SelectDialogState<T>();
+}
+
+class _SelectDialogState<T> extends State<SelectDialog<T>> {
+  @override
   Widget build(BuildContext context) {
     final titleMedium = TextTheme.of(context).titleMedium!;
+    final value = widget.value;
+    final toggleable = widget.toggleable;
     return TvFocusOnOpen(
       child: AlertDialog(
         clipBehavior: Clip.hardEdge,
-        title: Text(title),
-        constraints: subtitleBuilder != null
+        title: Text(widget.title),
+        constraints: widget.subtitleBuilder != null
             ? const BoxConstraints.tightFor(width: 320)
             : null,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -51,21 +58,29 @@ class SelectDialog<T> extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
-                  values.length,
+                  widget.values.length,
                   (index) {
-                    final item = values[index];
-                    return listTileFocusRing(
+                    final item = widget.values[index];
+                    final isCurrent = item.$1 == value;
+                    return tvRadioTile<T>(
                       debugLabel: '选项',
+                      value: item.$1,
+                      toggleable: toggleable,
+                      // 当前值可能在视口外（画质有十几项），滚进视野
+                      reveal: isCurrent,
                       builder: (focusNode) => RadioListTile<T>(
                         toggleable: toggleable,
                         dense: true,
                         value: item.$1,
                         focusNode: focusNode,
+                        // 打开就停在当前值上，而不是第一项：凭直觉按一下确定
+                        // 不该改成第一项（画质的第一项是 8K）
+                        autofocus: Pref.tvFocus && isCurrent,
                         title: Text(
                           item.$2,
                           style: titleMedium,
                         ),
-                        subtitle: subtitleBuilder?.call(context, index),
+                        subtitle: widget.subtitleBuilder?.call(context, index),
                       ),
                     );
                   },

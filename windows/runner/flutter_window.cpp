@@ -187,25 +187,30 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     AdjustMaximizeBounds(hwnd, reinterpret_cast<MINMAXINFO*>(lparam));
   }
 
-  if (message == WM_STYLECHANGED && wparam == GWL_STYLE &&
-      (GetWindowLongPtr(hwnd, GWL_STYLE) & (WS_THICKFRAME | WS_SYSMENU)) &&
-      IsZoomed(hwnd)) {
-    // media_kit 的原生全屏进出不清除 WS_MAXIMIZE：最大化状态下进入
-    // 全屏后，退出全屏时窗口仍处于"最大化"但边界停留在整屏
-    // rcMonitor（遮住任务栏）。样式恢复时把窗口重新钳制到监视器
-    // 工作区，与 SC_MAXIMIZE 的处理保持一致。
-    // 用 WS_THICKFRAME|WS_SYSMENU 而不是 WS_OVERLAPPEDWINDOW 判断普通窗口
-    // 样式：「窗口全屏」开关会决定 WS_CAPTION 位在不在，掩码里带哪个位不是
-    // 这个分支该关心的事。
-    MONITORINFO monitor_info{};
-    monitor_info.cbSize = sizeof(monitor_info);
-    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    if (GetMonitorInfo(monitor, &monitor_info)) {
-      SetWindowPos(hwnd, nullptr, monitor_info.rcWork.left,
-                   monitor_info.rcWork.top,
-                   monitor_info.rcWork.right - monitor_info.rcWork.left,
-                   monitor_info.rcWork.bottom - monitor_info.rcWork.top,
-                   SWP_NOZORDER | SWP_NOACTIVATE);
+  if (message == WM_STYLECHANGED && wparam == GWL_STYLE) {
+    // 窗口样式位一变就同步 DWM 圆角：进出「窗口全屏」与播放器原生全屏都会
+    // 剥掉/恢复 WS_OVERLAPPEDWINDOW，圆角必须跟着走（见
+    // SyncWindowCornerPreference）。放在下面的钳制之前，先让窗口形态定下来。
+    SyncWindowCornerPreference(hwnd);
+    if ((GetWindowLongPtr(hwnd, GWL_STYLE) & (WS_THICKFRAME | WS_SYSMENU)) &&
+        IsZoomed(hwnd)) {
+      // media_kit 的原生全屏进出不清除 WS_MAXIMIZE：最大化状态下进入
+      // 全屏后，退出全屏时窗口仍处于"最大化"但边界停留在整屏
+      // rcMonitor（遮住任务栏）。样式恢复时把窗口重新钳制到监视器
+      // 工作区，与 SC_MAXIMIZE 的处理保持一致。
+      // 用 WS_THICKFRAME|WS_SYSMENU 而不是 WS_OVERLAPPEDWINDOW 判断普通窗口
+      // 样式：「窗口全屏」开关会决定 WS_CAPTION 位在不在，掩码里带哪个位不是
+      // 这个分支该关心的事。
+      MONITORINFO monitor_info{};
+      monitor_info.cbSize = sizeof(monitor_info);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      if (GetMonitorInfo(monitor, &monitor_info)) {
+        SetWindowPos(hwnd, nullptr, monitor_info.rcWork.left,
+                     monitor_info.rcWork.top,
+                     monitor_info.rcWork.right - monitor_info.rcWork.left,
+                     monitor_info.rcWork.bottom - monitor_info.rcWork.top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+      }
     }
   }
 

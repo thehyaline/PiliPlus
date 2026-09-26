@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -52,13 +53,17 @@ List<SettingsGroup> get styleSettings => [
     title: '窗口',
     items: [
       if (PlatformUtils.isDesktop) ...[
-        const SwitchModel(
+        SwitchModel(
           title: '窗口全屏',
-          subtitle: '开启时窗口铺满所在显示器（无边框、隐藏任务栏）；关闭时是带系统标题栏的普通窗口',
-          leading: Icon(Icons.fullscreen),
+          subtitle:
+              '开启时窗口铺满所在显示器（无边框、隐藏任务栏），立即生效；'
+              '关闭时是带系统标题栏的普通窗口，F11 可随时切换',
+          leading: const Icon(Icons.fullscreen),
           setKey: SettingBoxKey.windowFullScreen,
           defaultVal: false,
-          needReboot: true,
+          onChanged: (value) => unawaited(
+            value ? enterWindowFullScreen() : exitWindowFullScreen(),
+          ),
         ),
         const SwitchModel(
           title: '显示托盘图标',
@@ -69,6 +74,18 @@ List<SettingsGroup> get styleSettings => [
         ),
       ],
       if (Platform.isLinux) _useSSDModel(),
+    ],
+  ),
+  const SettingsGroup(
+    title: '手柄 / 遥控器',
+    items: [
+      SwitchModel(
+        title: '手柄/遥控器模式',
+        leading: Icon(MdiIcons.gamepadOutline),
+        setKey: SettingBoxKey.tvFocus,
+        defaultVal: true,
+        needReboot: true,
+      ),
     ],
   ),
   SettingsGroup(
@@ -115,13 +132,6 @@ List<SettingsGroup> get styleSettings => [
   SettingsGroup(
     title: '导航栏',
     items: [
-      const SwitchModel(
-        title: '优化平板导航栏',
-        leading: Icon(Icons.auto_fix_high),
-        setKey: SettingBoxKey.optTabletNav,
-        defaultVal: true,
-        needReboot: true,
-      ),
       const SwitchModel(
         title: 'MD3样式底栏',
         subtitle: 'Material You设计规范底栏，关闭可变窄',
@@ -413,53 +423,6 @@ List<SettingsGroup> get styleSettings => [
                   showBgColor: false,
                 ),
               ),
-      ),
-    ],
-  ),
-  const SettingsGroup(
-    title: '手柄 / 遥控器',
-    items: [
-      SwitchModel(
-        title: '手柄/遥控器模式',
-        subtitle:
-            '为方向键、确定键、返回键做适配：卡片只有一个焦点、'
-            '焦点框跟随按键、长按确定打开更多。'
-            '播放页（视频和直播一样）另有一套语义：窗口下整块视频是一个焦点'
-            '（无法进到播放器控件里），确定键进全屏；全屏时上下栏收起后'
-            '确定键是播放/暂停、方向键唤起上下栏并把焦点送回播放/暂停按钮。'
-            '触摸操作不受影响',
-        leading: Icon(MdiIcons.gamepadOutline),
-        setKey: SettingBoxKey.tvFocus,
-        defaultVal: true,
-        needReboot: true,
-      ),
-      SwitchModel(
-        title: '长按确定打开更多',
-        subtitle: '关闭后长按确定与短按相同',
-        leading: Icon(Icons.more_horiz_outlined),
-        setKey: SettingBoxKey.tvLongPressOk,
-        defaultVal: true,
-      ),
-      SwitchModel(
-        title: '遥控器适配',
-        subtitle:
-            '动态卡片的简化浏览：隐藏卡片里的更多/转发/评论/点赞，'
-            '整张卡片只留一个焦点，按确定直接进视频或动态详情；'
-            '折叠的动态直接展开。动态详情页不受影响，'
-            '长按确定 / 手柄 Y / 遥控器菜单键仍然能打开「更多」',
-        leading: Icon(Icons.settings_remote_outlined),
-        setKey: SettingBoxKey.remoteAdaptation,
-        defaultVal: false,
-        needReboot: true,
-      ),
-      SwitchModel(
-        title: '标签跟随焦点切换',
-        subtitle:
-            '开启后顶部标签栏的预选框左右移动就会切栏目，不用再按确定；'
-            '关闭后预选框照样会显示，但要按确定才切',
-        leading: Icon(Icons.swap_horiz_outlined),
-        setKey: SettingBoxKey.tabSwitchOnFocus,
-        defaultVal: true,
       ),
     ],
   ),

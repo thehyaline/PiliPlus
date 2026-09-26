@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:PiliPlus/utils/calc_window_position.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:ffi/ffi.dart' show calloc;
 import 'package:flutter/services.dart'
@@ -161,9 +164,37 @@ void _recordMaximizedState() {
       } finally {
         win32.free(monitorInfo);
       }
+    } else {
+      // 显式复位：进入窗口全屏时也会调用本函数（见 enterWindowFullScreen），
+      // 残留的 true 会让退出时把普通窗口当最大化处理。
+      _wasMaximized = false;
     }
   } finally {
     win32.free(placement);
+  }
+}
+
+/// 进入窗口全屏前的窗口矩形（GetWindowRect 的物理像素原值）。
+///
+/// 退出时要和「恢复窗口样式」放在同一次同步调用里用它把窗口摆回去：
+/// 两步之间只要隔了一帧（例如改走 windowManager.setBounds 的平台通道，
+/// 或先 await 一次查显示器），标题栏就会在整屏矩形上闪一下——同
+/// [setWindowTitleBarVisible] 里说明的时序问题。
+({int left, int top, int right, int bottom})? _savedWindowRect;
+
+void _recordWindowRect(win32.HWND appWindow) {
+  final rect = calloc<win32.RECT>();
+  try {
+    if (win32.GetWindowRect(appWindow, rect).value) {
+      _savedWindowRect = (
+        left: rect.ref.left,
+        top: rect.ref.top,
+        right: rect.ref.right,
+        bottom: rect.ref.bottom,
+      );
+    }
+  } finally {
+    win32.free(rect);
   }
 }
 
@@ -239,7 +270,8 @@ void setWindowTitleBarVisible(bool visible) {
 ///
 /// 铺满整屏的普通窗口会被顶层（topmost）的任务栏盖住，这里照旧隐藏
 /// 所在显示器的任务栏；关闭、退出到托盘前由 _restoreTaskbars /
-/// restoreAllTaskbars 恢复。
+/// restoreAllTaskbars 恢复。退出（设置开关关闭 / F11）见
+/// [exitWindowFullScreen]。
 Future<void> enterWindowFullScreen() async {
   if (!PlatformUtils.isWindows) {
     await windowManager.setFullScreen(true);
@@ -247,6 +279,15 @@ Future<void> enterWindowFullScreen() async {
   }
   final appWindow = _appWindow();
   if (appWindow == null) return;
+  if (win32.GetWindowLongPtr(appWindow, win32.GWL_STYLE).value &
+          win32.WS_OVERLAPPEDWINDOW !=
+      0) {
+    // 窗口还在普通状态：这一次是真的"进入"（不是从托盘恢复显示之类的
+    // 重复调用），记录最大化状态、目标工作区与窗口矩形供退出时恢复。
+    // 此时任务栏尚未隐藏，工作区值正确，见 _hideTaskbarOnCurrentMonitor。
+    _recordMaximizedState();
+    _recordWindowRect(appWindow);
+  }
   // 剥标题栏放在隐藏任务栏之前，顺序见 setWindowTitleBarVisible。
   setWindowTitleBarVisible(false);
   _flushCompositor();
@@ -280,6 +321,95 @@ Future<void> enterWindowFullScreen() async {
     );
   } finally {
     win32.free(monitorInfo);
+  }
+}
+
+/// 退出窗口全屏：恢复普通窗口样式与进入前的窗口形态。
+///
+/// 与退出原生全屏（[exitDesktopFullScreen]）同序——先恢复任务栏并等工作区
+/// 收回，再动窗口样式；区别只是不去碰 media_kit 的原生全屏状态（窗口全屏
+/// 期间播放器的全屏只切应用内布局，见 [enterDesktopFullScreen]）。
+@pragma('vm:notify-debugger-on-exception')
+Future<void> exitWindowFullScreen() async {
+  if (!PlatformUtils.isWindows) {
+    await windowManager.setFullScreen(false);
+    return;
+  }
+  // 播放器原生全屏进行中：窗口样式同样是被剥掉的，但那套状态由
+  // enterDesktopFullScreen / exitDesktopFullScreen 负责，这里不插手。
+  if (_isDesktopFullScreen) return;
+  final appWindow = _appWindow();
+  if (appWindow == null) return;
+  final style = win32.GetWindowLongPtr(appWindow, win32.GWL_STYLE).value;
+  // 已经是普通窗口（重复调用）：不动窗口几何，任务栏由托盘/关闭那几条
+  // 路径负责兜底。
+  if (style & win32.WS_OVERLAPPEDWINDOW != 0) return;
+  final savedRect = _savedWindowRect;
+  final wasMaximized = _wasMaximized;
+  _restoreTaskbars();
+  if (wasMaximized) {
+    // 落点依赖工作区收回后的实时值（同 exitDesktopFullScreen）。
+    await _waitForWorkAreaSettle(appWindow);
+  }
+  // 恢复普通窗口样式（含 WS_CAPTION）：系统标题栏、边框缩放、系统菜单回来，
+  // DWM 圆角也跟着样式位回来（见 runner 的 SyncWindowCornerPreference）。
+  win32.SetWindowLongPtr(
+    appWindow,
+    win32.GWL_STYLE,
+    style | win32.WS_OVERLAPPEDWINDOW,
+  );
+  if (wasMaximized) {
+    // 窗口仍处于最大化状态（WS_MAXIMIZE 没被动过）：先让它按新样式重算
+    // 非客户区，再由 _restoreMaximizedState 对齐记录的工作区并同步
+    // window_manager 的状态机。
+    win32.SetWindowPos(
+      appWindow,
+      null,
+      0,
+      0,
+      0,
+      0,
+      win32.SWP_NOMOVE |
+          win32.SWP_NOSIZE |
+          win32.SWP_NOZORDER |
+          win32.SWP_NOACTIVATE |
+          win32.SWP_FRAMECHANGED,
+    );
+    _restoreMaximizedState();
+  } else if (savedRect case final rect?) {
+    // 与恢复样式同一次同步调用里摆回原矩形：中间不留帧，标题栏就不会在
+    // 整屏矩形上闪一下（见 _savedWindowRect）。
+    win32.SetWindowPos(
+      appWindow,
+      null,
+      rect.left,
+      rect.top,
+      rect.right - rect.left,
+      rect.bottom - rect.top,
+      win32.SWP_NOZORDER | win32.SWP_NOACTIVATE | win32.SWP_FRAMECHANGED,
+    );
+  } else {
+    // 没有记录到矩形（异常路径）：退回启动时的同一套计算（会校验记录的位置
+    // 是否仍落在与主屏同 DPI 的显示器里见 calcWindowBounds）。
+    await windowManager.setBounds(await calcWindowBounds(Pref.windowSize));
+  }
+}
+
+/// 切换「窗口全屏」：设置-外观里的开关与 F11 共用同一份状态。
+///
+/// 先写设置再应用——这样下次启动照最后的状态打开（开关本身就代表着这个
+/// 状态），也顺带让设置页的开关跟着 F11 变（见 SetSwitchItem 的存储监听）。
+@pragma('vm:notify-debugger-on-exception')
+Future<void> toggleWindowFullScreen() async {
+  // 播放器原生全屏期间窗口已经铺满显示器，这一键不动它：退出全屏仍由
+  // 播放器的按钮 / Esc 负责，两种全屏状态不互相打断。
+  if (_isDesktopFullScreen) return;
+  final next = !Pref.windowFullScreen;
+  await GStorage.setting.put(SettingBoxKey.windowFullScreen, next);
+  if (next) {
+    await enterWindowFullScreen();
+  } else {
+    await exitWindowFullScreen();
   }
 }
 

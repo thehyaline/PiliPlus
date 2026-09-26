@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
@@ -26,7 +27,7 @@ class AiConclusionPanel extends CommonSlidePage {
   }) {
     final outline = res.outline;
     final hasOutline = outline != null && outline.isNotEmpty;
-    return SelectionArea(
+    return TvSelectionArea(
       child: CustomScrollView(
         key: key,
         shrinkWrap: !tap,

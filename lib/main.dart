@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/build_config.dart';
@@ -269,8 +270,15 @@ void main() async {
 }
 
 KeyEventResult _onKeyEvent(KeyEvent event) {
-  if (event.logicalKey == .escape && event is KeyDownEvent) {
+  // KeyRepeatEvent 不是 KeyDownEvent：按住 F11 不会连着切。
+  if (event is! KeyDownEvent) return .ignored;
+  if (event.logicalKey == .escape) {
     appBack();
+    return .handled;
+  }
+  // F11：切换「窗口全屏」（设置-外观里的开关，见 toggleWindowFullScreen）。
+  if (event.logicalKey == .f11) {
+    unawaited(toggleWindowFullScreen());
     return .handled;
   }
   return .ignored;

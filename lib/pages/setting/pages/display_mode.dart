@@ -1,7 +1,9 @@
-import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show PlatformException;
@@ -90,16 +92,21 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
               groupValue: preferred,
               child: ListView.builder(
                 itemCount: modes.length,
+                // 懒建列表：方向键找邻居得先看得见邻居（见 TvFocusSpec.cacheExtent）
+                scrollCacheExtent: TvFocusSpec.cacheExtent,
                 padding: .only(
                   bottom: MediaQuery.viewPaddingOf(context).bottom,
                 ),
                 itemBuilder: (context, index) {
                   final DisplayMode mode = modes[index];
-                  return listTileFocusRing(
+                  return tvRadioTile<DisplayMode>(
                     debugLabel: '帧率选项',
+                    value: mode,
                     builder: (focusNode) => RadioListTile<DisplayMode>(
                       value: mode,
                       focusNode: focusNode,
+                      // 焦点落在当前值上，而不是第一项
+                      autofocus: Pref.tvFocus && mode == preferred,
                       title: mode == DisplayMode.auto
                           ? const Text('自动')
                           : Text('$mode${mode == active ? '  [系统]' : ''}'),

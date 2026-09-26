@@ -6,6 +6,7 @@ import 'package:flutter/services.dart'
         KeyRepeatEvent,
         KeyUpEvent,
         LogicalKeyboardKey;
+import 'package:flutter/widgets.dart' show TraversalDirection;
 
 /// 10-foot（手柄 / 遥控器 / 键盘）键位词表。
 ///
@@ -106,6 +107,21 @@ abstract final class TvKeys {
       prevSection.contains(event.logicalKey);
   static bool isNextSection(KeyEvent event) =>
       nextSection.contains(event.logicalKey);
+
+  /// 方向键 → 焦点遍历方向；不是方向键就是 `null`。
+  ///
+  /// 接哪几个方向由调用方按排布决定：竖排列表只该认上下（[TraversalDirection.up]
+  /// / [TraversalDirection.down]），左右键在竖排里没有横向邻居，交给框架的
+  /// `DirectionalFocusIntent` 会被 `closedLoop` 兜底绕到列表另一头，所以那一类
+  /// 按键应当就地吃掉、不移动（见 `tvRadioTile`）。
+  static TraversalDirection? directionOf(KeyEvent event) =>
+      switch (event.logicalKey) {
+        LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+        LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+        LogicalKeyboardKey.arrowLeft => TraversalDirection.left,
+        LogicalKeyboardKey.arrowRight => TraversalDirection.right,
+        _ => null,
+      };
 
   /// 首次按下（排除系统按键重复）。
   ///

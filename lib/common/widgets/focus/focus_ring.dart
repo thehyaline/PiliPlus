@@ -131,7 +131,17 @@ class _FocusRingState extends State<FocusRing> {
   bool _focused = false;
   bool _showRing = false;
 
+  /// 登记进 [TvFocusRings] 时用的 `coversSubtree`——撤登记要对上号
+  /// （见 [TvFocusRings.add] 和 [_coversSubtree]）。
+  late bool _registeredCoversSubtree;
+
   FocusNode get _node => widget.focusNode ?? _internalNode!;
+
+  /// 这一圈环会不会在"焦点落在子树里"时亮着——判断的依据是"环什么时候画"：
+  /// 只有 `hasFocus` 那一档才是"子树里有焦点就亮"，另外两档（[FocusRing.hideRing]
+  /// 根本不画、[FocusRing.ringOnPrimaryFocus] 只在焦点停在自己身上时画）
+  /// 替子树里的焦点出不了预选框。
+  bool get _coversSubtree => !(widget.hideRing || widget.ringOnPrimaryFocus);
 
   @override
   void initState() {
@@ -143,7 +153,8 @@ class _FocusRingState extends State<FocusRing> {
       ..canRequestFocus = widget.canRequestFocus && widget.enabled;
     _applyKeyHandler(node, null);
     node.addListener(_handleFocusChange);
-    TvFocusRings.add(node);
+    _registeredCoversSubtree = _coversSubtree;
+    TvFocusRings.add(node, coversSubtree: _registeredCoversSubtree);
     FocusManager.instance.addListener(_syncRing);
     // 输入源一换（鼠标点一下 / 按一下手柄）就得立刻收放：只听 `FocusManager`
     // 的焦点变化是不够的，已经画着的环要等下一次焦点变化才消失，
@@ -160,11 +171,20 @@ class _FocusRingState extends State<FocusRing> {
       // 旧节点也要撤登记（这时 `_node` 已经是新节点了；`_internalNode` 只在
       // 旧 `focusNode` 为 null 时建过，所以它就是旧节点）
       final oldNode = oldWidget.focusNode ?? _internalNode;
-      if (oldNode != null) TvFocusRings.remove(oldNode);
+      if (oldNode != null) {
+        TvFocusRings.remove(oldNode, coversSubtree: _registeredCoversSubtree);
+      }
       _node.removeListener(_handleFocusChange);
       widget.focusNode?.addListener(_handleFocusChange);
-      TvFocusRings.add(_node);
+      _registeredCoversSubtree = _coversSubtree;
+      TvFocusRings.add(_node, coversSubtree: _registeredCoversSubtree);
       _focused = _isFocused;
+    } else if (_coversSubtree != _registeredCoversSubtree) {
+      // 同一个节点，但这一圈环"画法"变了（`TvPlayerSurface` 全屏时
+      // `hideRing: true` 就是这么切的）：登记也跟着换一边
+      TvFocusRings.remove(_node, coversSubtree: _registeredCoversSubtree);
+      _registeredCoversSubtree = _coversSubtree;
+      TvFocusRings.add(_node, coversSubtree: _registeredCoversSubtree);
     }
     _applyKeyHandler(_node, oldWidget.onKeyEvent);
     final canRequestFocus = widget.canRequestFocus && widget.enabled;
@@ -203,7 +223,7 @@ class _FocusRingState extends State<FocusRing> {
     final node = _internalNode ?? widget.focusNode;
     if (node != null) {
       node.removeListener(_handleFocusChange);
-      TvFocusRings.remove(node);
+      TvFocusRings.remove(node, coversSubtree: _registeredCoversSubtree);
     }
     // 只撤我们自己挂上去的那个，别动别人的（见 [_applyKeyHandler]）
     if (widget.onKeyEvent != null) node?.onKeyEvent = null;
@@ -233,10 +253,98 @@ class _FocusRingState extends State<FocusRing> {
   bool get _wantRing =>
       !widget.hideRing && (_isFocused || widget.showRing);
 
+  /// 焦点在自己身上时，这一圈环会不会是"整个视图那么大"。
+  ///
+  /// 这是**绘制**层的最后一道闸（见 [TvFocusSpec.coversWholeView]）：
+  /// 结构性规则（[_coversSubtree] / `TvFocusRings.covers`）管的是"环会不会替
+  /// 子树里的焦点亮着"，而"落脚点自己有整页那么大"要靠这里挡——进页面/切布局
+  /// 的头一两帧、焦点被路由入口按在"页面那一层"上时，照着整页描一圈就是
+  /// 用户看到的"窗口大小的预选框闪一下"。
+  bool get _wholeViewVeto {
+    final context = _node.context;
+    if (context == null) return false;
+    final object = context.findRenderObject();
+    if (object == null || !object.attached) return false;
+    final view = View.maybeOf(context);
+    if (view == null) return false;
+    return TvFocusSpec.coversWholeView(
+      _node.rect,
+      view.physicalSize / view.devicePixelRatio,
+    );
+  }
+
   void _syncRing() {
-    final showRing = _wantRing && widget.enabled && FocusRing.highlightEnabled;
+    // 命中一票否决时，缩放（`AnimatedScale`）和底纹也要一起收掉：
+    // 它们画在整个 `Stack` 上，只拦描边的话还是会"整页弹一下"
+    final veto = _wholeViewVeto;
+    if (veto && _wantRing) {
+      TvFocusSpec.reportWholeViewRing(widget.debugLabel, _node.rect, _viewSizeOf());
+    }
+    final showRing =
+        !veto && _wantRing && widget.enabled && FocusRing.highlightEnabled;
     if (showRing == _showRing || !mounted) return;
     setState(() => _showRing = showRing);
+  }
+
+  /// 只给上报日志用；拿不到视图就退回 `Size.zero`。
+  Size _viewSizeOf() {
+    final context = _node.context;
+    final view = context == null ? null : View.maybeOf(context);
+    return view == null
+        ? Size.zero
+        : view.physicalSize / view.devicePixelRatio;
+  }
+
+  /// 描边/底纹的公共外壳：这里的约束是**紧的**（`Positioned.fill` 给的就是
+  /// 这一圈环的真实大小），所以量出来的尺寸和画出去的那一圈完全一致——
+  /// 比 [_syncRing] 读节点矩形更准，而且布局一变就会重新判一次。
+  Widget _paintIfFits(Widget Function() decoration) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final size = constraints.biggest;
+            final view = View.maybeOf(context);
+            if (view != null && size.isFinite) {
+              if (_lastLayoutSize != size) {
+                _lastLayoutSize = size;
+                _scheduleRecheck();
+              }
+              if (TvFocusSpec.coversWholeView(
+                Offset.zero & size,
+                view.physicalSize / view.devicePixelRatio,
+              )) {
+                return const SizedBox.shrink();
+              }
+            }
+            return decoration();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 上一次布局量到的这一层大小（[_paintIfFits] 里比对这个就知道"布局变没变"）。
+  Size? _lastLayoutSize;
+
+  bool _recheckScheduled = false;
+
+  /// 排一帧 post-frame 的复检。
+  ///
+  /// 绘制那一层（[_paintIfFits]）是布局驱动的，当帧就对；可缩放（`AnimatedScale`）
+  /// 和 [_showRing] 是**状态**，只有焦点/高亮模式变化才会重算——尺寸变了却没有
+  /// 这两个事件时，它们就停在旧判定上。进页面、切全屏、切布局正好都是这样：
+  /// 头一两帧节点还是"整页那么大"，等布局量准了却没人通知我们，
+  /// 于是整页的环/缩放已经画出去了才在下一帧收掉——用户看到的就是"闪一下"。
+  ///
+  /// 只在**这一层真的重新布局过**时才排，所以收敛：复检不改变状态就不会再排。
+  void _scheduleRecheck() {
+    if (_recheckScheduled || !mounted) return;
+    _recheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recheckScheduled = false;
+      if (mounted) _syncRing();
+    });
   }
 
   /// 焦点框的形状——`shape` 和 `borderRadius` 互斥，圆形的圆角交给内切圆去算。
@@ -262,26 +370,22 @@ class _FocusRingState extends State<FocusRing> {
         children: [
           // 底纹垫在内容下面，所以标签文字不会被染色
           if (widget.fillColor case final fill?)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: AnimatedContainer(
-                  duration: TvFocusSpec.duration,
-                  curve: Curves.easeOut,
-                  decoration: _decoration(color: _showRing ? fill : null),
-                ),
+            _paintIfFits(
+              () => AnimatedContainer(
+                duration: TvFocusSpec.duration,
+                curve: Curves.easeOut,
+                decoration: _decoration(color: _showRing ? fill : null),
               ),
             ),
           widget.builder(context, _node, _showRing),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedContainer(
-                duration: TvFocusSpec.duration,
-                curve: Curves.easeOut,
-                decoration: _decoration(
-                  border: Border.all(
-                    width: widget.borderWidth,
-                    color: _showRing ? colorScheme.primary : Colors.transparent,
-                  ),
+          _paintIfFits(
+            () => AnimatedContainer(
+              duration: TvFocusSpec.duration,
+              curve: Curves.easeOut,
+              decoration: _decoration(
+                border: Border.all(
+                  width: widget.borderWidth,
+                  color: _showRing ? colorScheme.primary : Colors.transparent,
                 ),
               ),
             ),
@@ -330,13 +434,21 @@ Widget circularFocusRing({
 ///
 /// [builder] 收到的是 [FocusRing] 持有的那一个节点；`Pref.tvFocus` 关掉时把
 /// `null` 递进去、环也不套（准则 6「默认零侵入」）。
+///
+/// [onKeyEvent] 透传给 [FocusRing]，用来在**节点这一层**接管按键：这一层比
+/// `RadioGroup` 内部那套 `Shortcuts.manager` 更深，先收到键，所以拦得住它
+/// （见 `tvRadioTile`）。[focusNode] 同理透传，给"节点在别处"的场景用。
 Widget listTileFocusRing({
   required String debugLabel,
   required Widget Function(FocusNode? focusNode) builder,
+  KeyEventResult Function(FocusNode node, KeyEvent event)? onKeyEvent,
+  FocusNode? focusNode,
 }) {
   if (!Pref.tvFocus) return builder(null);
   return FocusRing(
     debugLabel: debugLabel,
+    focusNode: focusNode,
+    onKeyEvent: onKeyEvent,
     builder: (context, focusNode, _) => Theme(
       data: Theme.of(context).copyWith(focusColor: Colors.transparent),
       child: builder(focusNode),
@@ -352,34 +464,67 @@ Widget listTileFocusRing({
 ///
 /// 判定用的是 `hasFocus` 的语义：焦点落在**子树里**时祖先节点也算"有环"
 /// （`TvNavDestination` / `TvTextField` 那类"外壳画环、落点在里面"的控件正是
-/// 靠这一条工作的），所以只登记外层那一个节点就够。
+/// 靠这一条工作的），所以只登记外层那一个节点就够。**但**只有"焦点落在子树里
+/// 时这一圈环照样亮着"的才算——[FocusRing.hideRing] /
+/// [FocusRing.ringOnPrimaryFocus] 这两种只有焦点正好停在自己身上才画
+/// （或者根本不画），替子树里的焦点出不了预选框：让位让出去就是一个框都没有。
+/// 这类登记成 `coversSubtree: false`（见 [add]）。
 ///
 /// 不挂 `Pref.tvFocus`：开关是**画不画**的事（两边都读
 /// [FocusRing.highlightEnabled]），登记本身一个字节都不影响行为。
 abstract final class TvFocusRings {
   /// 节点 → 登记次数：同一个节点可能被两层 [FocusRing] 借用（见
-  /// [FocusRing.builder] 的用法），撤一次不算撤。
+  /// [FocusRing.builder] 的用法），撤一次不算撤。这一份管"焦点停在**它自己**
+  /// 身上时算不算有环"。
   static final Map<FocusNode, int> _counts = HashMap<FocusNode, int>.identity();
 
-  static void add(FocusNode node) =>
-      _counts.update(node, (count) => count + 1, ifAbsent: () => 1);
+  /// 同上，但只收 [add] 里 `coversSubtree: true` 的那些：环会替**子树里**的
+  /// 焦点亮着，所以祖先里有一个就够，兜底环一路让位。
+  static final Map<FocusNode, int> _subtreeCounts =
+      HashMap<FocusNode, int>.identity();
 
-  static void remove(FocusNode node) {
-    final count = _counts[node];
+  /// [coversSubtree] 见类注释：这一圈环会不会在"焦点落在子树里"时亮着。
+  static void add(FocusNode node, {bool coversSubtree = true}) {
+    _bump(_counts, node);
+    if (coversSubtree) _bump(_subtreeCounts, node);
+  }
+
+  static void remove(FocusNode node, {bool coversSubtree = true}) {
+    _drop(_counts, node);
+    if (coversSubtree) _drop(_subtreeCounts, node);
+  }
+
+  /// 登记一个**落脚点**：焦点会（短暂地）停在它身上，但它不是控件——
+  /// 这一层自己不出预选框，兜底层也别照着它画。
+  ///
+  /// 和 [FocusRing] 那两档的区别是"谁画的"：`hideRing` / `ringOnPrimaryFocus`
+  /// 是"这个环先不画"，落脚点是"这里根本没有环这件事"。用到的有
+  /// `TvSelectionArea`（整块只读文本，只借它的节点把方向键摘出遍历）、
+  /// `PlayerFocus`（整页那一层，见那边的 `FocusRing(hideRing: true)`）。
+  static void markLanding(FocusNode node) => add(node, coversSubtree: false);
+
+  static void unmarkLanding(FocusNode node) => remove(node, coversSubtree: false);
+
+  static void _bump(Map<FocusNode, int> map, FocusNode node) =>
+      map.update(node, (count) => count + 1, ifAbsent: () => 1);
+
+  static void _drop(Map<FocusNode, int> map, FocusNode node) {
+    final count = map[node];
     if (count == null) return;
     if (count > 1) {
-      _counts[node] = count - 1;
+      map[node] = count - 1;
     } else {
-      _counts.remove(node);
+      map.remove(node);
     }
   }
 
   /// [node] 自己或者它的某个祖先是不是已经有环了。
   static bool covers(FocusNode? node) {
-    if (node == null || _counts.isEmpty) return false;
+    if (node == null) return false;
     if (_counts.containsKey(node)) return true;
+    if (_subtreeCounts.isEmpty) return false;
     for (final ancestor in node.ancestors) {
-      if (_counts.containsKey(ancestor)) return true;
+      if (_subtreeCounts.containsKey(ancestor)) return true;
     }
     return false;
   }

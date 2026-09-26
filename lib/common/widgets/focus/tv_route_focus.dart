@@ -211,10 +211,13 @@ class TvRouteFocusObserver extends NavigatorObserver {
     }
   }
 
-  /// 焦点浮在区域 scope 上：落到区域首项（`TvFocusMemory` 没接住时的兜底）。
+  /// 焦点浮在区域 scope 上：落到这块区域的落点上（`TvFocusMemory` 没接住时的兜底）。
+  ///
+  /// 走 `focusEntryInScope` 而不是"区域首项"：这块区域上次待着哪个控件就回哪个，
+  /// 而且保证落点画得出预选框——列表滚过之后"树序首项"是在视口上面的。
   bool _focusRegionFirst() {
     final focus = FocusManager.instance.primaryFocus;
-    return focus is FocusScopeNode && TvRegions.focusFirstInScope(focus);
+    return focus is FocusScopeNode && TvRegions.focusEntryInScope(focus);
   }
 
   /// 送进去之后收手，并记下"刚才是从哪个浮空状态修好的"（见 [_retryGap]）。

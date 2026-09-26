@@ -12,9 +12,15 @@ import 'package:material_ui/material_ui.dart';
 /// 所以这里在 push 的那一刻把"上一页焦点在哪儿"记下来（节点 + 所在区域 +
 /// 在区域里的序号），退回时按三级往下退：
 ///
-/// 1. 那个控件还在 → 直接还给它（"从哪儿进的退到哪儿"）；
+/// 1. 那个控件还在、**还看得见** → 直接还给它（"从哪儿进的退到哪儿"）；
 /// 2. 控件没了（列表重建过）→ 回到**同一块区域里的同一个序号**，位置大差不差；
-/// 3. 连区域都没了 → 交给 [TvRegions.entryNodeFor] 那套页面入口规则。
+/// 3. 连区域都没了、或者这一块现在给不出落点 → 交给 [TvRegions.entryNodeFor]
+///    那套页面入口规则（它自己也先看落点记忆，再算首项）。
+///
+/// "还看得见"这一条不能省：离开这一页之前列表可能被滚过（用户自己滚的，或者
+/// 页面自己滚到顶），记着的那张卡还在焦点树上，但已经在视口外面——还给它就等于
+/// 把预选框画到屏幕外面，看着还是"焦点丢了"。这时往下一级退，落到同一块区域里
+/// 第一个看得见的项上。
 ///
 /// 只在"焦点浮着"的时候调用（见 [TvRouteFocusObserver]）：页面里有控件拿着焦点
 /// 时不许抢，那是页面自己的选择（`autofocus`、`TvFocusMemory` 都可能在干活）。
@@ -60,40 +66,35 @@ abstract final class TvFocusReturn {
     if (!route.isCurrent) return false;
     final entry = _entries[route];
     if (entry != null) {
-      // 1. 离开时待着的那个控件还在——最准的一档
-      if (_usable(entry.node)) {
+      // 1. 离开时待着的那个控件还在、还看得见——最准的一档
+      //    （node 销毁后 `context` 不会被清空、"还活着"得看 element、
+      //    `Offstage` 里的不算……这些都在 `canLandOn` 里）
+      if (TvRegions.canLandOn(entry.node)) {
         entry.node.requestFocus();
         return true;
       }
 
-      // 2. 控件没了：回到同一块区域里的同一个序号（列表刷新过、卡片换过 Key）
+      // 2. 控件没了（或者滚出视口了）：回到同一块区域里的同一个序号
       final scope = entry.scope;
       if (scope != null && scope.context != null && scope.context!.mounted) {
         final nodes = scope.traversalDescendants.toList();
         if (nodes.isNotEmpty) {
-          nodes[(entry.index ?? 0).clamp(0, nodes.length - 1)].requestFocus();
-          return true;
+          final node = nodes[(entry.index ?? 0).clamp(0, nodes.length - 1)];
+          if (TvRegions.canLandOn(node, within: scope)) {
+            node.requestFocus();
+            return true;
+          }
         }
       }
     }
 
-    // 3. 没记过、或者记的东西都没了：页面入口那套规则
-    //    （锚点 → 内容区首项 → 标签栏 → 不在顶栏的第一项）
+    // 3. 没记过、或者记的东西现在都落不了地：页面入口那套规则
+    //    （锚点 → 内容区落点 → 标签栏 → 不在顶栏的第一项）
     final node = TvRegions.entryNodeFor(route);
     if (node == null) return false;
     node.requestFocus();
     return true;
   }
-
-  /// 这个节点现在能不能接住焦点。
-  ///
-  /// `context` 在节点销毁之后**不会**被清空（见 [TvRegions.focusAnchor]），
-  /// 所以"还活着"要看它挂着的 element 在不在；`Offstage`（切走的栏、折叠起来的
-  /// 区块）里的节点还挂着，但焦点送进去就等于送进看不见的地方。
-  static bool _usable(FocusNode node) =>
-      node.canRequestFocus &&
-      TvRegions.isPainted(node) &&
-      TvRegions.isCurrentRoute(node.context);
 }
 
 /// 登记表里的一条：离开时焦点待着的控件 + 它所在的区域 + 在区域里的序号。

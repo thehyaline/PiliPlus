@@ -14,6 +14,12 @@
 // whole client area and receives WM_NCHITTEST instead of the top-level window.
 LRESULT HitTestResizeBorder(HWND hwnd, POINT pt);
 
+// 按窗口样式位同步 DWM 圆角：带 WS_OVERLAPPEDWINDOW 的普通窗口用圆角
+// （最大化时 DWM 自己会切成直角），「窗口全屏」与播放器原生全屏（都靠剥掉
+// WS_OVERLAPPEDWINDOW 表示铺满显示器）不是最大化，必须显式切直角，否则四角
+// 会把后面的桌面露出来。任何改动 GWL_STYLE 之后都要调用。
+void SyncWindowCornerPreference(HWND hwnd);
+
 // A class abstraction for a high DPI-aware Win32 Window. Intended to be
 // inherited from by classes that wish to specialize with custom
 // rendering and input handling

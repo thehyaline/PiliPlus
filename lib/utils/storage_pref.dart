@@ -652,9 +652,6 @@ abstract final class Pref {
   static num get maxCacheSize =>
       _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
-  static bool get optTabletNav =>
-      _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
-
   static bool get horizontalScreen {
     bool? horizontalScreen = _setting.get(SettingBoxKey.horizontalScreen);
     if (horizontalScreen == null) {
@@ -1002,38 +999,26 @@ abstract final class Pref {
   static bool get isWindowMaximized =>
       _setting.get(SettingBoxKey.isWindowMaximized, defaultValue: false);
 
-  /// 手柄/遥控器模式：长按确定、栏目切换键等 10-foot 行为的总开关。
+  /// 手柄/遥控器模式：整个 10-foot 适配的**总开关**。
+  ///
+  /// 它下面挂着原来分散的四项（外观设置里已经合并成这一项）：
+  /// - 预选框（[FocusRing] / 兜底环 / 长按环）画不画；
+  /// - 方向键的语义：开 = 移动焦点，关 = 播放页里调音量与进度；
+  /// - 长按确定打开「更多」（`TvCard` 的 500 ms 长按环 + `TvShortcuts`
+  ///   把那次按下剩下的按键吃掉）；
+  /// - 「遥控器适配」：外部动态卡片退回"一条内容一个焦点"（详情页不受影响）
+  ///   里的小按钮全部隐藏、卡片内部不再有任何焦点，方向键只在卡片之间跳，
+  ///   确定键直接进视频 / 动态详情；
+  /// - 标签跟随焦点切换（焦点扫过标签栏就切栏）。
   ///
   /// 播放页的"手柄播放器模型"（整块画面是一个焦点、全屏下上下栏的入口锁、
   /// 上下栏收起时确定键 = 播放暂停）也挂在它下面——视频页和直播页一样，
   /// 见 `isPlayerTvMode`。
   /// 焦点框的显示本身由 FocusManager.highlightMode 控制，
-  /// 触屏设备上即使本项为 true 也不会出现焦点框。
+  /// 触屏设备上即使本项为 true 也不会出现焦点框；关掉时播放页
+  /// （视频 / 直播）全程不画预选框，见 `TvInputMode.pushPlayerPage`。
   static bool get tvFocus =>
       _setting.get(SettingBoxKey.tvFocus, defaultValue: true);
-
-  /// 长按确定是否打开「更多」菜单
-  static bool get tvLongPressOk =>
-      _setting.get(SettingBoxKey.tvLongPressOk, defaultValue: true);
-
-  /// 「遥控器适配」：动态卡片退回"一条内容一个焦点"。
-  ///
-  /// 遥控器上没有长按、没有指针，卡片里那些点赞/评论/转发按钮只能靠方向键
-  /// 一个个扫过去，一条动态要按七八次才能走过——所以开启后外部动态卡片
-  /// （详情页不受影响）里的小按钮全部隐藏、卡片内部不再有任何焦点，
-  /// 方向键只在卡片之间跳，确定键直接进视频 / 动态详情。
-  /// 默认关：手柄用户有的就是奔着那些按钮来的。
-  static bool get remoteAdaptation =>
-      _setting.get(SettingBoxKey.remoteAdaptation, defaultValue: false);
-
-  /// 焦点落到顶部标签栏的某个标签上时，是否立刻切到那一栏。
-  ///
-  /// [tvFocus] 的子行为（对齐 blbl 的 `tabSwitchFollowsFocus`）：手柄只需要
-  /// 左右移动就能把整条标签栏扫一遍，不用"移过去再按确定"。代价是扫过去时
-  /// 每一栏都会开始加载（PGC 时间表、历史、直播分区这些页面会连着一串请求），
-  /// 不想这样就把这一项关掉——关掉之后焦点照样有预选框，只是要按确定才切。
-  static bool get tabSwitchOnFocus =>
-      _setting.get(SettingBoxKey.tabSwitchOnFocus, defaultValue: true);
 
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);

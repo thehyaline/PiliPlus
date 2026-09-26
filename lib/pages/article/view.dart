@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
@@ -76,7 +77,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
     if (isPortrait) {
       return Padding(
         padding: .symmetric(horizontal: padding),
-        child: SelectionArea(
+        child: TvSelectionArea(
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
@@ -109,7 +110,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       children: [
         Expanded(
           flex: flex,
-          child: SelectionArea(
+          child: TvSelectionArea(
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [

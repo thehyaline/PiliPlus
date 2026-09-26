@@ -63,11 +63,44 @@ abstract final class TvInputMode {
   }
 
   /// 把高亮策略还给框架（手柄模式关掉时调，零侵入）。
+  ///
+  /// 播放页（视频页 / 直播页）里例外：总开关关掉时那两页**全程不出现预选框**
+  /// （连 Material 自带的焦点高亮一起），见 [pushPlayerPage]。
   static void sync() {
     if (Pref.tvFocus) return;
+    if (_playerPages > 0) {
+      _forceTouch();
+      return;
+    }
     _applied = null;
     FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic;
   }
+
+  /// 压在栈上的"播放页"数量（视频页 + 直播页；全屏是同一棵树，自动算在里面）。
+  static int _playerPages = 0;
+
+  /// 进视频页 / 直播页时压栈。
+  ///
+  /// 总开关**关掉**时，这两页的预选框要彻底消失：方向键在那儿是音量/进度，
+  /// 焦点环除了闪人没有别的用处。压栈期间强制 [FocusHighlightStrategy.alwaysTouch]，
+  /// 并且按键不再把它切回 `traditional`（[sync] 会一直把它按回去），
+  /// 于是按键、鼠标、触摸都唤不出环。
+  ///
+  /// 总开关**打开**时这个计数不参与：那两页的预选框是正常功能，照常出现。
+  /// 计数不是为了嵌套页面，而是为了"页面还没退干净就又进来一个"时别提前解压。
+  static void pushPlayerPage() {
+    _playerPages++;
+    sync();
+  }
+
+  static void popPlayerPage() {
+    if (_playerPages > 0) _playerPages--;
+    sync();
+  }
+
+  /// 强制"预选框收起来"（策略被我们钉住之后，框架那半边就不管用了，
+  /// 得由我们替它把触摸/指针那一路处理掉）。
+  static void _forceTouch() => _apply(FocusHighlightStrategy.alwaysTouch);
 
   static void _onPointer(PointerEvent event) {
     if (!Pref.tvFocus) {

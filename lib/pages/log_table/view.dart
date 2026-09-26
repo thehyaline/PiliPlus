@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_selection_area.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
@@ -122,7 +123,7 @@ class _LogPageState<T> extends State<LogPage<T>> {
       ],
     );
     return IntrinsicHeight(
-      child: isHeader ? content : SelectionArea(child: content),
+      child: isHeader ? content : TvSelectionArea(child: content),
     );
   }
 }

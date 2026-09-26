@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/tv_radio_tile.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -8,6 +9,13 @@ class RadioWidget<T> extends StatefulWidget {
   final EdgeInsetsGeometry? padding;
   final MainAxisSize mainAxisSize;
 
+  /// 手柄方向键认哪几个方向。
+  ///
+  /// 默认四向都走（[WrapRadioOptionsGroup] 的 `Wrap` 排布横向真有邻居）；
+  /// 自己把 [RadioWidget] 摆成竖排（`Column`）的调用方传
+  /// [TvRadioAxis.vertical]，左右键就地吃掉不移动。
+  final TvRadioAxis axis;
+
   const RadioWidget({
     super.key,
     required this.value,
@@ -15,6 +23,7 @@ class RadioWidget<T> extends StatefulWidget {
     this.tristate = false,
     this.padding,
     this.mainAxisSize = MainAxisSize.min,
+    this.axis = TvRadioAxis.all,
   });
 
   @override
@@ -77,12 +86,23 @@ class RadioWidgetState<T> extends State<RadioWidget<T>> with RadioClient<T> {
         Text(widget.title),
       ],
     );
-    return InkWell(
-      onTap: _handleTap,
+    // 手柄那条路交给 `tvRadioTile`（方向键只移动、确定键才选中，见它的文档）；
+    // 触摸 / 鼠标还是原来那个 `onTap`。节点身份必须保留——它同时是
+    // `RadioClient.focusNode`，`RadioGroup` 靠它认这一项。
+    return tvRadioTile<T>(
+      debugLabel: '单选',
+      value: radioValue,
+      toggleable: widget.tristate,
+      // `Wrap` 排布：横向真有邻居（竖排的调用方自己传 [TvRadioAxis.vertical]）
+      axis: widget.axis,
       focusNode: focusNode,
-      child: widget.padding == null
-          ? child
-          : Padding(padding: widget.padding!, child: child),
+      builder: (focusNode) => InkWell(
+        onTap: _handleTap,
+        focusNode: focusNode,
+        child: widget.padding == null
+            ? child
+            : Padding(padding: widget.padding!, child: child),
+      ),
     );
   }
 }
