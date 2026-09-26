@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:PiliPlus/utils/tv_keys.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:get/get_rx/get_rx.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -24,8 +25,12 @@ import 'package:material_ui/material_ui.dart';
 /// - **全屏**：画面不再是"一个整体焦点"（焦点能进上下栏了），它退化成
 ///   "上下栏收起来时焦点停的地方"，所以**不画环**。这时候：
 ///   * 确定键 = 播放/暂停（对齐 BBLL）；
-///   * 任何方向键 = 唤起上下栏 + 焦点送到播放/暂停按钮（[onWakeControls]），
-///     所以"上下栏收着"是这一层唯一会停留的状态，按一下方向键就进控件；
+///   * ↑ / ↓ = 唤起上下栏 + 焦点送到播放/暂停按钮（[onWakeControls]），
+///     所以"上下栏收着"是这一层唯一会停留的状态，按一下上下就进控件；
+///   * ← / → = **直接调进度**（[onSeekStep]，一步就是快进/快退的那一下）——
+///     看片的时候想把预选框点出来是少数，多数时候左右就是"往前/往后跳一点"，
+///     让它们在画面上一步到位（对齐桌面键位表里 ←/→ 的语义），不用先把栏
+///     唤起来；
 ///   * **进全屏时上下栏已经亮着**（触摸/鼠标刚把它点出来，或者就是从栏里那颗
 ///     全屏按钮进的）= 焦点同样固定到播放/暂停按钮上（[_enterFullScreen]）：
 ///     用户看到的是同一件事——控制条亮着，预选框就在播放/暂停上。
@@ -41,6 +46,7 @@ class TvPlayerSurface extends StatefulWidget {
     required this.showControls,
     required this.onOk,
     required this.onWakeControls,
+    required this.onSeekStep,
     required this.child,
   });
 
@@ -62,8 +68,15 @@ class TvPlayerSurface extends StatefulWidget {
   /// 确定键：手柄 A / 遥控器确定 / 回车。
   final VoidCallback onOk;
 
-  /// 全屏下按方向键：唤起上下栏，并把焦点送到播放/暂停按钮。
+  /// 全屏下按 ↑ / ↓：唤起上下栏，并把焦点送到播放/暂停按钮。
   final VoidCallback onWakeControls;
+
+  /// 全屏下按 ← / →：直接调进度，`true` = 往前（→）、`false` = 往后（←）。
+  ///
+  /// 一步多长由调用方定（跟桌面键位表里 ←/→ 用同一个量，见
+  /// `PlPlayerController.fastForBackwardDuration`）；直播没有进度，那边会自己
+  /// 忽略掉。
+  final ValueChanged<bool> onSeekStep;
 
   final Widget child;
 
@@ -248,10 +261,22 @@ class _TvPlayerSurfaceState extends State<TvPlayerSurface> {
         return KeyEventResult.handled;
       }
       // 全屏：上下栏收着的时候焦点哪儿也去不了（环也不画），方向键在这里
-      // 被吃掉，用来把上下栏唤起来、把焦点交给播放/暂停按钮。
-      // 长按的重复事件只吞不重复唤栏。
+      // 被吃掉，上下和左右分开用：
+      //   * ↑ / ↓ = 把上下栏唤起来、焦点交给播放/暂停按钮；
+      //   * ← / → = 直接调进度（[onSeekStep]）：看片的时候左右就是"跳一点"，
+      //     不该为了跳一下把整条栏点出来、还得再按一次退出。
+      // 长按的重复事件：唤栏只认第一次按下（重复唤栏没意义，还会把焦点反复
+      // 往按钮上拽），调进度每次重复都算一步——按住 ←/→ 就是一直跳
+      // （手柄一般不发重复事件，键盘在 tv 模式下按住才有这一条）。
       if (_full && TvKeys.isDpad(event)) {
-        if (TvKeys.isFirstPress(event)) {
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          if (TvKeys.isPressOrRepeat(event)) {
+            widget.onSeekStep(
+              event.logicalKey == LogicalKeyboardKey.arrowRight,
+            );
+          }
+        } else if (TvKeys.isFirstPress(event)) {
           widget.onWakeControls();
         }
         return KeyEventResult.handled;

@@ -779,6 +779,9 @@ class VideoDetailController extends GetxController
 
   bool isQuerying = false;
 
+  /// 上一轮还在查的时候又排了一次（见 [queryVideoUrl]）。
+  bool _queryQueued = false;
+
   final languages = Rxn<List<LanguageItem>>();
   final currLang = Rxn<String>();
   void setLanguage(String language) {
@@ -818,6 +821,10 @@ class VideoDetailController extends GetxController
 
   // 视频链接
   /// TODO: merge [DownloadHttp.getVideoUrl].
+  ///
+  /// 一轮还没跑完又来一次（用户连按"下一集"跳着看）时**合并**成一次补查，
+  /// 而不是像以前那样直接扔掉后一次：`cid` 已经改成新的了，被扔掉的那一次
+  /// 不会去查新那一集的流，播放器就停在上一集的流上（OSD 上还显示着新分P）。
   Future<void> queryVideoUrl({
     bool fromReset = false,
     bool autoFullScreenFlag = false,
@@ -826,6 +833,7 @@ class VideoDetailController extends GetxController
       return _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
+      _queryQueued = true;
       return;
     }
     isQuerying = true;
@@ -833,6 +841,12 @@ class VideoDetailController extends GetxController
       await _queryVideoUrl(fromReset, autoFullScreenFlag);
     } finally {
       isQuerying = false;
+      if (_queryQueued) {
+        _queryQueued = false;
+        // 这一轮请求的 cid 在发起时就定死了（[_getVideoUrl] 读的是当时的
+        // `cid.value`），所以补的这一轮查的一定是最新那一集。
+        queryVideoUrl(fromReset: fromReset, autoFullScreenFlag: autoFullScreenFlag);
+      }
     }
   }
 
@@ -854,6 +868,10 @@ class VideoDetailController extends GetxController
     }
 
     final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
+
+    // 查的过程中又切了一集：这一份是上一集的流，别拿它起播（起播会盖掉
+    // `data`、还会把"控制条按住"放开），交上面补的那一轮去查最新的。
+    if (_queryQueued) return;
 
     if (result case Success(:final response)) {
       data = response;

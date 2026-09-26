@@ -174,8 +174,9 @@ bool Win32Window::Create(const std::wstring& title,
   double scale_factor = dpi / 96.0;
 
   // 默认是带系统标题栏的普通窗口：拖动、边框缩放、系统菜单、阴影与 Win11
-  // 圆角都由系统负责。开启「窗口全屏」时由 Dart 侧剥掉 WS_CAPTION
-  // （见 fullscreen.dart 的 SetWindowTitleBarVisible），此后客户区铺满整窗、
+  // 圆角都由系统负责。全屏期间（「窗口全屏」与播放器全屏，见
+  // lib/plugin/pl_player/utils/fullscreen.dart）由 Dart 侧剥掉 WS_CAPTION
+  // （见其中的 SetWindowTitleBarVisible），此后客户区铺满整窗、
   // 边框缩放改由下面的 WM_NCCALCSIZE / WM_NCHITTEST 提供。
   HWND window = CreateWindow(
       window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
@@ -191,8 +192,8 @@ bool Win32Window::Create(const std::wstring& title,
 
   // Win11: 显式使用 WinUI3 标准圆角（8px），带不带系统标题栏都一致，
   // 不依赖系统对窗口形态的默认判断；最大化时系统会自动保持直角。
-  // 此后样式变化（「窗口全屏」/播放器原生全屏进出，见
-  // FlutterWindow::MessageHandler 的 WM_STYLECHANGED）由
+  // 此后样式变化（全屏进出：「窗口全屏」与播放器全屏都走 window_manager 的
+  // setFullScreen，见 FlutterWindow::MessageHandler 的 WM_STYLECHANGED）由
   // SyncWindowCornerPreference 跟着样式位同步。
   SyncWindowCornerPreference(window);
 
@@ -363,7 +364,7 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_NCACTIVATE:
-      // 无标题栏（「窗口全屏」剥掉了 WS_CAPTION）时非客户区为空、客户区
+      // 无标题栏（全屏期间剥掉了 WS_CAPTION）时非客户区为空、客户区
       // 铺满整窗：跳过默认的边框重绘，避免焦点切出/切回时 DWM 边框闪白。
       // 带标题栏时交给系统，让标题栏按钮跟随焦点状态重绘。
       if (!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION)) {
@@ -376,8 +377,8 @@ Win32Window::MessageHandler(HWND hwnd,
       return 1;
 
     case WM_NCCALCSIZE:
-      // 带系统标题栏（「窗口全屏」关闭）时客户区由系统计算，标题栏照常
-      // 显示（见 SetWindowTitleBarVisible）。
+      // 带系统标题栏（不在全屏）时客户区由系统计算，标题栏照常显示
+      // （见 SetWindowTitleBarVisible）。
       if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION) {
         break;
       }
@@ -481,8 +482,11 @@ void Win32Window::UpdateTheme(HWND const window) {
 
 void SyncWindowCornerPreference(HWND hwnd) {
   const LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  // 用 WS_THICKFRAME 判断普通窗口样式：全屏是为了铺满整屏而剥掉它（见
+  // FlutterWindow::MessageHandler 的 WM_STYLECHANGED 与 HitTestResizeBorder），
+  // 那之后 WS_OVERLAPPEDWINDOW 还留着别的位，拿整掩码判断会漏。
   DWORD corner_preference =
-      (style & WS_OVERLAPPEDWINDOW) ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
+      (style & WS_THICKFRAME) ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
   DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
                         &corner_preference, sizeof(corner_preference));
 }
@@ -494,16 +498,19 @@ LRESULT HitTestResizeBorder(HWND hwnd, POINT pt) {
   if (style & WS_CAPTION) {
     return HTCLIENT;
   }
-  // 全屏样式（media_kit 原生全屏 / 窗口全屏都会剥掉 WS_OVERLAPPEDWINDOW）
-  // 下窗口铺满整屏、不可缩放，屏幕边缘不应有缩放命中区，否则碰一下边缘
-  // 就会把全屏窗口拽小。
-  if (!(style & WS_OVERLAPPEDWINDOW)) {
+  // 全屏期间（「窗口全屏」与播放器全屏都走 window_manager 的 setFullScreen：
+  // 剥掉缩放边框与最大化按钮，标题栏由应用自己剥，见
+  // lib/plugin/pl_player/utils/fullscreen.dart）窗口铺满整屏、不该被拖动缩放，
+  // 边沿不应有缩放命中区，否则碰一下边缘就会把全屏窗口拽小。
+  if (!(style & WS_THICKFRAME)) {
     return HTCLIENT;
   }
   if (IsZoomed(hwnd)) {
-    // 最大化时窗口铺满工作区，边缘不应再响应缩放。media_kit 原生全屏
-    // 退出后窗口可能停留在“最大化 + 整屏矩形”的卡死状态（盖住任务栏），
-    // 这里顺带钳回工作区，让边缘缩放恢复。
+    // 最大化时窗口铺满工作区，边缘不应再响应缩放。下面这段钳制是兜底：
+    // 进全屏前会先用 window_manager 的 unmaximize 把最大化还原掉、退出时再
+    // maximize 回来（见 lib/plugin/pl_player/utils/fullscreen.dart），正常流程
+    // 不会再留下“最大化 + 整屏矩形”这种盖住任务栏的状态；万一出现，顺手摆回
+    // 工作区，让边缘缩放恢复。
     MONITORINFO monitor_info{};
     monitor_info.cbSize = sizeof(monitor_info);
     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);

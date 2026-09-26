@@ -53,6 +53,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/tv_osd_button.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/tv_osd_menu.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/tv_player_osd.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/tv_player_surface.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -487,21 +488,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           final type = plPlayerController.superResolutionType.value;
           return TvOsdPopupButton.capsule(
             debugLabel: '超分辨率',
-            child: PopupMenuButton<SuperResolutionType>(
+            child: tvOsdSelectMenu<SuperResolutionType>(
               tooltip: '超分辨率',
-              requestFocus: false,
-              initialValue: type,
-              color: Colors.black.withValues(alpha: 0.8),
+              controller: plPlayerController,
               itemBuilder: (context) {
                 return SuperResolutionType.values
                     .map(
-                      (type) => PopupMenuItem<SuperResolutionType>(
-                        height: 35,
-                        padding: const EdgeInsets.only(left: 30),
-                        value: type,
-                        onTap: () => plPlayerController.setShader(type),
+                      (e) => TvOsdMenuItem<SuperResolutionType>(
+                        value: e,
+                        selected: e == type,
+                        onTap: () => plPlayerController.setShader(e),
                         child: Text(
-                          type.label,
+                          e.label,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -614,35 +612,36 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           if (list != null && list.isNotEmpty) {
             return TvOsdPopupButton.circle(
               debugLabel: '翻译',
-              child: PopupMenuButton<String>(
+              child: tvOsdSelectMenu<String>(
                 tooltip: '翻译',
-                requestFocus: false,
-                initialValue: videoDetailController.currLang.value,
+                controller: plPlayerController,
                 onSelected: videoDetailController.setLanguage,
-                color: Colors.black.withValues(alpha: 0.8),
-                itemBuilder: (context) => [
-                  const PopupMenuItem<String>(
-                    height: 35,
-                    value: '',
-                    child: Text(
-                      "关闭翻译",
-                      style: TextStyle(color: Colors.white, fontSize: 13),
+                itemBuilder: (context) {
+                  final currLang = videoDetailController.currLang.value;
+                  return [
+                    TvOsdMenuItem<String>(
+                      value: '',
+                      selected: currLang == '',
+                      child: const Text(
+                        "关闭翻译",
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
                     ),
-                  ),
-                  ...list.map(
-                    (e) => PopupMenuItem<String>(
-                      height: 35,
-                      value: e.lang,
-                      child: Text(
-                        e.title!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
+                    ...list.map(
+                      (e) => TvOsdMenuItem<String>(
+                        value: e.lang,
+                        selected: e.lang == currLang,
+                        child: Text(
+                          e.title!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ];
+                },
                 child: SizedBox(
                   width: widgetWidth,
                   height: 30,
@@ -727,16 +726,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             final val = videoDetailController.vttSubtitlesIndex.value;
             return TvOsdPopupButton.circle(
               debugLabel: '字幕',
-              child: PopupMenuButton<int>(
+              child: tvOsdSelectMenu<int>(
                 tooltip: '字幕',
-                requestFocus: false,
-                initialValue: val,
-                color: Colors.black.withValues(alpha: 0.8),
+                controller: plPlayerController,
                 itemBuilder: (context) {
                   return [
-                    PopupMenuItem<int>(
+                    TvOsdMenuItem<int>(
                       value: 0,
-                      height: 35,
+                      selected: val == 0,
                       onTap: () => videoDetailController.setSubtitle(0),
                       child: const Text(
                         "关闭字幕",
@@ -747,9 +744,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       ),
                     ),
                     ...videoDetailController.subtitles.mapIndexed((i, e) {
-                      return PopupMenuItem<int>(
+                      return TvOsdMenuItem<int>(
                         value: i + 1,
-                        height: 35,
+                        selected: val == i + 1,
                         onTap: () => videoDetailController.setSubtitle(i + 1),
                         child: Text(
                           e.lanDoc ?? e.lan,
@@ -787,18 +784,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       BottomControlType.speed => Obx(
         () => TvOsdPopupButton.capsule(
           debugLabel: '倍速',
-          child: PopupMenuButton<double>(
+          child: tvOsdSelectMenu<double>(
             tooltip: '倍速',
-            requestFocus: false,
-            initialValue: plPlayerController.playbackSpeed,
-            color: Colors.black.withValues(alpha: 0.8),
+            controller: plPlayerController,
             itemBuilder: (context) {
+              final currentSpeed = plPlayerController.playbackSpeed;
               return plPlayerController.speedList
                   .map(
-                    (double speed) => PopupMenuItem<double>(
-                      height: 35,
-                      padding: const EdgeInsets.only(left: 30),
+                    (double speed) => TvOsdMenuItem<double>(
                       value: speed,
+                      selected: speed == currentSpeed,
                       onTap: () => plPlayerController.setPlaybackSpeed(speed),
                       child: Text(
                         "${speed}X",
@@ -839,22 +834,19 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           final availableQa = videoInfo.dash!.video!.availableVideoQualities;
           return TvOsdPopupButton.capsule(
             debugLabel: '画质',
-            child: PopupMenuButton<int>(
+            child: tvOsdSelectMenu<int>(
               tooltip: '画质',
-              requestFocus: false,
-              initialValue: currentVideoQa.code,
-              color: Colors.black.withValues(alpha: 0.8),
+              controller: plPlayerController,
               itemBuilder: (context) {
                 return List.generate(
                   videoFormat.length,
                   (index) {
                     final item = videoFormat[index];
                     final enabled = availableQa.contains(item.quality);
-                    return PopupMenuItem<int>(
+                    return TvOsdMenuItem<int>(
                       enabled: enabled,
-                      height: 35,
-                      padding: const EdgeInsets.only(left: 15, right: 10),
                       value: item.quality,
+                      selected: currentVideoQa.code == item.quality,
                       onTap: () async {
                         if (currentVideoQa.code == item.quality) {
                           return;
@@ -903,8 +895,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
-      /// 全屏：窗口全屏开启时窗口本身已经铺满显示器，这里只切应用内布局
-      /// （见 enterDesktopFullScreen）
+      /// 全屏：窗口此时也全屏（「窗口全屏」设置开着的话本来就是全屏），
+      /// 这里只切应用内布局（见 enterDesktopFullScreen）
       BottomControlType.fullscreen => ComBtn(
         width: widgetWidth,
         height: 30,
@@ -2076,6 +2068,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       showControls: plPlayerController.showControls,
       onOk: _onSurfaceOk,
       onWakeControls: _onSurfaceWakeControls,
+      onSeekStep: _onSurfaceSeekStep,
       child: child,
     );
     if (PlatformUtils.isDesktop) {
@@ -2112,7 +2105,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     plPlayerController.onDoubleTapCenter();
   }
 
-  /// 全屏下画面上的方向键：亮起上下栏，并把焦点送到播放/暂停按钮。
+  /// 全屏下画面上的 ↑ / ↓：亮起上下栏，并把焦点送到播放/暂停按钮。
   ///
   /// 顺序不能反：控制条外面是 `ExcludeFocus(excluding: !showControls)`，
   /// 这一帧里播放/暂停按钮还不可聚焦，得等这帧跑完再送焦点。
@@ -2122,6 +2115,21 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (!mounted) return;
       TvRegions.focusAnchor(TvLabels.playerPlayPause);
     });
+  }
+
+  /// 全屏下画面上的 ← / →：直接调进度，不唤上下栏（见 `TvPlayerSurface`）。
+  ///
+  /// 步长跟桌面键位表里 ←/→ 用同一个量（`fastForBackwardDuration`，设置里
+  /// 那个"快退/快进时长"）：短按就是跳一步，按住（键盘的重复事件）就一直跳。
+  /// 直播没有进度，忽略；播放器还没起来也不能调。
+  void _onSurfaceSeekStep(bool isForward) {
+    final ctr = plPlayerController;
+    if (ctr.isLive || ctr.videoPlayerController == null) return;
+    if (isForward) {
+      ctr.onForward(ctr.fastForBackwardDuration);
+    } else {
+      ctr.onBackward(ctr.fastForBackwardDuration);
+    }
   }
 
   Widget get _videoWidget {

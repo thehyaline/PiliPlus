@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/back_detector.dart';
 import 'package:PiliPlus/common/widgets/custom_toast.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_focus_overlay.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_mouse_cursor.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_route_focus.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_shortcuts.dart';
 import 'package:PiliPlus/common/widgets/hover_reset.dart';
@@ -216,8 +217,6 @@ void main() async {
     ImeController.init();
 
     await windowManager.ensureInitialized();
-    // 兜底恢复任务栏：上次全屏期间异常退出（崩溃/强杀）可能残留隐藏状态。
-    restoreAllTaskbars();
 
     const windowOptions = WindowOptions(
       minimumSize: Size(400, 720),
@@ -228,8 +227,9 @@ void main() async {
       final bounds = await calcWindowBounds(Pref.windowSize);
       await windowManager.setBounds(bounds);
       if (Pref.windowFullScreen) {
-        // 窗口全屏：铺满所在显示器、隐藏任务栏（见 fullscreen.dart）。
-        // 播放器的全屏按钮在这种情况下只切应用内布局，不再动窗口。
+        // 窗口全屏：整屏全屏、无边框，一律走 window_manager 的
+        // setFullScreen（见 fullscreen.dart）。播放器的全屏按钮在这种情况下
+        // 只切应用内布局，不再动窗口。
         await enterWindowFullScreen();
       } else {
         // 窗口化（默认）：窗口创建即带系统标题栏，这里只是确保位状态。
@@ -396,6 +396,12 @@ class MyApp extends StatelessWidget {
         // IconButton……）焦点停上去时在这里补框。放在 Stack 最后是为了盖住
         // `FlutterSmartDialog` 注入的弹层（它在外层，见 `FlutterSmartDialog.init`）
         const Positioned.fill(child: TvFocusOverlay()),
+        // 应用级的鼠标自动隐藏：手柄/遥控器模式下，指针闲着就把光标藏起来。
+        // **必须排在最后一项**（= 命中路径最靠前）：光标归谁由 `MouseTracker`
+        // 按命中顺序取"第一个非 defer 的"，挂在里面才压得住控件自带的光标，
+        // 挂外层（`MaterialApp` 外面）反而只能排在控件后面。
+        // 它不吃事件，底下的控件照常收得到点击（见 `TvMouseCursor`）
+        const Positioned.fill(child: TvMouseCursor()),
       ],
     );
   }

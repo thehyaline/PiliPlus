@@ -219,9 +219,6 @@ class _MainAppState extends PopScopeState<MainApp>
     await GStorage.close();
     await trayManager.destroy();
     if (Platform.isWindows) {
-      // 全屏状态下直接关闭窗口时退出流程不走 exitDesktopFullScreen，
-      // 先恢复任务栏再结束进程。
-      restoreAllTaskbars();
       // flutter_inappwebview
       // 6.2.0-beta.2+ https://github.com/pichillilorenzo/flutter_inappwebview/issues/2482
       // 6.1.5 https://github.com/pichillilorenzo/flutter_inappwebview/issues/2512#issuecomment-3031039587
@@ -243,11 +240,6 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   void _onHideWindow() {
-    if (Pref.windowFullScreen) {
-      // 窗口全屏期间任务栏是隐藏的，窗口不可见时不该继续占着它；
-      // 重新显示时由 _onShowWindow 再隐藏回去。
-      restoreAllTaskbars();
-    }
     if (_mainController.pauseOnMinimize) {
       if (PlPlayerController.instance case final player?) {
         if (_mainController.isPlaying = player.playerStatus.isPlaying) {
@@ -261,6 +253,8 @@ class _MainAppState extends PopScopeState<MainApp>
 
   void _onShowWindow() {
     if (Pref.windowFullScreen) {
+      // 重新显示时按设置再应用一次（重复调用是空操作）：窗口不可见期间
+      // 样式可能被别的路径改回普通窗口，例如播放器全屏的退出流程。
       unawaited(enterWindowFullScreen());
     }
     if (_mainController.pauseOnMinimize && _mainController.isPlaying) {

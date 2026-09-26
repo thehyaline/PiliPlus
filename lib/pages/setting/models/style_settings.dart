@@ -57,8 +57,8 @@ List<SettingsGroup> get styleSettings => [
         SwitchModel(
           title: '窗口全屏',
           subtitle:
-              '开启时窗口铺满所在显示器（无边框、隐藏任务栏），立即生效；'
-              '关闭时是带系统标题栏的普通窗口，F11 可随时切换',
+              '开启时窗口整屏全屏（无边框；全屏期间任务栏由系统自己隐藏，鼠标移到屏幕下沿会滑出来，'
+              '退出全屏即恢复），立即生效；关闭时是带系统标题栏的普通窗口，F11 可随时切换',
           leading: const Icon(Icons.fullscreen),
           setKey: SettingBoxKey.windowFullScreen,
           defaultVal: false,

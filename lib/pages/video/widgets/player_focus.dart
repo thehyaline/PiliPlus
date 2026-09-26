@@ -169,7 +169,7 @@ class _PlayerFocusState extends State<PlayerFocus> {
       return false;
     }
     if (TvKeys.isFirstPress(event)) {
-      _ctr.controls = false;
+      _ctr.hideControlsNow();
       // 走锚点而不是 `_node`：手柄播放器模型下画面那一层自己持有节点
       TvRegions.focusAnchor(TvLabels.playerSurface);
     }

@@ -1023,8 +1023,9 @@ abstract final class Pref {
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);
 
-  /// 窗口全屏：开启时窗口铺满所在显示器（无边框、隐藏任务栏），播放器的
-  /// 全屏按钮因此只切应用内布局；默认关闭，就是带系统标题栏的普通窗口。
+  /// 窗口全屏：开启时窗口铺满所在显示器的整块屏幕、无边框（任务栏的隐藏与
+  /// 恢复由系统在全屏期间自己处理，同浏览器全屏，见 fullscreen.dart），播放器
+  /// 的全屏按钮因此只切应用内布局；默认关闭，就是带系统标题栏的普通窗口。
   static bool get windowFullScreen =>
       _setting.get(SettingBoxKey.windowFullScreen, defaultValue: false);
 

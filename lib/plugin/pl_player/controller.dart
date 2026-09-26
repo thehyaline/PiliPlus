@@ -1128,6 +1128,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (_playerCount == 0) return;
     // 播放时自动隐藏控制条
     controls = !hideControls;
+    // 起播了 = 切分P/分集那一段跑完了：把控制条放开并重新计时
+    // （按住期间上面那一次 `controls = false` 被 setter 挡了下来，
+    // 见 [holdControls]）。放在这儿是因为这一行就是"新那一集真的开始放了"
+    // 的落点：`setDataSource` → `_initializePlayer` → `play()`。
+    releaseControlsHold();
     // repeat为true，将从头播放
     if (repeat) {
       // await seekTo(Duration.zero);
@@ -1177,6 +1182,73 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (showControls.value) {
       hideTaskControls();
     }
+  }
+
+  /// 控制条被"按住"了多久（见 [holdControls]）。0 = 没按住。
+  Timer? _hold;
+
+  /// 控制条现在是按住的（自动隐藏和 `controls = false` 都不生效）。
+  bool get controlsHeld => _hold != null;
+
+  /// 按住控制条：这段时间里它**不会**被收起来。
+  ///
+  /// 两处需要它，共同点是"人正在控制条上操作，而播放器自己要去动一次
+  /// `controls`"：
+  ///
+  /// - **从控制条上切分P/分集**（上一集/下一集、选集）：切换要重新拉流起播，
+  ///   `play()` 里那句"播放时自动隐藏控制条"会把用户正在按的那条 OSD 收掉——
+  ///   焦点跟着掉回画面，连按几下跳着看就成了每次都要重新唤栏、重新找按钮。
+  ///   所以切之前按住，起播（[play]）时再放开并重新计时；
+  /// - **从控制条上打开单选菜单**（画质/倍速……）：菜单压着的时候自动隐藏到点
+  ///   照样会把 OSD 收掉，菜单关掉时框架把焦点还给按钮，那按钮却已经不在焦点
+  ///   树里了（`PlayerTvOsd` 的 `ExcludeFocus`）——"关掉菜单焦点就没了"。
+  ///
+  /// 只在控制条**正亮着**的时候按住才有意义（按手柄媒体键切集时 OSD 多半收着，
+  /// 那一下不该凭空把它点出来）：收着的时候按住只是记个状态，[releaseControlsHold]
+  /// 发现没亮就什么都不做。
+  ///
+  /// 手柄模式之外不按住：这两处都是"焦点会掉"引起的，触摸/鼠标下没有这个问题，
+  /// 行为保持原样（准则 6「默认零侵入」，和 [isPlayerTvMode] 同一条线）。
+  ///
+  /// 有一道 [_holdMaxDuration] 的兜底：切换失败、播放器起不来、或者菜单路由
+  /// 因为别的原因没走回调，到点一定会放开——不然自动隐藏就永远失灵了。
+  void holdControls() {
+    if (!isPlayerTvMode()) return;
+    _hold?.cancel();
+    _timer?.cancel();
+    _timer = null;
+    _hold = Timer(_holdMaxDuration, releaseControlsHold);
+  }
+
+  /// 放开控制条：重新开始自动隐藏计时（收着的时候什么也不做，不会把 OSD 点亮）。
+  void releaseControlsHold() {
+    if (_hold == null) return;
+    _hold!.cancel();
+    _hold = null;
+    if (showControls.value) {
+      hideTaskControls();
+    }
+  }
+
+  /// [holdControls] 的兜底时长。
+  ///
+  /// 够长：拉一个分P的流、等播放器起来，慢网络下几秒是要的；也够短：
+  /// 万一那一路没走完（拉流失败、切到别的页去了），控制条最多多亮这么久。
+  static const _holdMaxDuration = Duration(seconds: 12);
+
+  /// 用户明确要收栏（B / Esc 那一路，见 `hideControlsOnBack`）：立刻收，
+  /// **并且**把按住放开。
+  ///
+  /// [holdControls] 拦的是"播放器自己顺手收一下"（切分P的重新起播、菜单压着
+  /// 的时候），不是用户的意志——按住期间按 B 收栏就该收。不然拉流慢的那几秒里
+  /// 用户按 B 是"按了没反应"，比"OSD 自己收了"难受得多。人都要收栏了，
+  /// 按住也就没有意义了。
+  void hideControlsNow() {
+    _hold?.cancel();
+    _hold = null;
+    _timer?.cancel();
+    _timer = null;
+    showControls.value = false;
   }
 
   void onSeekStart(int seekFrom) {
@@ -1254,6 +1326,15 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   set controls(bool visible) {
+    // 按住期间不许收（见 [holdControls]）：切分P的重新起播、菜单压着的时候
+    // 都会有人来写一次 `false`，那一下会把用户正在操作的 OSD 收掉。
+    // 计时也一并停掉：放开的时候 [releaseControlsHold] 会重新计时，
+    // 留着它空转只会在按住期间白跑一趟定时器。
+    if (!visible && controlsHeld) {
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
     showControls.value = visible;
     _timer?.cancel();
     if (visible) {
@@ -1788,7 +1869,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (controlsLock.value || !showControls.value) {
       return false;
     }
-    controls = false;
+    hideControlsNow();
     return true;
   }
 

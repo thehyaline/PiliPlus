@@ -128,6 +128,10 @@ class LocalIntroController extends CommonIntroController {
     BiliDownloadEntryInfo? entry,
   }) {
     entry ??= list[index];
+    // 从控制条上切集（离线缓存也走这条路）：重新起播那一下会把 OSD 收掉、
+    // 焦点掉回画面，连按选下一集就成了每一下都要重新唤栏。先把控制条按住，
+    // 新那一集起播（`PlPlayerController.play`）时自动放开。见 [holdControls]。
+    videoDetailCtr.plPlayerController.holdControls();
     videoDetailCtr
       ..onReset()
       ..cover.value = entry.cover

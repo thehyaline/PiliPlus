@@ -628,10 +628,15 @@ if (Pref.tvFocus) { ... }
 不建 scope，`TvShortcuts` 整层消失），触摸用户感知不到差异。
 
 播放器同样没有子开关：**「手柄播放器模型」也挂在 `Pref.tvFocus` 下**
-（判定 `isPlayerTvMode()`），里面同时包含"非全屏整块画面是一个焦点"
-和"全屏下方向键唤栏 / 确定键播放暂停"这两条，**视频页和直播页一样**。
+（判定 `isPlayerTvMode()`），里面同时包含"非全屏整块画面是一个焦点"、
+"全屏收栏时 ↑/↓ 唤栏、←/→ 调进度 / 确定键播放暂停"，
+以及"切分P / 弹菜单期间控制条不收"这几条，**视频页和直播页一样**。
 遥控器用户觉得键盘被一起改了（框架区分不出遥控器方向键和键盘方向键），
 要老键位就整个关掉「手柄/遥控器模式」。
+
+应用级的鼠标自动隐藏（`TvMouseCursor`）同样没有子开关：关掉时那一层连
+`Listener` / `MouseRegion` 都不建，命中路径和改动前一模一样（见
+「应用级：指针闲着就藏」）。
 
 ### 两态下方向键的分工（视频页 / 直播页尤其要看）
 
@@ -723,8 +728,17 @@ SizedBox(
 | `buildTabBarRoot(child)` | `build` 的 `return` 上 | 整条标签栏包一层 `TvRegion` |
 
 补丁由 `lib/scripts/patch.ps1` 在 `build_windows.bat` / `build_android.bat` 和 CI
-里自动套用（先用 `git apply -R --check` 自检，对不上就删掉包重下再套），
-所以**改完照常构建**即可，不需要手工动 pub 缓存。
+里自动套用，所以**改完照常构建**即可，不需要手工动 pub 缓存。
+
+套用规则是**逐条自检、只补缺的那几条**（`git apply -R --check` 能过就说明这条已经
+打上了），和同一个脚本里给 Flutter SDK 打补丁的那一段完全一致。别退回成"要么全打
+过、要么整包重下再全部重打"：pub 缓存是**跨项目共享**的（`cupertino_ui` 就同时躺着
+1.0.2 和 1.1.1，而本项目用的是 1.0.2），挑错版本就会去重下一个本项目用不上的包体，
+第二轮再对着**已经打好**的那份"全部重打"，第一条补丁
+（`material_ui` 的 `lib/src/popup_menu.dart:1023`）当场 `patch does not apply`，
+把构建打断，而报错看着像是补丁本身坏了。所以取包目录认的是
+`.dart_tool/package_config.json`（pub 自己写的解析结果），不是"名字最大的那个"；
+只有某条补丁既没打上、又确实打不动（包体被换过或手工改过）时，才重下 pristine 包体。
 
 ### L1/R1 的两级查找
 
@@ -1142,7 +1156,7 @@ return SelectionArea(focusNode: node, ...);
 | 确定 | 交给焦点系统（画面层 = 进全屏 / 播放暂停） | 播放/暂停等原有动作 |
 | 预选框 | 正常出现 | **不出现**（整页压制成 `alwaysTouch`，见准则 4） |
 
-开关**关**时，全屏第一下方向键"唤醒控制条并吃掉"那条也要一起让位
+开关**关**时，全屏第一下 ↑/↓"唤醒控制条并吃掉"那条也要一起让位
 （写在 `Pref.tvFocus` 之下），OSD / `TvSeekBar` 不参与焦点与按键，
 否则内部 `Slider` 之类会先把 ←→ 吃掉，方向键就走不到音量/进度那条路。
 
@@ -1182,8 +1196,8 @@ return SelectionArea(focusNode: node, ...);
 整页节点挡不住它。同时 `registerAnchor(..., lastResort: true)` 让
 `entryNodeFor` / `focusRouteEntry()` 不再拿整页节点当入口（见准则 3 最后那道闸）。
 
-全屏时 `TvPlayerSurface` 的"第一下方向键唤醒控制条"保留：唤醒后 OSD 可聚焦，
-再按一下方向键自然进 OSD。
+全屏时 `TvPlayerSurface` 的"第一下 ↑/↓ 唤醒控制条"保留：唤醒后 OSD 可聚焦，
+再按一下方向键自然进 OSD（←/→ 不唤栏，它们直接调进度，见「手柄播放器模型」）。
 
 ### 三层结构
 
@@ -1247,6 +1261,44 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 计时器本身还是 `hideTaskControls`（超时时长不变：`Pref.enableLongShowControl`
 才是 30s，否则 3s），`isSeeking` / `tripling` 期间照旧不收起。
 
+### 控制条按住：切分P / 弹菜单期间不收（`holdControls`）
+
+上一节那条"到点就收"有两处会误伤：**人正在控制条上操作，而播放器自己要去动一次
+`controls`**。两处都得先按住：
+
+- **从控制条上切分P / 分集**（上一集 / 下一集 / 选集）：切换要重新拉流起播，
+  `play()` 里那句"播放时自动隐藏控制条"会把用户正在按的那条 OSD 收掉——焦点跟着
+  掉回画面，连按几下跳着看就成了"每次都要重新唤栏、重新找按钮"，快速跳着看根本
+  做不到。切之前 `holdControls()`，起播放开（`play()` 里 `releaseControlsHold()`）；
+  拉流失败那一路（分集 / 分P 的 `catch`）也放开。`play()` 是"新那一集真的开始放了"
+  的落点：`setDataSource` → `_initializePlayer` → `play()`。
+- **从控制条上打开单选菜单**（画质 / 倍速 / 超分辨率 / 翻译 / 字幕）：菜单压着的
+  时候自动隐藏到点照样会把 OSD 收掉，菜单关掉时框架把焦点还给那颗按钮，它却已经
+  不在焦点树里了（`PlayerTvOsd` 的 `ExcludeFocus`）——"关掉菜单焦点就没了"。
+  `tvOsdSelectMenu` 挂在 `onOpened` / `onCanceled` / `onSelected` 三处。
+
+规则：
+
+- 按住期间 `set controls(false)` **被挡下来**（切分P的重新起播、菜单压着的时候都会
+  有人来写一次 `false`），自动隐藏计时也一并停掉——放开时重新计时；
+- **收着的时候按住没有意义**（多半是手柄媒体键切集，那一下不该凭空把 OSD 点出来）：
+  只是记个状态，`releaseControlsHold` 发现没亮就什么都不做；
+- 有一道 `_holdMaxDuration`（12 秒）的兜底：拉流失败、播放器起不来、菜单路由因为
+  别的原因没走回调……这些情况下到点一定放开，不然自动隐藏就永远失灵了。
+  够长（慢网络下拉一个分P的流是要几秒的）也够短；
+- **用户明确要收栏时按住不作数**（`hideControlsNow`，B / Esc / 安卓返回键那一路）：
+  按住拦的是"播放器自己顺手收一下"，不是用户的意志。不然拉流慢的那几秒里按 B 是
+  "按了没反应"，比"OSD 自己收了"难受得多；
+- 整套只在手柄 / 遥控器模式下生效（`isPlayerTvMode`）：这两处都是"焦点会掉"引起的，
+  触摸 / 鼠标下没有这个问题，行为保持原样（准则 6「默认零侵入」）。
+
+**连点还带出一处请求合并**（`VideoDetailController.queryVideoUrl`）：原来一次切换
+没跑完时，后面那几下"下一集"会被 `isQuerying` 直接丢掉——快速跳着看时最后停在哪
+一集就不确定了。现在改成"排队 + 起播前再判一次"：`isQuerying` 期间的请求记一笔，
+`finally` 里补跑一次；`_queryVideoUrl` 在拿到结果之后、真正换流起播之前再看一眼，
+期间又排了队就立刻返回——**过期的那一路结果绝不落到播放器上**（不然会把已经跳走的
+那一集又拉回来）。
+
 ### 鼠标光标跟着控制条收放（`PlPlayerController.playerCursor`）
 
 | 状态 | 光标 |
@@ -1260,12 +1312,53 @@ TvPlayerSurface      （只在手柄播放器模型下装：非全屏时画面 =
 
 **不要求全屏**（老写法是 `!showControls && isFullScreen` 才藏）：窗口里那块视频
 同样得"看片时不挡着"。窗口模式里指针会离开视频区域去做别的事，那一下 `onExit`
-把控制条收掉、光标也交回页面管（`defer`），不会出现"整个页面没有光标"。
+把控制条收掉、光标也交回页面管（`defer`）——**注意这时候是"应用那一层"说了算**
+（下一条），页面闲置到点还是会收光标。
 视频页和直播页共用 `PLVideoPlayer` 这一层，所以两页一起生效。
 
 换光标为什么立刻可见：`RenderMouseRegion.cursor` 的 setter 会 `markNeedsPaint`，
 `MouseTracker` 因此重算一次，**不用等下一次指针移动**——不然就是"晃了却还看不见
 光标"。
+
+### 应用级：指针闲着就藏（`TvMouseCursor`）
+
+上面那套只管画面那一块。10-foot 场景里鼠标是"用一下就不管了"的东西，停在首页、
+简介、设置页、弹层上一样碍事，所以同一件事在**整个应用**上再做一遍：`TvMouseCursor`
+挂在 `main.dart` 的 `_builder` 里、那个 `Stack` 的**最后一项**（`Navigator` 和
+焦点环兜底层之上）。
+
+| 状态 | 光标 |
+| --- | --- |
+| 指针闲置超过 [`TvMouseCursor.idle`] | `SystemMouseCursors.none` |
+| 有任何指针动作（移动 / 拖动 / 滚轮 / 按下） | `MouseCursor.defer`（让给底下：播放器画面那一层、各处 `click` / `text` 全照旧） |
+| 指针按着（拖动中） | **不藏**（对齐播放器"拖进度条时不收控制条"的 `isSeeking`），松手重新计时 |
+
+**为什么必须挂最上面、而不是最外面**：光标归谁由 `MouseTracker` 定——
+`MouseCursorManager.handleDeviceCursorUpdate` 拿命中路径上各 `MouseRegion` 的光标
+当候选，`_DeferringMouseCursor.firstNonDeferred` **取第一个非 `defer` 的**，
+而候选是按命中顺序**从最前面往后**排的。挂在 `MaterialApp` 外面反而是最外层，
+任何一颗 `InkWell` 自带的 `click` 都排在它前面，`none` 一口都顶不掉；
+只有"比控件更靠前"的那一层说 `none` 才算数。
+
+**不吃事件**：`MouseRegion(opaque: false)` + `HitTestBehavior.translucent`——
+两样都是"进命中路径、但 `hitTest` 返回 false"：悬停事件正是从这条路来的
+（`RenderMouseRegion.handleEvent` 收 `PointerHoverEvent`），而底下的控件照常收得到
+点击 / 拖动 / 滚轮。`test/tv_focus_test.dart` 的「应用级鼠标自动隐藏」那一组钉着
+前三件事：闲置到点真的是 `none`（按钮自带的 `click` 顶不掉）、藏与不藏两种状态下
+点击都到得了按钮、按着不动不藏。
+
+两个刻意的选择：
+
+- **闲置时长和控制条共用一套**（`Pref.enableLongShowControl`：3s / 30s）。这一层在
+  最上面，它说藏，播放器想要的 `defer` 也留不住光标，两边各定各的就会变成
+  "控制条还亮着、光标先没了"。
+- **按键不算"指针动作"**。手柄/遥控器按一下不把光标唤回来——那正是 10-foot 用户
+  不想要的东西（按着方向键找片，鼠标箭头跟着闪）。光标只有指针自己动才回来。
+  同理，手指（`PointerDeviceKind.touch`）也不参与：光标只跟着鼠标 / 触控板走，
+  触摸屏上既没有光标可藏，滑动列表也不必每一次 move 都重新计时。
+
+总开关关掉时这一层原样返回 `SizedBox.shrink()`：`Listener` / `MouseRegion` 一个都
+不建，命中路径和改动前完全一样。
 
 ### 键位表（手柄模式关着时：桌面键盘）
 
@@ -1376,7 +1469,8 @@ entry（`popDisposition` 那时返回 `pop`），都在 `onPopInvokedWithResult`
 | 场景 | 键 | 行为 |
 | --- | --- | --- |
 | 上下栏收着 | 确定 | **播放 / 暂停**（对齐 BBLL） |
-| 上下栏收着 | ←/→/↑/↓ | 唤起上下栏 + 焦点送到**播放/暂停按钮**（焦点不自己移动） |
+| 上下栏收着 | ↑ / ↓ | 唤起上下栏 + 焦点送到**播放/暂停按钮**（焦点不自己移动） |
+| 上下栏收着 | ← / → | **直接调进度**一步（`fastForBackwardDuration`，和桌面键位表同一个量；长按连跳），不唤栏、不挪焦点 |
 | 上下栏亮着 | 方向键 | 正常控件间导航，**预选框是圆 / 胶囊**（图形按钮内切圆，文字按钮胶囊，见「OSD 下栏的文字按钮」） |
 | 焦点进下栏 | — | 强制落在**播放/暂停按钮**（进栏锁） |
 | 焦点进上栏 | — | 强制落在**返回按钮**（进栏锁） |
@@ -1409,8 +1503,14 @@ entry（`popDisposition` 那时返回 `pop`），都在 `onPopInvokedWithResult`
   用户自己收了栏、退了全屏，或者这一页已经被面板/菜单盖住，就立刻收手。
   窗口全屏（`Pref.windowFullScreen` / 桌面全屏）走的是同一个 `isFullScreen`，
   这条规则对两种全屏一视同仁。
-- **方向键唤栏只认"第一次按下"**（`TvKeys.isFirstPress`）：长按的重复事件只吞掉，
-  不然每帧都要重新送一遍焦点。
+- **上下和左右分家**（`TvPlayerSurface._onKeyEvent`）：上下栏收着的时候 ↑/↓ 是"把栏叫出来"，
+  ←/→ 是"往前/往后跳一步"——看片的时候想跳一点是常事，为了跳一下先点出整条栏、还得
+  再按一次收回去，比不跳还烦。步长和桌面键位表的 ←/→ 用同一个量
+  （`PlPlayerController.fastForBackwardDuration`），预览条和快捷键也走同一条路
+  （`onForward` / `onBackward`）。直播页没有进度，那边自己忽略掉。
+- **唤栏只认"第一次按下"，调进度连重复一起认**（`TvKeys.isFirstPress` / `isPressOrRepeat`）：
+  长按 ↑/↓ 的重复事件只吞掉，不然每帧都要重新送一遍焦点；长按 ←/→ 每次重复都算一步，
+  按住就是一直跳（手柄一般不发重复事件，键盘在 tv 模式下按住才有这一条）。
 - **返回键那一步不在这一层**（`PlayerFocus` / `TvPlayerSurface`）：全屏里 OSD 亮着
   时它要先收 OSD，而 Esc 和安卓返回键都到不了焦点树，所以规则写在三条路的共同
   落点 `PlPlayerController.onPopInvokedWithResult` 里（见「返回键：全屏里亮着 OSD
@@ -1555,10 +1655,73 @@ FocusRing(
 ⚠️ **定高那一步不属于手柄**：`tvFocus` 关掉时环不套，但 `SizedBox(height: 30)` 留着
 ——它是"文字按钮和图标按钮一样高"的容器对齐，不是手柄专属的视觉。
 
-⚠️ **已知缺口（未修）**：这几颗 `PopupMenuButton` 都带 `requestFocus: false`，
-菜单路由打开后**不接管焦点**，所以手柄/遥控器进了菜单也走不动（触摸/鼠标照旧）。
-要修得把弹出层的焦点选择器换成手柄可用的一套（`PopupMenuItem` 目前也只在兜底环
-的覆盖范围里），牵涉到 OSD 的自动隐藏计时，留给后续。
+### OSD 单选菜单：`tvOsdSelectMenu` + `TvOsdMenuItem`（统一样式 + 手柄可用）
+
+（`lib/plugin/pl_player/widgets/tv_osd_menu.dart`）
+
+视频页和直播页那几颗**单选菜单**——倍速 / 画质 / 字幕 / 超分辨率 / 翻译 / 直播画质
+——长的都是这一套，外面照旧套 `TvOsdPopupButton`：
+
+```dart
+TvOsdPopupButton.capsule(
+  debugLabel: '倍速',
+  child: tvOsdSelectMenu<double>(
+    tooltip: '倍速',
+    controller: plPlayerController,        // 只为"菜单压着的时候 OSD 不收"
+    itemBuilder: (context) => [
+      for (final speed in plPlayerController.speedList)
+        TvOsdMenuItem<double>(
+          value: speed,
+          selected: speed == plPlayerController.playbackSpeed,
+          onTap: () => plPlayerController.setPlaybackSpeed(speed),
+          child: Text('${speed}X'),
+        ),
+    ],
+    child: ...,                            // 那颗按钮长什么样，和以前一样
+  ),
+)
+```
+
+**为什么要自己画行**（不用 `PopupMenuItem`）：播放器里原来两处对不上——
+
+1. **当前值那道底纹是直角的**：框架 `_PopupMenuState` 把 `initialValue` 命中的那一项
+   包一层 `ColoredBox(Theme.highlightColor)`；而手柄停在某一项上画的是
+   `TvFocusSpec.radius`（12）的圆角预选框——一张菜单里两种形状，一眼就看得出没做完；
+2. **容器的圆角比行的小**：主题默认 4，比行上那个 12 小一圈，看着像"框比容器圆"。
+
+现在行自带圆角 12 的底纹（`TvOsdMenuSpec.itemRadius == TvFocusSpec.radius`，
+和预选框同一个形状、同一个半径），容器圆角取 18 = 12 + 行外边距 6，两圈**同心**
+（`TvOsdMenuSpec` 里这几个数有牵连，要么一起改要么别动）。底色定成半透明黑
+（`menuColor`）+ 低不透明度白底纹（`itemColor`），压在视频上还看得见画面。
+
+`initialValue` 一律传 `null`：它原来干的两件事（给当前值刷底纹、滚到那一项）都自己
+做了——底纹由 `TvOsdMenuItem.selected` 画，滚动由那一项在帧末
+`Scrollable.ensureVisible(keepVisibleAtEnd)`（`autofocus` 只把**焦点**送过去、自己
+不管滚动，方向键那条路会滚是因为遍历策略顺手调了同一个 API）。菜单的位置不受影响：
+`_PopupMenuRouteLayout` 的 y 一直是 `position.top`，和这个参数没关系。
+
+**手柄 / 遥控器**：`requestFocus: Pref.tvFocus`。菜单是独立路由，路由自己不要焦点的话
+手柄按进去什么都不会发生（老代码写的 `false`，就是这个坑）。给 true 之后：
+
+- **当前值那一项带 `autofocus`**，打开菜单预选框就停在当前值上（直播页那颗画质菜单
+  原来靠 `TvRouteFocusObserver` 的"这一层第一个可聚焦项"，打开的永远是**第一项**，
+  当前值在下面几行时还得自己找——十几项的画质菜单就是这个场景）；
+- 行自带预选框（`FocusRing`），半径 / 描边和兜底环一致，所以"选中的那项"和
+  "手柄停的那项"是同一套形状；`scale` 留 1.0（一行文字放大 1.04 倍只是让字糊一点，
+  而且 `FocusRing` 的缩放收在控件自己的矩形里，顶出去的部分被 12 的圆角裁掉，
+  看着就是"字动了、框没动"）；
+- 选不了的那些（画质里"这一集没有这个清晰度"）`canRequestFocus: false`，不占落点
+  ——和 `PopupMenuItem(enabled: false)` 一致；
+- 菜单关掉时框架把焦点还给它自己记着的那颗按钮（配合上面那条"按住"，那按钮还在
+  焦点树里）。
+
+关掉「手柄/遥控器模式」时这套焦点行为整条不生效（`requestFocus: false`、不按住、
+环也不画，`FocusRing.highlightEnabled`），**只剩外观那一部分是新的**——外观本来就
+是这次要改的东西，不分模式。
+
+直播页**上栏**那颗"更多设置"（切换路线 / 画面比例 / 播放信息 / 音量）**不是单选
+菜单**：它没有"当前值"要标，其中一项还是两行高的，所以仍是框架的 `PopupMenuItem`
+（外面那圈 `TvOsdPopupButton.circle` 照旧）。
 
 ### 下栏两组之间按 →：几何保证，不写代码
 
@@ -2060,6 +2223,8 @@ TvMediaKeys.remove(target);
 | 让播放器里"只能点"的控件能被手柄停住 | `TvButton`（`onTap` 为空则不占焦点；要把节点交出去当锚点就传 `focusNode`） |
 | 播放器 OSD 上栏那一排圆按钮 | `TvOsdIconButton`（42×34 的格子 + 圆形环，规格同 `TvButton`；直播页上栏是 `ComBtn`，不用它） |
 | 播放器上下栏的下拉按钮（画质/倍速/字幕/翻译…） | `TvOsdPopupButton.capsule`（文字按钮：定高 30 + 胶囊）/ `.circle`（图标按钮：内切圆） |
+| 下拉按钮里的**单选菜单**（倍速 / 画质 / 字幕 / 超分辨率 / 翻译 / 直播画质） | `tvOsdSelectMenu<T>` + `TvOsdMenuItem<T>`（行自带圆角底纹 = 预选框的形状，容器同心圆角，手柄打开就停在当前值上，见「OSD 单选菜单」） |
+| 分P / 分集切换、菜单压着时**控制条不收** | `PlPlayerController.holdControls()` / `releaseControlsHold()`（用户自己按 B 收栏时走 `hideControlsNow()`） |
 | 只读的可选文本（视频简介 / 专栏 / 评论区 / 日志…） | `TvSelectionArea`（单段文字直接用 `SelectionText`）：方向键路过，不停在上面 |
 | 可聚焦的进度条（左右微调、抬起才 seek） | `TvSeekBar` + 实现 `TvSeekBarHost` |
 | 让焦点落在进度**指示器**上（手柄播放器模型） | `TvSeekBar(focusOnThumb: true)` + `ProgressBar(thumbFocusRing:)` |
@@ -2068,6 +2233,7 @@ TvMediaKeys.remove(target);
 | 播放器 OSD（控制条照超时收、焦点由它拉回画面） | `PlayerTvOsd`，按键层是 `PlayerFocus`（按键只负责重新计时：`keepControlsAlive`） |
 | 播放器返回键（全屏里先收 OSD） | `PlPlayerController.hideControlsOnBack`（挂在 `onPopInvokedWithResult` 上，三条返回路径同一个落点） |
 | 看片时藏鼠标光标 | `PlPlayerController.playerCursor`（控制条收着 → `SystemMouseCursors.none`） |
+| 指针闲着就藏光标（**整个应用**，不用自己写） | 自动：`TvMouseCursor`（挂在 `main.dart` 的 `_builder` 上，跟总开关走） |
 | 响应媒体键 | `TvMediaKeys.push` |
 | 键位判定 | `TvKeys.isOk / isBack / isMore / isPrevSection / isNextSection / isDpad / isFirstPress` |
 | 尺寸与时长常量 | `TvFocusSpec`（scale / duration / radius / borderWidth / longPressDuration / safeSpace / cacheExtent，播放器另有 playerRadius / surfaceRadius / seekStep） |
@@ -2231,6 +2397,12 @@ TvMediaKeys.remove(target);
   还会把 `Slider` 的方向键改成"左右调节"——好处我们已经有别的办法拿到，
   代价却是全局性质的，难以局部回退。需要在播放器里用的时候，
   用 `MediaQuery(navigationMode: ...)` 包住那一小块。
+- **应用级光标跟的是"指针有没有动"，不是"焦点有没有动"**：手柄用户按方向键翻
+  列表时，鼠标箭头不该跟着一起闪；反过来指针自己动了（哪怕只是"按一下没挪窝"）
+  就当场回来。代价是键盘/手柄与鼠标混用的机器上，光标会一直藏着——那正是
+  10-foot 场景要的。位置也只能是那个 `Stack` 的**最后一项**（`TvMouseCursor`）：
+  光标归谁由 `MouseTracker` 按命中顺序取"第一个非 `defer` 的"，比控件更靠前才
+  顶得掉控件自带的光标（见「应用级：指针闲着就藏」）。
 - **进页面的落点做成路由级（`TvRouteFocusObserver`）而不是逐页 `autofocus`**：
   逐页写要在几十个页面里各挑一个"首项"，而列表是懒加载的、首项未必第一帧就
   在，页面还得自己处理"数据来了重建之后谁说了算"。observer 一处管全局，
@@ -2338,13 +2510,17 @@ TvMediaKeys.remove(target);
   （控制器上现在是普通 `bool`，改了不触发重建），不值得为这一条改控制器接口。
   Android 的画中画是另一回事：activity 级、不切 `isFullScreen`、窗口本身也拿不到
   按键输入，不在这套语义的讨论范围里。
-- **全屏收栏时"方向键唤栏"而不是"方向键自己进栏"**：BBLL 是"上下栏一露出来焦点
-  就落在播放/暂停上"，我们把它拆成两步——先亮栏（焦点送到播放/暂停按钮，
-  按钮被按顺序走过，不判方向），再让用户从那里按方向键走进栏里。
-  **进全屏那一刻栏本来就亮着的话，等于第一步已经发生过了**，于是直接落在同一个
-  点上（`_enterFullScreen`），两种情况用户看到的都是"栏亮着、预选框在播放/暂停"。
-  好处是方向键的语义只有一条（唤栏），不用在画面这一层判"↑ 进下栏还是上栏"；
-  代价是亮栏那一帧焦点其实已经不在画面上了，所以画面在那一帧同步 `hideRing`。
+- **全屏收栏时"↑/↓ 唤栏"——但左右键没有跟着一起改**：唤栏这一套是"上下栏一露
+  出来焦点就落在播放/暂停上"的拆解版（BBLL 是一步，这里是"先亮栏、焦点送到
+  播放/暂停，再按方向键走进栏里"），因为"看片时跳一点"比"把预选框点出来"常用得多，
+  所以 ←/→ 留在画面上直接调进度（一步 = `fastForBackwardDuration`，和桌面键位表
+  同一个量），只有 ↑/↓ 才是唤栏。**进全屏那一刻栏本来就亮着的话，等于第一步已经
+  发生过了**，于是直接落在同一个点上（`_enterFullScreen`），两种情况用户看到的
+  都是"栏亮着、预选框在播放/暂停"。
+  好处是画面这一层不用判"↑ 进下栏还是上栏"（那是进栏锁的活）；代价是亮栏那一帧
+  焦点其实已经不在画面上了，所以画面在那一帧同步 `hideRing`。
+  另一条代价是"唤栏"和"调进度"得在两处分开判（`isFirstPress` 对上 `isPressOrRepeat`），
+  见「手柄播放器模型」那节。
 - **B 键分两处判，看焦点在不在控制条里**（`PlayerFocus`）：焦点在画面/页面里时
   这一层直接吃掉它（控制条亮着就只收控制条 + 焦点回画面，收着就放给全局层当
   "退出"）；焦点在控制条里时它**不吃**，只把自动隐藏重新计时，然后让这一下走到
@@ -2425,11 +2601,18 @@ TvMediaKeys.remove(target);
   比旁边小"。定高是**容器对齐**（它和图标按钮本来就是同一排），顺带把框也修了。
 - **OSD 的文字按钮预选框用胶囊，不用圆**：它比图标按钮宽，`BoxShape.circle` 画的是
   内切圆，会切着字走；圆角 = 高度一半的胶囊才是"文字按钮版的圆"。
-- **OSD 那几颗 `PopupMenuButton` 的"打开菜单后手柄走不动"这次不修**：它们都带
-  `requestFocus: false`（老代码写的，菜单出来不该抢走播放器的焦点），要修得把
-  弹出层的焦点选择器整套换成手柄可用的，还牵涉 OSD 的自动隐藏计时；触摸/鼠标
-  路径本来就正常，所以先记在这里。同类的洞还有 `PopupMenuItem`（目前只被兜底环
-  覆盖，进得去但视觉上只有一根描边）。
+- **OSD 那几颗单选菜单不继承框架的 `PopupMenuItem` 外观**：当前值那道底纹框架
+  画成直角（`ColoredBox(highlightColor)`）、容器圆角是主题默认的 4，比行上那个
+  12 还小——一张菜单里两种形状。所以行自己画（圆角 12 的底纹，和预选框同一个
+  形状）+ 容器同心圆角（18 = 12 + 6），`initialValue` 传 `null` 自己接管它的
+  两件事（刷底纹、滚到当前值）。代价是这几行以后要跟着框架的 `PopupMenuEntry`
+  接口走（`height` / `represents`），框架改接口这里要跟。
+  "打开菜单手柄走不动"（老代码那几颗都带 `requestFocus: false`）同一个改动里
+  一并修了：菜单接焦点、当前值那一项 `autofocus`、菜单压着的时候 OSD 按住不收
+  （见「控制条按住」）。
+- **"选不了的那一项"照旧画出来、只是不占落点**（画质里"这一集没这个清晰度"）：
+  手柄看不到遥控器那种灰字，禁用项留着才是"这个清晰度存在但这一集没有"的答案。
+  代价是手柄走位时会跳过它——跳过正是想要的（停在上面按确定也激活不了）。
 - **整窗口大小的预选框用"绘制层一票否决"兜底，而不是继续补落脚点登记**：登记
   永远按结构判断（这一圈环会不会替子树亮着），而"落脚点自己有整页那么大"是另
   一类问题，靠逐处登记永远会漏（`TvSelectionArea`、转场中的新页面……）。所以在

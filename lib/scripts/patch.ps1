@@ -19,6 +19,32 @@ function Convert-PatchToLf([string]$path) {
     }
 }
 
+# 取本项目**实际依赖**的那一份包目录（pub 缓存里的绝对路径）。
+#
+# 不能按版本号猜（`Get-ChildItem ... | Select-Object -Last 1` 只按名字排）：
+# pub 缓存是**跨项目共享**的，同一个包通常躺着好几个版本，别的项目 `pub get`
+# 装进来的新版本会在名字上"更大"，于是脚本跑去补丁一个本项目根本不用的版本，
+# 甚至把它整目录删掉——而 `flutter pub get` 不会重新下载它（不在本项目的
+# pubspec.lock 里），第二轮只好转头去动真正在用的那一份（见下方 material_ui 段）。
+# `.dart_tool/package_config.json` 是 pub 自己写的解析结果，只有它说了算。
+function Resolve-CachedPackageDir([string]$name) {
+    $config = "$env:GITHUB_WORKSPACE/.dart_tool/package_config.json"
+    if (Test-Path $config) {
+        try {
+            $packages = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).packages
+            $package = $packages | Where-Object { $_.name -eq $name } | Select-Object -First 1
+            if ($package -and $package.rootUri) {
+                $path = ([System.Uri]$package.rootUri).LocalPath.TrimEnd('\', '/')
+                if (Test-Path $path) { return Get-Item $path }
+            }
+        } catch {
+            # package_config.json 读不动就退回去按名字取最新的那个（下面的兜底）
+        }
+    }
+    return Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "$name-*" } | Select-Object -Last 1
+}
+
 # TODO: remove
 # https://github.com/flutter/flutter/issues/182281
 $NewOverScrollIndicator = "362b1de29974ffc1ed6faa826e1df870d7bec75f";
@@ -278,29 +304,69 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-$MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-    Where-Object { $_.Name -like "material_ui-*" } |
-    Select-Object -Last 1
+$MaterialUiDir = Resolve-CachedPackageDir "material_ui"
 
-# material_ui 在 pub 缓存内就地打补丁。仅当补丁缺失时才删除重下，
-# 否则每次构建都重下会失效 Flutter 增量编译缓存，导致偶发
+# material_ui 在 pub 缓存内就地打补丁。
+#
+# 逐条判断、只补缺的那几条：已经打上的（`-R --check` 能过）直接跳过，
+# 和上面 Flutter SDK 那一段（$patches 循环）同一个写法。
+#
+# 别写成"要么全打过、要么整包重下再全部重打"：只要有一条对不上（有人在缓存里
+# 手工改过、或取包目录时挑错了版本——见上面 Resolve-CachedPackageDir 的注释），
+# 就会走整包重下 + 全部重打；而重下这条路并不总是成立（重下的可能是别的版本，
+# 也可能压根重下不了），第二轮仍然对着已经打好补丁的文件"全部重打"，
+# 列表第一条（modal_barrier，补丁内容是 `lib/src/popup_menu.dart:1023`）当场
+# `patch does not apply` 把构建打断——报错看着像补丁本身坏了，其实是把打好的
+# 补丁又打了一遍。
+#
+# 就地打补丁而不是每次重下：重下会失效 Flutter 增量编译缓存，导致偶发
 # "Type not found" 类构建失败。
-$patchesApplied = $false
+$materialMissing = @()
 if ($MaterialUiDir) {
-    $patchesApplied = $true
     Push-Location $MaterialUiDir.FullName
     foreach ($patch in $patches_material) {
         git apply -R --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "$patch already applied"
+            continue
+        }
+        $materialMissing += $patch
+    }
+    Pop-Location
+} else {
+    $materialMissing = @($patches_material)
+}
+
+if ($materialMissing.Count -gt 0) {
+    Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/material" -Filter *.patch | ForEach-Object {
+        Convert-PatchToLf $_.FullName
+    }
+
+    if (-not $MaterialUiDir) {
+        flutter pub get
         if ($LASTEXITCODE -ne 0) {
-            $patchesApplied = $false
-            break
+            throw "flutter pub get 失败，请检查网络与 Flutter SDK 版本: $LASTEXITCODE"
+        }
+        $MaterialUiDir = Resolve-CachedPackageDir "material_ui"
+        if (-not $MaterialUiDir) {
+            throw "material_ui package not found in pub cache"
+        }
+    }
+
+    # 缺的补丁里，有连"打得动"都不成立的，说明包体和补丁已经对不上
+    # （版本被换过、或有人在缓存里手工改过）——只有这一种才值得重下 pristine 包体。
+    Push-Location $MaterialUiDir.FullName
+    $materialDrifted = @()
+    foreach ($patch in $materialMissing) {
+        git apply --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $materialDrifted += $patch
         }
     }
     Pop-Location
-}
 
-if (-not $patchesApplied) {
-    if ($MaterialUiDir) {
+    if ($materialDrifted.Count -gt 0) {
+        Write-Host "material_ui 包体与补丁不符（$($materialDrifted -join ', ')），重新下载包体"
         try {
             Remove-Item -Path $MaterialUiDir.FullName -Recurse -Force -ErrorAction Stop
         } catch {
@@ -309,35 +375,28 @@ if (-not $patchesApplied) {
         if (Test-Path $MaterialUiDir.FullName) {
             throw "material_ui 目录删除后仍然存在，请手动删除后重试: $($MaterialUiDir.FullName)"
         }
+
+        flutter pub get
+        if ($LASTEXITCODE -ne 0) {
+            throw "flutter pub get 失败，请检查网络与 Flutter SDK 版本: $LASTEXITCODE"
+        }
+
+        $MaterialUiDir = Resolve-CachedPackageDir "material_ui"
+        if (-not $MaterialUiDir) {
+            throw "material_ui package not found in pub cache"
+        }
     }
 
-    flutter pub get
-    if ($LASTEXITCODE -ne 0) {
-        throw "flutter pub get 失败，请检查网络与 Flutter SDK 版本: $LASTEXITCODE"
-    }
-
-    $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-        Where-Object { $_.Name -like "material_ui-*" } |
-        Select-Object -Last 1
-
-    if (-not $MaterialUiDir) {
-        throw "material_ui package not found in pub cache"
-    }
-
-    Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/material" -Filter *.patch | ForEach-Object {
-        Convert-PatchToLf $_.FullName
-    }
-
-    cd $MaterialUiDir.FullName
-
-    foreach ($patch in $patches_material) {
+    Push-Location $MaterialUiDir.FullName
+    foreach ($patch in $materialMissing) {
         git apply "$env:GITHUB_WORKSPACE/$patch"
         if ($LASTEXITCODE -eq 0) {
             Write-Host "$patch applied"
         } else {
-            throw "$LASTEXITCODE"
+            throw "${patch}: git apply 失败（退出码 $LASTEXITCODE），$($MaterialUiDir.Name) 已被打成半成品，删除该目录后重试"
         }
     }
+    Pop-Location
 } else {
     Write-Host "material_ui patches already applied"
 }
@@ -361,9 +420,9 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-$CupertinoUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-    Where-Object { $_.Name -like "cupertino_ui-*" } |
-    Select-Object -Last 1
+# 同一件事：取本项目实际依赖的那一份，别按名字取最大的
+# （缓存里 cupertino_ui 同时有 1.0.2 和 1.1.1，而本项目在用的是 1.0.2）。
+$CupertinoUiDir = Resolve-CachedPackageDir "cupertino_ui"
 
 if (-not $CupertinoUiDir) {
     throw "cupertino_ui package not found in pub cache"
@@ -375,13 +434,20 @@ Get-ChildItem -Path "$env:GITHUB_WORKSPACE/lib/scripts/cupertino" -Filter *.patc
     Convert-PatchToLf $_.FullName
 }
 
-cd $CupertinoUiDir.FullName
+Push-Location $CupertinoUiDir.FullName
 
 foreach ($patch in $patches_cupertino) {
+    git apply -R --check "$env:GITHUB_WORKSPACE/$patch" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "$patch already applied"
+        continue
+    }
     git apply "$env:GITHUB_WORKSPACE/$patch"
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$patch applied"
     } else {
-        throw "$LASTEXITCODE"
+        throw "${patch}: git apply 失败（退出码 $LASTEXITCODE）"
     }
 }
+
+Pop-Location

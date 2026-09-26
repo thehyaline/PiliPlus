@@ -258,6 +258,11 @@ class PgcIntroController extends CommonIntroController {
       this.epId = epId;
       this.bvid = bvid;
 
+      // 从控制条上切分集：下面这串要让播放器重新拉流起播，`play()` 里那句
+      // "播放时自动隐藏控制条"会把用户正在按的那条 OSD 收掉，焦点跟着掉回画面
+      // ——连按几下跳着看，就成了每一下都得重新唤栏、重新找按钮。先把控制条
+      // 按住（只有手柄模式会真按住），新那一集起播时自动放开。
+      videoDetailCtr.plPlayerController.holdControls();
       videoDetailCtr
         ..plPlayerController.pause()
         ..makeHeartBeat()
@@ -293,6 +298,8 @@ class PgcIntroController extends CommonIntroController {
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('pgc onChangeEpisode: $e');
+      // 没切成：把控制条放开，别让它一直亮着（兜底超时也行，但那太久了）
+      videoDetailCtr.plPlayerController.releaseControlsHold();
       return false;
     }
   }
