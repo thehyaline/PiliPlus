@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_nav_bar.dart';
 import 'package:PiliPlus/pages/main/widgets/tablet_nav_item.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
@@ -32,6 +33,8 @@ class TvNavDestination extends StatelessWidget {
     super.key,
     required this.debugLabel,
     required this.child,
+    this.navIndex,
+    this.selected = false,
     this.scale = TvFocusSpec.scale,
   });
 
@@ -40,6 +43,14 @@ class TvNavDestination extends StatelessWidget {
 
   /// 框架的 destination 本体。
   final Widget child;
+
+  /// 这一格在导航栏里的下标（首页 0 / 动态 1 / 我的 2 …）。
+  ///
+  /// 传了才登记到 [TvNavBar]：返回键"退到最后一级"要把焦点送到当前选中的那一格。
+  final int? navIndex;
+
+  /// 这一格现在是不是选中的那一格（[navIndex] 那套查找要按它挑落点）。
+  final bool selected;
 
   /// 聚焦时的缩放倍数，见 [FocusRing.scale]。
   ///
@@ -60,14 +71,22 @@ class TvNavDestination extends StatelessWidget {
       ).primary.withValues(alpha: TvFocusSpec.tabFillAlpha),
       // 环的挂点，不是落点：能聚焦的是里面框架那个 InkWell（见类说明）
       canRequestFocus: false,
-      builder: (context, node, _) => Focus(
-        focusNode: node,
-        canRequestFocus: false,
-        child: Theme(
-          data: Theme.of(context).copyWith(focusColor: Colors.transparent),
-          child: child,
-        ),
-      ),
+      builder: (context, node, _) {
+        // 登记给返回键最后一级（见 TvNavBar）：这一格的节点是**外壳**，
+        // 送焦点时要往下钻到框架的 `InkWell`（`TvNavBar.focusItem` 里办）
+        final navIndex = this.navIndex;
+        if (navIndex != null) {
+          TvNavBar.register(navIndex, node, selected: selected);
+        }
+        return Focus(
+          focusNode: node,
+          canRequestFocus: false,
+          child: Theme(
+            data: Theme.of(context).copyWith(focusColor: Colors.transparent),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

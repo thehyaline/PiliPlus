@@ -1428,6 +1428,9 @@ class _VerticalTabBarState extends State<VerticalTabBar>
     //   EdgeInsets.zero,
     //   growable: true,
     // );
+    // 登记到 [TvTabBars]：返回键要按"这一页的标签栏"找过来（见 `onPageOf`），
+    // 而那条查找不能要求焦点先在栏里
+    TvTabBars.register(this);
   }
 
   TabBarThemeData get _defaults {
@@ -1635,6 +1638,7 @@ class _VerticalTabBarState extends State<VerticalTabBar>
 
   @override
   void dispose() {
+    TvTabBars.unregister(this);
     _tvEntryLock.dispose();
     for (final node in _tvNodes) {
       node.dispose();
@@ -1705,7 +1709,12 @@ class _VerticalTabBarState extends State<VerticalTabBar>
   }
 
   @override
-  void focusTab(int index) => _tvNodeAt(index)?.requestFocus();
+  bool focusTab(int index) {
+    final node = _tvNodeAt(index);
+    if (node == null) return false;
+    node.requestFocus();
+    return true;
+  }
 
   @override
   bool switchBy(int offset) {
@@ -1718,6 +1727,34 @@ class _VerticalTabBarState extends State<VerticalTabBar>
       if (mounted) focusTab(target);
     });
     return true;
+  }
+
+  @override
+  int? get selectedIndex => _tvController?.index;
+
+  /// 「默认栏」：这条栏**打开时**选中的那一栏，返回键的第二档就落在这儿。
+  ///
+  /// 和 [TvTabBar] 那边同一个理由（那个 fork 的 `TabController` 没公开
+  /// `initialIndex`），也只能趁第一帧在 [buildTabBarRoot] 里自己记一笔。
+  int? _tvDefaultIndex;
+
+  @override
+  int? get defaultIndex => _tvDefaultIndex;
+
+  @override
+  int? get focusedIndex {
+    for (var i = 0; i < _tvNodes.length; i++) {
+      if (_tvNodes[i].hasFocus) return i;
+    }
+    return null;
+  }
+
+  @override
+  bool get visible {
+    for (final node in _tvNodes) {
+      if (TvRegions.isPainted(node)) return true;
+    }
+    return false;
   }
 
   FocusNode? buildTabFocusNode(int index) => _tvNodeAt(index);
@@ -1736,8 +1773,18 @@ class _VerticalTabBarState extends State<VerticalTabBar>
     );
   }
 
-  Widget buildTabBarRoot(Widget child) =>
-      TvRegion(debugLabel: widget.regionLabel, child: child);
+  Widget buildTabBarRoot(Widget child) {
+    // 第一帧记"打开时是哪一栏"（见 `_tvDefaultIndex`）
+    _tvDefaultIndex ??= _tvController?.index;
+    return TvRegion(
+      debugLabel: widget.regionLabel,
+      // 标成标签栏：这一块是**栏**不是内容区。两根影响——
+      // 进页面时的落点优先给内容区（见 `TvRegions.entryNodeFor`），
+      // 以及返回键那一档"焦点在内容区 → 回顶部标签栏"不会把栏自己算成内容区
+      kind: TvRegionKind.tabBar,
+      child: child,
+    );
+  }
 
   int get maxTabIndex => _indicatorPainter!.maxTabIndex;
 

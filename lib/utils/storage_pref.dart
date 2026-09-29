@@ -652,7 +652,15 @@ abstract final class Pref {
   static num get maxCacheSize =>
       _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
+  /// 横屏适配：启用横屏布局与逻辑（宽布局、播放页整页打开而不是弹层…）。
+  ///
+  /// 电视恒为 true，见 `DeviceUtils.isTv`。这里的默认值是**按屏幕尺寸算**的
+  /// （`DeviceUtils.isTablet`），而电视的逻辑短边只有 540dp（1080p@xhdpi 是
+  /// 960×540），首启就会被算成手机、把 false 写进存储——之后读到的永远是那个
+  /// false，再也不会纠正，于是电视上一直跑手机布局。所以电视不看存储、直接给
+  /// true；设置页里那个开关在电视上也不显示（见 `style_settings.dart`）。
   static bool get horizontalScreen {
+    if (DeviceUtils.isTv) return true;
     bool? horizontalScreen = _setting.get(SettingBoxKey.horizontalScreen);
     if (horizontalScreen == null) {
       final isTablet = DeviceUtils.isTablet;
@@ -1019,6 +1027,19 @@ abstract final class Pref {
   /// （视频 / 直播）全程不画预选框，见 `TvInputMode.pushPlayerPage`。
   static bool get tvFocus =>
       _setting.get(SettingBoxKey.tvFocus, defaultValue: true);
+
+  /// 焦点放大效果：手柄焦点落在控件上时，控件内容放大一点
+  /// （[TvFocusSpec.scale]，卡片 1.04 / 播放器按钮 1.1）。
+  ///
+  /// 默认**关**。放大只发生在控件自己的矩形里（见 `FocusRing.scale`），顶不出
+  /// 邻卡邻行，可满屏都是"弹一下"仍有人嫌晃——关掉之后焦点位置只靠预选框
+  /// （描边 + 底纹）表达，一个像素的布局都不动。
+  ///
+  /// 只管"画成什么样"，不动焦点行为，所以不需要重启，也**不挂在总开关上**
+  /// （[tvFocus] 关着的时候本来就没有预选框，这里也谈不上放大）；唯一的读者是
+  /// `FocusRing`，它把 [FocusRing.scale] 一律按 1.0 走。
+  static bool get tvFocusScale =>
+      _setting.get(SettingBoxKey.tvFocusScale, defaultValue: false);
 
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);

@@ -74,6 +74,32 @@ abstract final class TvInputMode {
 
   static bool _userActed = false;
 
+  /// 撤掉两个全局钩子、把内部状态复位，好让下一次 [init] 重新挂一遍。
+  ///
+  /// **只在测试里用。** `flutter_test` 每个用例收尾都会
+  /// `HardwareKeyboard.instance.clearState()`（框架那边写着"为了让用例互相隔离"），
+  /// 而那一下会把**所有**按键处理器连锅端掉；[init] 的幂等闸又拦着不让重挂。
+  /// 结果就是"挂一次只对紧随其后的那一个用例有效"，后面用例里的按键事件全是哑的
+  /// ——预设的输入源、`fromKeys` 的判定统统不动，测试却在别处"碰巧"通过。
+  /// 测试文件的全局 `setUp` 里 `reset()` 一遍（这套宿主默认不挂钩子），要测输入源
+  /// 本身的组再自己 `setUp(TvInputMode.init)`（见 `docs/tv_focus.md` 的
+  /// 「写测试时的几个坑」）。
+  ///
+  /// 生产上不需要：那两个钩子在 `main()` 里挂一次，是进程级的东西，没人清它。
+  @visibleForTesting
+  static void reset() {
+    // 没挂过就什么都别撤：`removeGlobalRoute` 对没登记过的路由是断言失败
+    if (_initialized) {
+      _initialized = false;
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+      HardwareKeyboard.instance.removeHandler(_onKey);
+    }
+    _applied = null;
+    _pointer = false;
+    _userActed = false;
+    _playerPages = 0;
+  }
+
   /// 在 `main()` 里挂两个全局监听。要在 `WidgetsFlutterBinding` 之后调用。
   static void init() {
     if (_initialized) return;

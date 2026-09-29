@@ -82,7 +82,7 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
     // 兜一次底：这套面板不从 `PublishRoute` 进来的时候也照样能用。
     // 重复套不冲突——两次都是"送到这一层 scope 的第一项"，目标一致；
     // `Pref.tvFocus` 关掉时 `TvFocusOnOpen` 是空操作。
-    final page = TvFocusOnOpen(child: buildPage(theme));
+    final page = TvFocusOnOpen(target: openFocusTarget, child: buildPage(theme));
     if (!enableSlide) return page;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -101,6 +101,13 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
       },
     );
   }
+
+  /// 面板打开时该落到哪一项；null = 弹层里 scope 自己的第一项（见 [TvFocusOnOpen]）。
+  ///
+  /// 覆写它给"打开就该选中**当前那一项**"的面板用（合集弹窗落在正在播放的那一台
+  /// 上）。注意这一层只负责"落在哪一项"：数据还没到、那一项还没建出来的等待
+  /// 由 `TvFocusOnOpen` 管；拿不到（手机关着 / 还没建出来）就返回 null。
+  FocusNode? get openFocusTarget => null;
 
   Widget buildPage(ThemeData theme);
 

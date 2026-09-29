@@ -56,6 +56,7 @@ class EpisodePanel extends CommonSlidePage {
     this.isSupportReverse,
     this.isReversed,
     this.onReverse,
+    this.focusCurrentOnOpen = false,
     required this.onChangeEpisode,
     this.onClose,
   }) : assert(type == EpisodeType.pgc || ugcIntroController != null);
@@ -78,6 +79,13 @@ class EpisodePanel extends CommonSlidePage {
   final Future<bool> Function(ugc.BaseEpisodeItem) onChangeEpisode;
   final VoidCallback? onReverse;
   final VoidCallback? onClose;
+
+  /// 打开时把焦点落在**正在播放的那一台上**（合集弹窗用，见 [openFocusTarget]）。
+  ///
+  /// 只有弹层形态该开：内嵌在视频页里的那两条（简介区的竖排列表、横屏侧栏）
+  /// 是跟页面一起建出来的，抢初始焦点会和页面自己的入口落点打架
+  /// （画面接手那套，见 `TvPlayerSurface`）。
+  final bool focusCurrentOnOpen;
 
   @override
   State<EpisodePanel> createState() => _EpisodePanelState();
@@ -102,6 +110,17 @@ class _EpisodePanelState extends State<EpisodePanel>
     0,
     _getCurrEpisodes.indexWhere((item) => item.cid == widget.cid),
   );
+
+  /// "正在播放的那一台"的焦点节点（[EpisodePanel.focusCurrentOnOpen] 用）。
+  ///
+  /// 列表里同时只有一项拿得到它（初始栏里下标等于 [_currentItemIndex] 的那一项），
+  /// 所以换集 / 换栏时是同一个节点挪到新的一台上，不会有两个节点抢焦点。
+  /// 手柄模式关着就不建（准则 6「默认零侵入」）。
+  FocusNode? _currentItemNode;
+
+  @override
+  FocusNode? get openFocusTarget =>
+      widget.focusCurrentOnOpen ? _currentItemNode : null;
 
   late final List<bool> _isReversed;
   late final List<ScrollController> _itemScrollController;
@@ -157,6 +176,11 @@ class _EpisodePanelState extends State<EpisodePanel>
     )..addListener(listener);
 
     _currentItemIndex = _findCurrentItemIndex;
+    // 打开时该落到"正在播放"那一台上（见 [openFocusTarget]）：节点先建好，
+    // 交给那一台的 `InkWell` 用
+    if (widget.focusCurrentOnOpen && Pref.tvFocus) {
+      _currentItemNode = FocusNode(debugLabel: 'episode-panel-current');
+    }
     _itemScrollController = List.generate(
       widget.list.length,
       (i) => ScrollController(
@@ -198,6 +222,7 @@ class _EpisodePanelState extends State<EpisodePanel>
       ..removeListener(listener)
       ..dispose();
     _favState?.close();
+    _currentItemNode?.dispose();
     for (final e in _itemScrollController) {
       e.dispose();
     }
@@ -421,6 +446,9 @@ class _EpisodePanelState extends State<EpisodePanel>
         child: Material(
           type: .transparency,
           child: InkWell(
+            // "正在播放的那一台"用面板自己的节点：打开时焦点要落在这儿
+            // （见 [openFocusTarget]），别的一项照旧由 `InkWell` 自建
+            focusNode: isCurrentIndex ? _currentItemNode : null,
             onTap: () {
               if (isCurrentIndex) return;
               if (episode.badge == "会员" &&

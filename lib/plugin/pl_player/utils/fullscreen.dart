@@ -289,11 +289,20 @@ Future<void>? _setPreferredOrientations(List<DeviceOrientation> orientations) {
   return SystemChrome.setPreferredOrientations(orientations);
 }
 
+/// 电视上唯一站得住的形态就是横屏（见 `DeviceUtils.isTv`）：电视屏是横的，也没有
+/// 重力传感器，任何"换成竖屏"的请求都会被系统兑现成**一个竖屏窗口**——把它摆在
+/// 横屏面板正中，左右各留一条黑边。所以电视上把这些请求统一收敛成横屏，调用方
+/// （播放器跟着视频方向转屏、退出全屏时复位、设置页预览离开时还原）不必各自判平台。
+///
+/// 连"不锁方向"（[fullMode]，FULL_SENSOR）也一并收敛：碰到框架自认竖屏的电视
+/// 盒子，系统会顺着它选回竖屏，等于没修。
 Future<void>? portraitUpMode() {
+  if (DeviceUtils.isTv) return landscapeLeftMode();
   return _setPreferredOrientations(const [.portraitUp]);
 }
 
 Future<void>? portraitDownMode() {
+  if (DeviceUtils.isTv) return landscapeLeftMode();
   return _setPreferredOrientations(const [.portraitDown]);
 }
 
@@ -306,6 +315,7 @@ Future<void>? landscapeRightMode() {
 }
 
 Future<void>? fullMode() {
+  if (DeviceUtils.isTv) return landscapeLeftMode();
   return _setPreferredOrientations(
     const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
   );

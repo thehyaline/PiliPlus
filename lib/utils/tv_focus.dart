@@ -1,7 +1,8 @@
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/rendering.dart' show Rect, ScrollCacheExtent, Size;
-import 'package:material_ui/material_ui.dart' show BorderRadius, Radius;
+import 'package:material_ui/material_ui.dart'
+    show BuildContext, BorderRadius, MediaQuery, Radius, View;
 
 /// 10-foot 焦点相关的共享常量与判定。
 ///
@@ -101,13 +102,60 @@ abstract final class TvFocusSpec {
   /// 能盖满整个视图，`TvNavDestination` / `TvTextField` 那种"外壳画环"的
   /// 祖先仍然照旧替子树挡着兜底环。
   ///
-  /// 视口尺寸给 `View` 的物理尺寸（`physicalSize / devicePixelRatio`），
-  /// Win32 的窗口标题栏在 Flutter 视图之外，正好对上"不含标题栏"这一条。
+  /// 视口尺寸给 `View` 的物理尺寸（`physicalSize / dpr`），Win32 的窗口标题栏
+  /// 在 Flutter 视图之外，正好对上"不含标题栏"这一条。
+  ///
+  /// 那个 dpr **必须**取控件看到的那个（[viewSizeOf]），不是引擎报的原始值：
+  /// 拿原始 dpr 除出来的是"没开界面缩放时的尺寸"，`uiScale > 1` 时整条判断
+  /// 全部失效——整窗口大小的预选框照画，用户看到的正是"点一下空白处，
+  /// 预选框框住了整个窗口"。
   static const wholeViewTolerance = 1.0;
 
   static bool coversWholeView(Rect rect, Size viewSize) =>
       rect.width >= viewSize.width - wholeViewTolerance &&
       rect.height >= viewSize.height - wholeViewTolerance;
+
+  /// "大小可疑"的阈值：两个方向都到视口的九成（见 [reportNearWholeViewRing]）。
+  static const nearWholeViewFactor = 0.9;
+
+  /// 差一点点就整窗口那么大（比 [coversWholeView] 松一档）。
+  ///
+  /// 只用来**打日志**：真正整窗口的框有一票否决挡着，可那一档管不到"比视口
+  /// 小一圈"的——少一条顶栏或底栏的高度（整块内容区、底弹层、播放器那一层）
+  /// 就不满足"两个方向都盖满"。这种大小的框画出来更像"页面级预选框"，
+  /// 十有八九是**落点**选错了而不是控件真有这么大，所以画的时候顺手报一行，
+  /// 好把那个节点揪出来补上（和 [reportWholeViewRing] 一个套路）。
+  static bool nearWholeView(Rect rect, Size viewSize) =>
+      rect.width >= viewSize.width * nearWholeViewFactor &&
+      rect.height >= viewSize.height * nearWholeViewFactor;
+
+  /// 视图的**逻辑**尺寸——控件真正看到的那一块。
+  ///
+  /// ```dart
+  /// final size = TvFocusSpec.viewSizeOf(node.context);
+  /// ```
+  ///
+  /// 算式是"物理尺寸 ÷ dpr"，但 dpr 得从 [MediaQuery] 拿：`Pref.uiScale`
+  /// （设置里的「界面缩放」）是靠 `ScaledWidgetsFlutterBinding` 改
+  /// `ViewConfiguration` 生效的——`logicalConstraints = physical / (dpr × uiScale)`，
+  /// 见 `main.dart` 里那句 `scaleFactor = Pref.uiScale` 和 `scale_app.dart` 的
+  /// `createViewConfigurationFor`；`main.dart` 的 builder 也在 `MediaQuery` 里
+  /// 按同一套算（`size / uiScale`、`dpr × uiScale`）。而
+  /// `View.devicePixelRatio` 是**引擎报的原始值**，`uiScale` 一点都不影响它：
+  /// 用它除出来是缩放后尺寸的 `uiScale` 倍，[coversWholeView] 于是永远不成立。
+  ///
+  /// 拿不到视图（不在 `View` 下、被 `LookupBoundary` 挡住）返回 null，
+  /// 调用方按"不做这条一票否决"处理。
+  static Size? viewSizeOf(BuildContext? context) {
+    if (context == null || !context.mounted) return null;
+    final view = View.maybeOf(context);
+    if (view == null) return null;
+    // 兜底取原始 dpr：这一档至少和改动前一致（界面缩放关着时两者相等）
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ??
+        view.devicePixelRatio;
+    if (!dpr.isFinite || dpr <= 0) return null;
+    return view.physicalSize / dpr;
+  }
 
   /// [coversWholeView] 命中时的上报：整窗口的框一旦被挡下来，就在调试日志里
   /// 留一行"是谁在画"——这一条是兜底规则，真正的修法是把那个落点从
@@ -116,6 +164,17 @@ abstract final class TvFocusSpec {
     assert(() {
       debugPrint(
         '[tv_focus] 挡下整窗口大小的预选框：$from ${rect.size} / 视图 $viewSize',
+      );
+      return true;
+    }());
+  }
+
+  /// [nearWholeView] 命中时的上报，见 [nearWholeView]。
+  static void reportNearWholeViewRing(String from, Rect rect, Size viewSize) {
+    assert(() {
+      debugPrint(
+        '[tv_focus] 大得可疑的预选框：$from ${rect.size} / 视图 $viewSize'
+        '（十有八九是落点选错了，不是控件真有这么大）',
       );
       return true;
     }());

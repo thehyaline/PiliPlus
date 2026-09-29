@@ -212,6 +212,15 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
       _id_isPipAvailable.getNullable(_class, jni$_.jboolean.type)
           as core$_.bool;
 
+  static final _id_isTelevision = _class.staticFieldId(
+    r'isTelevision',
+    r'Z',
+  );
+
+  /// from: `static public final boolean isTelevision`
+  static core$_.bool get isTelevision =>
+      _id_isTelevision.getNullable(_class, jni$_.jboolean.type) as core$_.bool;
+
   static final _id_isPipMode = _class.staticFieldId(
     r'isPipMode',
     r'Z',

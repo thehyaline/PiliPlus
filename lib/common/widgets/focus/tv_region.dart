@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:material_ui/material_ui.dart';
@@ -259,6 +260,26 @@ abstract final class TvRegions {
     return true;
   }
 
+  /// 焦点现在待在**内容区**（[TvRegionKind.content]）里吗。
+  ///
+  /// 给 [TvFocusBack] 的第一档用："焦点在列表 / 网格里"是"按返回键回顶部标签栏"
+  /// 的前提。标签栏那块（[TvRegionKind.tabBar]）不算——焦点已经在栏上时是另一档
+  /// 行为（回默认栏、再往下交给导航栏）；顶栏的返回键 / 搜索框、弹层里的控件也
+  /// 不算：它们压根不在任何登记区域里。
+  ///
+  /// 判据是"最近的那层 scope 是不是一块登记过的内容区"：焦点停在区域里的控件上
+  /// 时，那个控件挂在区域自己的 `FocusScope` 下；焦点浮在区域自己身上（项被销毁）
+  /// 时 [FocusNode.nearestScope] 就是它自己——两种都算"在内容区里"。
+  static bool inContentRegion(FocusNode? node) {
+    final scope = node?.nearestScope;
+    if (scope == null) return false;
+    for (final entry in _scopes.values) {
+      if (!identical(entry.node, scope)) continue;
+      return entry.kind == TvRegionKind.content;
+    }
+    return false;
+  }
+
   /// 这个节点是不是某个已登记区域的 scope。
   ///
   /// 看护循环用它分类"焦点现在浮在哪儿"（浮在区域上 / 路由自己在的 scope 上 /
@@ -348,6 +369,14 @@ abstract final class TvRegions {
   /// 不要求 `!skipTraversal`：播放器画面、输入框这些"不参与方向键遍历"的叶子
   /// 也得能接住点击——点一下视频再按方向键，起点就是画面。
   ///
+  /// **整页大小的不算落点**（和 [focusInDirection] 用的是同一条排除）：这种
+  /// 节点画不出预选框，焦点送过去等于把它藏起来——用户看到的是"点一下空白处，
+  /// 预选框框住了整个窗口"，而且方向键再也出不去（框架的几何寻焦以整页矩形为
+  /// 基准，页内一个都够不着）。登记过的**锚点**（播放器画面 / 播放暂停 / 返回键）
+  /// 和**落脚点**（`TvSelectionArea` 那块只读正文、播放器整页那一层）例外：
+  /// 点画面聚焦、点正文进去选字都是设计好的，它们自己不画环，也不会出现
+  /// "整窗口的预选框"。
+  ///
   /// 返回是否真的移动了焦点（点在空白处就不动，免得把焦点从别处抢走）。
   static bool focusAt(Offset position) {
     FocusNode? best;
@@ -358,6 +387,12 @@ abstract final class TvRegions {
       if (!isCurrentRoute(node.context) || !isPainted(node)) continue;
       final rect = node.rect;
       if (!rect.contains(position)) continue;
+      if (!_isClickTarget(node)) {
+        final viewSize = TvFocusSpec.viewSizeOf(node.context);
+        if (viewSize != null && TvFocusSpec.coversWholeView(rect, viewSize)) {
+          continue;
+        }
+      }
       final area = rect.width * rect.height;
       if (area < bestArea) {
         bestArea = area;
@@ -366,6 +401,16 @@ abstract final class TvRegions {
     }
     best?.requestFocus();
     return best != null;
+  }
+
+  /// 这个节点是不是"整页大小也照样接点击"的那两类：登记过的**锚点**和
+  /// **落脚点**（见 [focusAt]）。
+  static bool _isClickTarget(FocusNode node) {
+    if (TvFocusRings.isLanding(node)) return true;
+    for (final anchor in _anchors.values) {
+      if (identical(anchor, node)) return true;
+    }
+    return false;
   }
 
   /// 兜底的方向键寻焦：框架那套挑不出候选时，退到这里按方向挑**最近的真控件**。
@@ -430,12 +475,8 @@ abstract final class TvRegions {
   }
 
   /// 这个节点所在视图的逻辑尺寸；拿不到返回 null。
-  static Size? _viewSizeOf(FocusNode node) {
-    final context = node.context;
-    if (context == null || !context.mounted) return null;
-    final view = View.maybeOf(context);
-    return view == null ? null : view.physicalSize / view.devicePixelRatio;
-  }
+  static Size? _viewSizeOf(FocusNode node) =>
+      TvFocusSpec.viewSizeOf(node.context);
 
   /// 这个节点现在会不会被画出来。
   ///

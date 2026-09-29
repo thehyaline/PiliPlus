@@ -1,3 +1,4 @@
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// from Getx
@@ -61,10 +62,16 @@ extension ContextExtensions on BuildContext {
   bool get showNavbar => (width > 800);
 
   /// True if the shortestSide is smaller than 600p
-  bool get isPhone => (mediaQueryShortestSide < 600);
+  ///
+  /// 电视是宽屏设备，走平板/桌面那一套，所以这里也不成立（见 [isSmallTablet]）。
+  bool get isPhone => !isSmallTablet;
 
   /// True if the shortestSide is largest than 600p
-  bool get isSmallTablet => (mediaQueryShortestSide >= 600);
+  ///
+  /// 电视也算：电视盒子的逻辑短边只有 540dp（1080p@xhdpi 是 960×540），按尺寸
+  /// 会被判成手机、退回手机那套窄布局（导航栏变成底部一条、发布页缩短…）。
+  /// 电视是 10 英尺的宽屏设备，就按平板那一套走，见 `DeviceUtils.isTv`。
+  bool get isSmallTablet => DeviceUtils.isTv || (mediaQueryShortestSide >= 600);
 
   /// True if the shortestSide is largest than 720p
   bool get isLargeTablet => (mediaQueryShortestSide >= 720);

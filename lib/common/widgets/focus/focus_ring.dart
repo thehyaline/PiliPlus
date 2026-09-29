@@ -100,6 +100,9 @@ class FocusRing extends StatefulWidget {
   /// 传 1.0 = 完全不放大（连 `AnimatedScale` 都不建）。**不是**"留余量就别传"——
   /// 余量那套规则（`TabletNavItem` 的 `tilePadding`、抽屉头部给头像留的 4dp）
   /// 已经不需要了，留在那儿只是布局上的留白。
+  ///
+  /// 设置里那个「焦点放大效果」关着时（[Pref.tvFocusScale] 默认关），这里传什么
+  /// 都按 1.0 走：焦点位置只由环表达，内容一个像素都不动（见 [_scale]）。
   final double scale;
 
   final double borderWidth;
@@ -268,6 +271,13 @@ class _FocusRingState extends State<FocusRing> {
   bool get _wantRing =>
       !widget.hideRing && (_isFocused || widget.showRing);
 
+  /// 这一层实际用的放大倍数。
+  ///
+  /// 「焦点放大效果」（[Pref.tvFocusScale]）默认**关**，关着一律按 1.0 走：
+  /// 于是 [_buildContent] 连 `AnimatedScale` 都不建，焦点进出只有描边/底纹在动。
+  /// 开关的位置在设置 → 外观 → 手柄 / 遥控器，它只改视觉、不动焦点行为。
+  double get _scale => Pref.tvFocusScale ? widget.scale : 1.0;
+
   /// 焦点在自己身上时，这一圈环会不会是"整个视图那么大"。
   ///
   /// 这是**绘制**层的最后一道闸（见 [TvFocusSpec.coversWholeView]）：
@@ -280,35 +290,38 @@ class _FocusRingState extends State<FocusRing> {
     if (context == null) return false;
     final object = context.findRenderObject();
     if (object == null || !object.attached) return false;
-    final view = View.maybeOf(context);
-    if (view == null) return false;
-    return TvFocusSpec.coversWholeView(
-      _node.rect,
-      view.physicalSize / view.devicePixelRatio,
-    );
+    // 视口一律走 [TvFocusSpec.viewSizeOf]：那个算式带着界面缩放
+    // （`View.devicePixelRatio` 是引擎报的原始值，uiScale 一开就永远对不上）
+    final viewSize = TvFocusSpec.viewSizeOf(context);
+    return viewSize != null && TvFocusSpec.coversWholeView(_node.rect, viewSize);
   }
 
   void _syncRing() {
     // 命中一票否决时，缩放（`AnimatedScale`）和底纹也要一起收掉：
     // 它们画在整个 `Stack` 上，只拦描边的话还是会"整页弹一下"
     final veto = _wholeViewVeto;
+    final viewSize = _viewSizeOf();
     if (veto && _wantRing) {
-      TvFocusSpec.reportWholeViewRing(widget.debugLabel, _node.rect, _viewSizeOf());
+      TvFocusSpec.reportWholeViewRing(widget.debugLabel, _node.rect, viewSize);
     }
     final showRing =
         !veto && _wantRing && widget.enabled && FocusRing.highlightEnabled;
     if (showRing == _showRing || !mounted) return;
+    // 画得出来、可又大得可疑（比视口小一圈那种），报一行是谁：一票否决管不到
+    // 这一档，而这种框十有八九是落点选错了（见 [TvFocusSpec.nearWholeView]）
+    if (showRing &&
+        TvFocusSpec.nearWholeView(_node.rect, viewSize)) {
+      TvFocusSpec.reportNearWholeViewRing(
+        widget.debugLabel,
+        _node.rect,
+        viewSize,
+      );
+    }
     setState(() => _showRing = showRing);
   }
 
   /// 只给上报日志用；拿不到视图就退回 `Size.zero`。
-  Size _viewSizeOf() {
-    final context = _node.context;
-    final view = context == null ? null : View.maybeOf(context);
-    return view == null
-        ? Size.zero
-        : view.physicalSize / view.devicePixelRatio;
-  }
+  Size _viewSizeOf() => TvFocusSpec.viewSizeOf(_node.context) ?? Size.zero;
 
   /// 描边/底纹的公共外壳：这里的约束是**紧的**（`Positioned.fill` 给的就是
   /// 这一圈环的真实大小），所以量出来的尺寸和画出去的那一圈完全一致——
@@ -319,16 +332,15 @@ class _FocusRingState extends State<FocusRing> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final size = constraints.biggest;
-            final view = View.maybeOf(context);
-            if (view != null && size.isFinite) {
+            // 视口算法只有一处（[TvFocusSpec.viewSizeOf]）：界面缩放开着时
+            // 它和 `View.devicePixelRatio` 那个老算式不是一回事（见那边的说明）
+            final viewSize = TvFocusSpec.viewSizeOf(context);
+            if (viewSize != null && size.isFinite) {
               if (_lastLayoutSize != size) {
                 _lastLayoutSize = size;
                 _scheduleRecheck();
               }
-              if (TvFocusSpec.coversWholeView(
-                Offset.zero & size,
-                view.physicalSize / view.devicePixelRatio,
-              )) {
+              if (TvFocusSpec.coversWholeView(Offset.zero & size, viewSize)) {
                 return const SizedBox.shrink();
               }
             }
@@ -429,9 +441,10 @@ class _FocusRingState extends State<FocusRing> {
   /// （准则 6「默认零侵入」）——这条只看控件自己的配置，不随焦点变。
   Widget _buildContent(BuildContext context) {
     final content = widget.builder(context, _node, _showRing);
-    if (widget.scale == 1.0) return content;
+    final scale = _scale;
+    if (scale == 1.0) return content;
     final scaled = AnimatedScale(
-      scale: _showRing ? widget.scale : 1.0,
+      scale: _showRing ? scale : 1.0,
       duration: TvFocusSpec.duration,
       curve: Curves.easeOut,
       child: content,
@@ -536,6 +549,11 @@ abstract final class TvFocusRings {
   static final Map<FocusNode, int> _subtreeCounts =
       HashMap<FocusNode, int>.identity();
 
+  /// [markLanding] 记过的落脚点。单开一份账是因为它要能单独问
+  /// （[isLanding]）：`TvRegions.focusAt` 得把"落脚点"和"控件"分开。
+  static final Map<FocusNode, int> _landingCounts =
+      HashMap<FocusNode, int>.identity();
+
   /// [coversSubtree] 见类注释：这一圈环会不会在"焦点落在子树里"时亮着。
   static void add(FocusNode node, {bool coversSubtree = true}) {
     _bump(_counts, node);
@@ -554,9 +572,23 @@ abstract final class TvFocusRings {
   /// 是"这个环先不画"，落脚点是"这里根本没有环这件事"。用到的有
   /// `TvSelectionArea`（整块只读文本，只借它的节点把方向键摘出遍历）、
   /// `PlayerFocus`（整页那一层，见那边的 `FocusRing(hideRing: true)`）。
-  static void markLanding(FocusNode node) => add(node, coversSubtree: false);
+  static void markLanding(FocusNode node) {
+    add(node, coversSubtree: false);
+    _bump(_landingCounts, node);
+  }
 
-  static void unmarkLanding(FocusNode node) => remove(node, coversSubtree: false);
+  static void unmarkLanding(FocusNode node) {
+    remove(node, coversSubtree: false);
+    _drop(_landingCounts, node);
+  }
+
+  /// [node] 是不是 [markLanding] 登记过的落脚点。
+  ///
+  /// 给 `TvRegions.focusAt` 用：鼠标点在"整页大小"的落脚点上（播放器那一层、
+  /// 只读正文）是**设计好的**——点画面聚焦、点正文进去选字——不该被
+  /// "整页大小的不接点击"那条规则挡掉。所以这里得能把"落脚点"和"普通控件"
+  /// 分开问，光用 [covers] 分不出来（每个 [FocusRing] 的节点也都在那份账上）。
+  static bool isLanding(FocusNode node) => _landingCounts.containsKey(node);
 
   static void _bump(Map<FocusNode, int> map, FocusNode node) =>
       map.update(node, (count) => count + 1, ifAbsent: () => 1);

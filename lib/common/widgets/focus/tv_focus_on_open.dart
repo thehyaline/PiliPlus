@@ -1,3 +1,6 @@
+import 'dart:collection' show HashMap;
+
+import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -39,14 +42,55 @@ abstract final class TvOverlayScopes {
 /// 送的是第一项而不是"上次选中的那一项"：弹层的内容各不相同，记位置没有意义。
 /// 面板里第一项如果是个不能聚焦的东西（分割线、装饰），会被自动跳过——
 /// `traversalDescendants` 本身就是"能停的节点"的序列。
+/// 落点如果**不该**是第一项（合集弹窗要落在"正在播放"的那一台上），用
+/// [TvFocusOnOpen.target] 指定即可，不必另写一套"抢焦点"。
 /// `Pref.tvFocus` 关掉时什么都不做，弹层行为完全退回改动前。
 class TvFocusOnOpen extends StatefulWidget {
-  const TvFocusOnOpen({super.key, required this.child});
+  const TvFocusOnOpen({super.key, required this.child, this.target});
 
   final Widget child;
 
+  /// 打开时该落到哪一项；不传 = scope 里的第一项（老行为）。
+  ///
+  /// 有些弹层里"第一项"不是该选中的那一项：合集弹窗要落在**正在播放**的那一台
+  /// 上，而它在列表中间。给了 [target] 之后 [TvFocusOnOpen] 就只等它——等待
+  /// 期间不碰"第一项"，所以不会出现"先落到第一项、下一帧又被抢走"的闪烁；
+  /// 它还没建出来（数据还在加载）就一直等，等超了才退回"第一项"
+  /// （上限见 [_TvFocusOnOpenState._maxTargetFrames]）。
+  ///
+  /// [target] 是按 **scope** 记的（见 [TvOpenFocusTargets]）：同一个弹层上可能
+  /// 套着两层 [TvFocusOnOpen]（`TvPanelScope` / `PublishRoute` 自带一层，面板
+  /// 自己也套一层），两层读同一份申请才不会互相打架。
+  final FocusNode? target;
+
   @override
   State<TvFocusOnOpen> createState() => _TvFocusOnOpenState();
+}
+
+/// "打开时该落到哪一项"的申请处（见 [TvFocusOnOpen.target]）。
+///
+/// 按 **scope** 记而不是按 widget 记：同一个 scope 上套两层 [TvFocusOnOpen] 是
+/// 常态（`TvPanelScope` 立 scope 时自带一层，面板内容自己还会再兜一层），
+/// 只挂在其中一层上的话，另一层会照老规矩先落到"第一项"。
+///
+/// 申请方（拿到 [TvFocusOnOpen.target] 的那一层）在销毁时撤销，所以面板关掉
+/// 就不会留下过期的落点。
+abstract final class TvOpenFocusTargets {
+  static final Map<FocusScopeNode, FocusNode> _targets =
+      HashMap<FocusScopeNode, FocusNode>.identity();
+
+  static void set(FocusScopeNode scope, FocusNode node) =>
+      _targets[scope] = node;
+
+  /// 撤销 [node] 的申请。申请已经被别的东西换掉了就不动（同一个 scope 上
+  /// 先后住过两个面板时，撤销晚一步的不该把新申请抹掉）。
+  static void clear(FocusScopeNode scope, FocusNode node) {
+    if (identical(_targets[scope], node)) _targets.remove(scope);
+  }
+
+  /// [scope] 上现在申请了哪一项；没人申请返回 null。
+  static FocusNode? of(FocusScopeNode? scope) =>
+      scope == null ? null : _targets[scope];
 }
 
 class _TvFocusOnOpenState extends State<TvFocusOnOpen> {
@@ -56,8 +100,17 @@ class _TvFocusOnOpenState extends State<TvFocusOnOpen> {
   /// 只试一帧的话预选框要等到用户按下第一个方向键才出现。
   static const int _maxFrames = 40;
 
+  /// 有指定落点（[TvFocusOnOpen.target]）时最多等多少帧（≈2s）。
+  ///
+  /// 比 [_maxFrames] 宽得多：那一项常常是"数据到了才建出来"的。等待期间不碰
+  /// "第一项"，所以是静默的；但也不能一直等下去——等超了就退回"第一项"，
+  /// 否则焦点会一直浮在 scope 上，方向键落在 scope 自己身上，
+  /// 用户看到的是"弹层打开了，可按键没反应"。
+  static const int _maxTargetFrames = 120;
+
   FocusScopeNode? _scope;
   int _tried = 0;
+  int _targetTried = 0;
   bool _scheduled = false;
   bool _waitedFirstFrame = false;
 
@@ -74,7 +127,30 @@ class _TvFocusOnOpenState extends State<TvFocusOnOpen> {
     super.didChangeDependencies();
     // 弹层里的第一个 Focus 祖先是路由自己的 scope
     // （用 `FocusScope.of`：`Focus.of` 不允许拿到 scope 本身）
-    _scope = FocusScope.of(context);
+    final scope = FocusScope.of(context);
+    if (identical(scope, _scope)) return;
+    // 换了 scope：把上一条申请摘掉（见 [TvOpenFocusTargets]）
+    _releaseTarget();
+    _scope = scope;
+    // 指定了落点：按 scope 登记，和同一层 scope 上那几层 [TvFocusOnOpen] 共用
+    if (widget.target case final target?) {
+      TvOpenFocusTargets.set(scope, target);
+    }
+  }
+
+  /// 撤销这一层登记的落点申请（有的话）。
+  void _releaseTarget() {
+    final target = widget.target;
+    final scope = _scope;
+    if (target != null && scope != null) {
+      TvOpenFocusTargets.clear(scope, target);
+    }
+  }
+
+  @override
+  void dispose() {
+    _releaseTarget();
+    super.dispose();
   }
 
   @override
@@ -105,24 +181,42 @@ class _TvFocusOnOpenState extends State<TvFocusOnOpen> {
 
   /// 一帧试一次：里面的控件接住焦点就收手，还没建出来（网络列表）等下一帧。
   void _try() {
-    if (++_tried > _maxFrames) return;
     final scope = _scope;
     if (scope == null) return;
-    final focus = FocusManager.instance.primaryFocus;
-    if (focus != null) {
-      if (identical(focus, scope) || _isInside(focus, scope)) {
-        _owned = true;
-        if (!identical(focus, scope)) return; // 有控件接住了
-      } else if (_owned) {
-        return; // 焦点又跑出去了：后开的弹层接手了
+    // 有人申请了落点（[TvFocusOnOpen.target]）：只等它，不去碰"第一项"。
+    // 等超了（[_maxTargetFrames]）才往下走，退回老规矩。
+    final target = TvOpenFocusTargets.of(scope);
+    if (target != null && _targetTried <= _maxTargetFrames) {
+      _targetTried++;
+      if (_mayAct(scope) && TvRegions.canLandOn(target)) {
+        target.requestFocus();
+        return;
       }
+      _schedule();
+      return;
     }
+    if (++_tried > _maxFrames) return;
+    if (!_mayAct(scope)) return;
     final nodes = scope.traversalDescendants;
     if (nodes.isEmpty) {
       _schedule();
       return;
     }
     nodes.first.requestFocus();
+  }
+
+  /// 现在轮到这一层动手吗——焦点要么浮在 scope 上（还没人接住），要么还在
+  /// 外面没过界（第一帧的常态）。返回 false 表示收手。
+  bool _mayAct(FocusScopeNode scope) {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return true;
+    if (identical(focus, scope) || _isInside(focus, scope)) {
+      _owned = true;
+      // 焦点在 scope **里**却不是 scope 自己：有控件接住了
+      return identical(focus, scope);
+    }
+    // 焦点又跑出去了：后开的弹层接手了
+    return !_owned;
   }
 
   bool _isInside(FocusNode node, FocusScopeNode scope) {

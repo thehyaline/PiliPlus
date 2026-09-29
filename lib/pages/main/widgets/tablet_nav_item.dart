@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_nav_bar.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/tv_focus.dart';
 import 'package:material_ui/material_ui.dart';
@@ -44,6 +45,7 @@ class TabletNavItem extends StatefulWidget {
     required this.selectedIcon,
     required this.selected,
     required this.onTap,
+    this.navIndex,
     this.debugLabel = 'TabletNavItem',
   });
 
@@ -55,6 +57,12 @@ class TabletNavItem extends StatefulWidget {
 
   final bool selected;
   final VoidCallback onTap;
+
+  /// 这一格在导航栏里的下标（首页 0 / 动态 1 / 我的 2 …）。
+  ///
+  /// 传了才登记到 [TvNavBar]：返回键"退到最后一级"要把焦点送到当前选中的那一格。
+  /// 不传（例如把这一枚用在别处）就只是个导航项，不参与那套查找。
+  final int? navIndex;
 
   /// 焦点节点的调试标签（排查"焦点停在哪儿"用）。
   final String debugLabel;
@@ -173,7 +181,15 @@ class _TabletNavItemState extends State<TabletNavItem>
             fillColor: ColorScheme.of(
               context,
             ).primary.withValues(alpha: TvFocusSpec.tabFillAlpha),
-            builder: (context, focusNode, _) => _tile(context, focusNode),
+            builder: (context, focusNode, _) {
+              // 登记给返回键最后一级（见 TvNavBar）：这一格的节点就是
+              // `InkWell` 直接用的那个，送焦点不用再往下钻
+              final navIndex = widget.navIndex;
+              if (navIndex != null) {
+                TvNavBar.register(navIndex, focusNode, selected: widget.selected);
+              }
+              return _tile(context, focusNode);
+            },
           )
         // 手柄模式关掉时一个节点都不多（准则 6「默认零侵入」）
         : _tile(context, null);

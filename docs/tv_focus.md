@@ -71,6 +71,28 @@
 `LogicalKeyboardKey` 重写了 `==`，`const Set` 装不下它（会报
 `const_set_element_not_primitive_equality`）。
 
+### TV 设备与屏幕形态：先别把自己当成手机
+
+焦点做得再对，前提是**别把电视当成手机**。`Pref.tvFocus` 管的是按键，屏幕形态是
+另一码事，两者互相独立。
+
+判定只有一个入口：`DeviceUtils.isTv`，Android 侧问系统
+（`AndroidHelper.isTelevision`：电视 UI 模式 / leanback 特性 / 电视设备类型特性，
+兜底"没有触摸屏"——手机和平板一定有触摸屏）。**不许拿屏幕尺寸猜**：电视的逻辑
+短边只有 540dp（1080p@xhdpi 就是 960×540），够不到 `isTablet` 那条 600dp 门槛，
+一块 55 英寸的屏会被归成手机。
+
+由它派生出的三条硬规则：
+
+| 规则 | 位置 | 为什么 |
+| --- | --- | --- |
+| 电视固定横屏 | `fullscreen.dart` 的 `portraitUpMode` / `portraitDownMode` / `fullMode` | 电视屏是横的、也没有重力传感器；请求竖屏时系统**照做**，把一个竖屏窗口摆在横屏面板正中，左右各留一条黑边（"界面左右留黑"就是这个）。"不锁方向"也一并收敛成横屏：碰到框架自认竖屏的电视盒，系统会顺着它选回竖屏 |
+| 电视恒开「横屏适配」 | `Pref.horizontalScreen` | 这个开关的**默认值是按屏幕尺寸算的**，电视首启就会被算成 false 并写进存储；之后再也不会纠正，于是电视上一直跑手机布局。所以电视直接不看存储。设置页里那个开关在电视上也不显示（`style_settings.dart`），它既关不掉横屏、显示的又是存储里那个错值 |
+| 电视不是"竖屏 / 窄屏" | `SizeExt.isPortrait`、`context.isSmallTablet` | 960×540 这种"矮而宽"的窗口在"宽 < 600 或高 ≥ 宽"的旧判据里会被当成竖屏手机，导航栏于是退回底部那一条。电视是 10 英尺的宽屏设备，一律走平板/桌面那一套 |
+
+顺带一条：电视上竖屏视频走"不改变当前方向"（`FullScreenMode.auto` 发出的竖屏
+请求被上表第一条收敛成横屏），视频在播放器里留黑边，而不是把整个窗口转成竖屏。
+
 ---
 
 ## 1. 一个卡片 = 一个焦点节点
@@ -268,8 +290,22 @@ WidgetsBinding.instance.addPostFrameCallback(tryFocus);
 - `scale` 只剩"内容弹得多明显"这一个含义，`TvFocusSpec.scale = 1.0` 是"完全不要
   弹"的逃生阀（`scale == 1.0` 时连 `AnimatedScale` 都不建，和没有这个特性时一样）。
 
+**「设置 - 外观 - 焦点放大效果」**（`SettingBoxKey.tvFocusScale` →
+`Pref.tvFocusScale`，**默认关**）是给用户的总闸：关着时 `FocusRing._scale` 一律
+按 `1.0` 走，描边和底纹照常——预选框还在，只是不放大。所以 `TV` 上那种"卡片
+本来就贴得紧、一放大就互相压"的布局不用改代码，让用户自己关掉就行。
+
+它**不**和 `TvFocusSpec.scale` 重复：那个是控件级的（这一处的环该不该弹），
+这个是用户级的（所有环都不弹）。判定顺序是 `Pref.tvFocusScale` 先过一遍，
+过了再看传进来的 `scale`。它也不影响 `TvCard` 的 `AnimatedScale` 之外的任何
+东西——`scale` 在这个体系里本来就只表示"内容弹多少"。
+
 `test/tv_focus_test.dart` 的「预选框不外溢（放大收在控件矩形里）」那一组钉着这两条：
-顶栏下沿的一排（环顶不被 `AppBar` 盖）、整屏宽的列表项（左右描边不被屏幕边切）。
+顶栏下沿的一排（环顶不被 `AppBar` 盖）、整屏宽的列表项（左右描边不被屏幕边切），
+外加「『焦点放大效果』默认关」那一条——它先把开关按回默认值跑一遍（只有描边和
+底纹在动、连 `AnimatedScale` 都不建），再打开对照。**整套用例的 `setUp` 是统一把
+开关打开的**：那些钉 1.04 倍 / 播放器 1.1 倍的用例要的是缩放机制本身，不是默认值，
+"默认关"只有那一条在钉。
 
 ### 兜底：包不进去的那些控件（`TvFocusOverlay`）
 
@@ -374,7 +410,17 @@ post-frame 复检（`_recheckScheduled` 保证一帧最多一次，复检没改�
 不会自激）。这是"进视频页闪一下"的后半截，前半截是落脚点本身（上一条）。
 
 判定标准是 `rect.width >= 视口宽 - 1 && rect.height >= 视口高 - 1`
-（`wholeViewTolerance`）。视口取 `View.physicalSize / devicePixelRatio`——
+（`wholeViewTolerance`）。视口一律走 `TvFocusSpec.viewSizeOf(context)`
+（**唯一**的视口算式，`FocusRing` / `TvFocusOverlay` / `TvRegions` / `TvNavBar`
+全用它）：物理尺寸 ÷ dpr，而 dpr **必须**从 `MediaQuery` 拿
+（`MediaQuery.maybeDevicePixelRatioOf`），不能用 `View.devicePixelRatio`——
+后者是引擎报的原始值，「界面缩放」（`Pref.uiScale`）一点都不影响它。界面缩放
+是 `ScaledWidgetsFlutterBinding` 改 `ViewConfiguration` 生效的
+（`logicalConstraints = physical / (dpr × uiScale)`，见 `main.dart` 的
+`scaleFactor` 和 `scale_app.dart` 的 `createViewConfigurationFor`），所以拿原始
+dpr 除出来的是"没开界面缩放时的尺寸"的 `uiScale` 倍，`uiScale > 1` 时这条闸
+**整个失效**——用户看到的正是"在空白处点一下鼠标，预选框框住了整个窗口"
+（见「窗口大小的预选框」，那一档还有 `focusAt` 侧的对应处理）。
 Win32 的窗口标题栏在 Flutter 视图**之外**，正好对上用户说的"不含标题栏"。
 允许 1px 误差是因为"整页减一点点"（比如自己留了一圈 padding 的页面）在视觉上
 就是同一个东西。
@@ -627,6 +673,15 @@ if (Pref.tvFocus) { ... }
 `Pref.tvFocus`。关掉后行为退回改动前（`TvCard` 退化成普通 `InkWell`，`TvRegion`
 不建 scope，`TvShortcuts` 整层消失），触摸用户感知不到差异。
 
+**唯一的例外是「焦点放大效果」**（`SettingBoxKey.tvFocusScale` → `Pref.tvFocusScale`，
+外观设置里紧挨着总开关，**默认关**）：它**只改视觉**，一行焦点行为都不动——
+关着时 `FocusRing` 的 `_scale` 一律按 1.0 走（连 `AnimatedScale` 都不建），
+描边和底纹照常。所以它不违反"不应该有子开关"那条：并进来的是**行为**开关
+（每一项都等于"改按键怎么走"），这条是手感偏好，和"要不要弹"一样属于视觉。
+它自己也**不被总开关短路**（读的是 `Pref.tvFocusScale` 而不是
+`Pref.tvFocus && ...`），因为总开关关着时根本没人画环，这个值怎么取都无所谓。
+见「可见（焦点预选框）」。
+
 播放器同样没有子开关：**「手柄播放器模型」也挂在 `Pref.tvFocus` 下**
 （判定 `isPlayerTvMode()`），里面同时包含"非全屏整块画面是一个焦点"、
 "全屏收栏时 ↑/↓ 唤栏、←/→ 调进度 / 确定键播放暂停"，
@@ -655,6 +710,33 @@ if (Pref.tvFocus) { ... }
 这条是**全局**的，跟总开关无关。除了"落脚点不该被框起来"那套结构性规则
 （下一条），绘制层还有一道无条件的闸：矩形两个方向都不小于视口就一律不画
 （`TvFocusSpec.coversWholeView`，见「焦点必须可见、不消失、能回来」）。
+
+**"整页大小的节点不许当落点"有三处**（三处用的是同一条
+`coversWholeView`，口径必须一致）：
+
+| 地方 | 什么时候会遇上 |
+| --- | --- |
+| `TvRegions.focusAt` | 鼠标 / 触摸板在**空白处**点一下——"点哪儿焦点在哪儿" |
+| `TvRegions.focusInDirection` | 方向键的兜底寻焦（挑不出候选才轮到它） |
+| 绘制层（`FocusRing` / `TvFocusOverlay`） | 上面两处都漏了，或者落点是**别的路径**送上去的时的最后一道闸 |
+
+第一处就是"在空白处点一下鼠标，预选框框住了整个窗口"那个 bug 的正解：
+`focusAt` 取"包含这一点、面积最小"的节点，空白处底下往往什么都没有，
+于是取到页面那一层（`Scaffold` body、动态页的整块列表容器、裸的
+`Focus` 落脚点）。预选框送到它上面 = 把它画成整窗口那么大，而且方向键再也
+出不去（框架的几何寻焦以整页矩形为基准，页内一个都够不着）。所以
+`focusAt` 里凡是 `coversWholeView` 的候选直接跳过，落不到别人身上就**不动焦点**
+（返回 false，免得把焦点从用户手边抢走）。
+
+例外只有两类（`TvRegions._isClickTarget`）：登记过的**锚点**
+（播放器画面 / 播放暂停 / 返回键）和**落脚点**（`TvSelectionArea` 那块只读正文、
+播放器整页那一层）。点画面聚焦、点正文进去选字都是设计好的，它们自己不画环，
+也就不会出现"整窗口的预选框"。
+
+⚠️ 这一档的漏网之鱼是 `uiScale`：「界面缩放」开着时视口算错的话（用
+`View.devicePixelRatio` 而不是 `MediaQuery` 那个），`coversWholeView` 永远不成立，
+上面三处**同时**失效——表现就是"点一下空白处，预选框框住整个窗口"。
+所以视口算式只有一处（`TvFocusSpec.viewSizeOf`），谁也别自己写第二个。
 
 ---
 
@@ -694,6 +776,14 @@ SizedBox(
    有标签栏的页面切栏。
 5. **`Pref.tvFocus` 关掉时完全是空操作**：不建节点、不画环、不包区域，
    结构退回成裸 `TabBar`。
+6. **登记进 `TvTabBars`**（`initState` 进 / `dispose` 出），页面里的返回键要靠它
+   找到"这一页的顶部标签栏"（见「返回键：一套语义」；同一页里还嵌着别的标签栏时
+   取**同一层路由里最先挂上的那一条**，也就是树序上最外层、用户心里的"顶部那条"，
+   `Offstage` 挡着的跳过）。登记之后外面能问它四件事（`TvTabBarHandle`）：
+   `selectedIndex`（当前选中哪一栏，返回键第一档落它）、`defaultIndex`
+   （**打开时**选中的那一栏，第二档落它）、`focusedIndex`（焦点现在在这一栏上吗，
+   用来分清"焦点在栏上"和"焦点在这一格上"）、`visible`（画得出来吗——
+   `TvRegions.isPainted`，切页时被 `Offstage` 挡住的旧实例不算）。
 
 ### 进栏锁：从内容区按 ↑ 落到当前那一栏
 
@@ -960,6 +1050,37 @@ header: Expanded(
 数据类那三支真要补，得照 `TabletNavItem` 自己搭一列 / 一排格子（复刻框架的版面），
 而不是"再包一层"——那是另一件事，先记在这里。**切页交接不受影响**：四条栏的
 `onDestinationSelected` / `onTap` 都走同一个 `_selectNav`。
+
+### 导航项的节点登记：`TvNavBar`
+
+返回键的**第三档**要"把焦点交给当前导航栏所选项"（见「返回键：一套语义」），
+而拿节点的方式各支不同，所以集中一处登记：
+`TvNavBar.register(index, node, selected: ...)` / `unregister`，读的时候
+`focusItem(index)` / `focusSelected()`。
+
+登记的就是"第 index 格该把焦点送到哪儿"，各写法各自登记各的：
+
+- **M3 底栏**（`TvNavDestination`，默认那支）：登记的是那层**外壳**节点
+  （`canRequestFocus: false`，就是画环的那一个）。真正接住焦点的是框架
+  destination 内部那个 `InkWell`，所以 `focusItem` 要**往下钻一层**
+  （`traversalDescendants.first`）；
+- **平板侧栏**（`TabletNavItem`）：格子的 `FocusRing` 节点本来就直接交给里面的
+  `InkWell`，登记的就是它自己，不用钻。
+
+两处都在 `build` 里登记（同 `TvRegions.registerAnchor` 那个套路，内容和状态都没变
+就直接跳过），因为**选中态会变**——返回键要的是"**当前页**那一格"，不是"上次切页
+前那一格"。`_items` **只增不删**（节点的生死由 `FocusRing` 自己管，这里够不着
+那个时机），过期的那几条由 `focusItem` 的有效性检查挡掉。
+
+`focusItem` 送焦点之前过三道：`Pref.tvFocus`（关着整层空操作）、
+`TvRegions.isPainted` / `isCurrentRoute`（画得出来、属于最上面那层路由）、
+以及**节点矩形和视口相交**（`rect.overlaps(Offset.zero & viewSize)`）。最后一条
+是给底栏专用的：底栏藏起来时是靠 `AnimatedSlide` **平移**出去的，平移不裁剪，
+`isPainted` 拦不住，送过去等于把预选框画到窗口外面。
+
+**已知省略**：只登记了 M3 底栏和平板侧栏（上面那张表里"能包 widget"的两支）——
+M2 底栏和悬浮胶囊的导航项是数据类，连节点都拿不到。没登记时这一档返回 false，
+返回键照旧往下走（退页面 / 回首页），不会卡住。
 
 ### 按键切页之后把焦点接走
 
@@ -2027,6 +2148,45 @@ showModalBottomSheet<void>(
 冲突：面板第一项在**顶栏**里时 observer 会让位（顶栏控件不算入口），
 `TvFocusOnOpen` 照旧能把它接住；不走路由的弹层则只能靠它。
 
+#### 落点不是第一项时：`TvFocusOnOpen.target`
+
+有些面板"打开就该选中**当前那一项**"，而它在列表中间。典型是**合集弹窗**：
+打开时预选框要落在**正在播放的那一台**（分P / 选集）上，用户接下来按确定才是
+"切这一集"，而不是"从头开始翻"。
+
+给 `TvFocusOnOpen` 的 `target` 传一个 `FocusNode` 就行（`common_slide_page.dart`
+把它开成了 `openFocusTarget` 钩子，面板覆写）：
+
+```dart
+// lib/pages/video/view.dart：弹层形态才开
+Widget listSheetContent({bool enableSlide = true}) => EpisodePanel(
+  ...
+  focusCurrentOnOpen: true,
+);
+```
+
+三条要点：
+
+- **等待期间不碰"第一项"**。给了 target 之后 `TvFocusOnOpen` 只等它：那一项还
+  没建出来（网络数据没到、`_findCurrentItemIndex` 还没算出下标）就一直等，
+  上限 `_maxTargetFrames = 120` 帧（≈2s）。不能一边等一边先落到第一项——那会
+  出现"先落到第一项、数据到了又跳走"的闪烁。等超了才退回第一项，**必须**有这
+  个兜底：一直等下去焦点就浮在 scope 上，用户看到的是"弹层打开了可按键没反应"。
+- **申请是按 `FocusScopeNode` 记的**（`TvOpenFocusTargets`），不是按 widget。
+  同一个弹层上套着两层 `TvFocusOnOpen` 是常态（`TvPanelScope` 立 scope 时自带
+  一层，面板内容自己还会再兜一层），只挂在其中一层上的话另一层会照老规矩先落到
+  "第一项"，两层打架。申请方在 `dispose` 时撤销（`clear` 只撤销"还是自己那条"
+  的申请，同一个 scope 上先后住过两个面板时，撤销晚一步的不该把新申请抹掉）。
+- **只在弹层形态开**。`EpisodePanel` 内嵌在视频页里的那两条（简介区的竖排列表、
+  横屏侧栏）跟页面一起建出来，抢初始焦点会和页面自己的入口落点打架
+  （画面接手那套，见「手柄播放器模型」），所以 `focusCurrentOnOpen` 默认
+  `false`，只有 `listSheetContent` 那条弹层路径传 `true`。
+
+面板那一侧只做一件事：把"正在播放的那一台"的 `FocusNode` 建出来交给它的
+`InkWell`（`EpisodePanel._currentItemNode`，手柄模式关着时不建）。列表里同时只有
+一项拿得到它（初始栏里下标等于 `_currentItemIndex` 的那一项），所以换集 / 换栏时
+是**同一个节点挪到新的一台上**，不会有两个节点抢焦点。
+
 ⚠️ 面板里的自动落点只能用**一次性**的 `autofocus`（面板自己的"当前值 / 输入框"
 用它，见「单选组」和 `report.dart` 里那个输入框）：别写"焦点不在我这儿就抢回来"
 的循环——两个面板叠在一起时，抢焦点的那层会把**上层**的选项抢走，用户看到的是
@@ -2163,9 +2323,56 @@ InkWell 在手柄上属于"能聚焦但按确定没反应"（框架的 `Activate
 ```
 TvBack.dispatch()            // 1. 先给"当前场景"的拦截栈
  → SmartDialog.dismiss()     // 2. 有弹窗先关弹窗
- → GetPageRoute.popDisposition // 3. WillPopScope 语义
- → navigator.pop()           // 4. 最后才退页面
+ → TvFocusBack.handle()      // 3. 还在页面里：内容区 → 标签栏 → 默认栏 → 导航栏（见下）
+ → GetPageRoute.popDisposition // 4. WillPopScope 语义
+ → navigator.pop()           // 5. 最后才退页面
 ```
+
+### 页面内的三级退法（`TvFocusBack`）
+
+上面那套管"退出页面"，`TvFocusBack` 插在它前面，管**页面内部**先退三级：
+
+| 焦点现在在 | 按键之后退到 |
+| --- | --- |
+| 内容区里（列表 / 网格） | 这一页**顶部标签栏**上，落在**当前选中的**那一栏 |
+| 标签栏上（不管在哪一栏） | 这一页的**默认栏**（打开页面时选中的那一栏） |
+| 已经在默认栏上 | **导航栏**当前选中的那一格（底栏 / 平板侧栏；看不见时不送） |
+| 都不成立 | 交回上面那条老路：关弹层 → 退页面 / 回首页 |
+
+第一档落"当前选中的那一栏"而不是"正上方那一栏"：用户想的是"回到标签栏"，
+不是"按几何落在我头顶那个标签上"——而且预选框一落上去，"焦点即切换"会顺手把
+页面切走（和进栏锁同一个顾虑，落点用的是同一个 `selectedIndex`）。
+
+"默认栏"不是硬编码的 0：首页是"推荐"那一栏（标签能排序，它不一定在第一个），
+视频页是 `Pref.defaultShowComment ? 1 : 0`。记法是"**这条栏打开时**选中的那一栏"
+（`TvTabBarState._defaultTabIndex`，第一帧在 `buildTabBarRoot` 里记一笔）——
+两条原因：`material_ui` 这个 fork 的 `TabController` 没公开 `initialIndex`
+（上游有、这里删了）；视频页换分P 会重建控制器，而那个 `initialIndex` 取的是
+"现在这一栏"，跟着它走等于把"默认"漂成用户自己切过去的那一栏。
+
+两个入口都得接，缺一个就会漏一半：
+
+- **桌面 / 手柄**（Esc / B / 鼠标侧键）：`appBack()` 里调（就是上面第 3 步）；
+- **安卓系统返回键**：系统直接 `popRoute`，**到不了 `appBack()`**，所以在主界面
+  shell（`pages/main/view.dart` 的 `onPopInvokedWithResult`）里补一次同样的调用
+  （`Platform.isAndroid` 时才走——那一条是安卓独有的）。
+
+门槛是 `TvInputMode.fromKeys`：鼠标侧键那一下是 `PointerDownEvent`，判得出来，
+所以鼠标用户按返回键照旧一路退到底，不会莫名其妙"焦点跳一下"。桌面鼠标用户按
+Esc 会被算成"按键"（Esc 是 key event）——他要的是退页面，却先看到焦点跳到标签栏
+上。这一下按的是 Esc，不是侧键，取舍见「已确认的取舍」。
+
+导航栏那一格由 `TvNavBar` 登记（`TvNavDestination` / `TabletNavItem` 在 `build`
+里按当前选中态登记）：焦点送过去之前要过三道有效性检查——画得出来
+（`isPainted`）、属于最上面那层路由（`isCurrentRoute`）、**还在视口里**
+（`node.rect` 和视口相交）。最后一条是给底栏用的：底栏藏起来时是
+`AnimatedSlide` 平移出去的，平移不裁剪，`isPainted` 拦不住，送过去等于把预选框
+画到窗口外面。
+
+**已知省略**：只登记了 M3 底栏（默认）和平板侧栏——M2 底栏
+（`BottomNavigationBar`）和悬浮胶囊的导航项是**数据类**，连节点都拿不到
+（同「已知省略」里那条）。没登记时这一档返回 false，返回键照旧走老路退页面，
+不会卡住。
 
 `TvBack.push(handler)` 是给"返回键要先关自己的控件、再退页面"的场景准备的
 （栈顶先拿到这一下），handler 返回 `false` 表示不接手。**播放器没有用它**：
@@ -2199,6 +2406,7 @@ TvMediaKeys.remove(target);
 | 一个可聚焦的卡片/列表项 | `TvCard`（同时给出焦点环、长按确定、长按进度环） |
 | 把卡内次要操作移出焦点树 | `TvCardSubAction` |
 | 弹层打开后自动选中第一项 | `TvFocusOnOpen`（`showDialog` / 底弹层用） |
+| 弹层打开后选中**指定的**那一项（合集弹窗落在"正在播放"那台上） | `TvFocusOnOpen(target: node)` + `CommonSlideMixin.openFocusTarget` 钩子（见「落点不是第一项时：`TvFocusOnOpen.target`」） |
 | 进页面时预选框落在哪儿 | 自动：`TvRouteFocusObserver` + `TvRegions.entryNodeFor`，页面只需用 `TvRegion` 划出内容区 |
 | 退栈时把焦点还给"从哪儿进的那一项" | 自动：`TvFocusReturn`（`TvRouteFocusObserver` 里调用；`MiniScaffold` 的底弹层进出时也自己记一次） |
 | `SmartDialog.show` / `MiniScaffold` 底弹层 | `TvPanelScope`（= `TvOverlayScope`）：它们不走路由、和页面共用一个 scope，必须自己立一个 |
@@ -2220,6 +2428,10 @@ TvMediaKeys.remove(target);
 | 输入框（按确定才输入、返回键脱出） | `TvTextField`（宿主自己持焦点时传 `editFocusNode` + `navFocusNode`） |
 | 上一栏 / 下一栏 | 实现 `TvSectionSwitcher`，按键已由 `TvShortcuts` 全局接好 |
 | 返回键先关自己的控件 | `TvBack.push` |
+| 页面里按返回键的**三级退法**（内容区 → 当前标签栏 → 默认栏 → 导航栏） | 自动：`TvFocusBack`（`appBack()` 里调用）+ `TvTabBar` / `TvNavBar` 的登记，页面不用写代码（见「返回键：一套语义」） |
+| 让返回键能找到"这一页的顶部标签栏" | `TvTabBar` / `VerticalTabBar` 自己登记进 `TvTabBars`（`initState` / `dispose`），要单独查用 `TvTabBars.onPageOf(node)` |
+| 让返回键能落到导航栏当前选中那一格 | `TvNavBar.register(index, node, selected:)`（M3 底栏 / 平板侧栏已经接好，见「导航项的节点登记」） |
+| 「焦点放大效果」开关（默认关，关着时环不放大） | `Pref.tvFocusScale`（设置 → 外观；`FocusRing` 自己读，控件不用管） |
 | 让播放器里"只能点"的控件能被手柄停住 | `TvButton`（`onTap` 为空则不占焦点；要把节点交出去当锚点就传 `focusNode`） |
 | 播放器 OSD 上栏那一排圆按钮 | `TvOsdIconButton`（42×34 的格子 + 圆形环，规格同 `TvButton`；直播页上栏是 `ComBtn`，不用它） |
 | 播放器上下栏的下拉按钮（画质/倍速/字幕/翻译…） | `TvOsdPopupButton.capsule`（文字按钮：定高 30 + 胶囊）/ `.circle`（图标按钮：内切圆） |
@@ -2262,6 +2474,10 @@ TvMediaKeys.remove(target);
    只有"切完栏还要额外做事"（进新栏第一张卡 / 滚到对应区块）时才需要
    `TvSectionSwitcher`。标签栏的 `onTap` 再按「重按当前那一栏 = 回顶 + 刷新」
    接上 `toTopAndRefresh()`（判 `indexIsChanging`，一个标签栏一处）。
+   顺便：用了 `TvTabBar` 就**自动接上了返回键的页面内退法**
+   （内容区 → 当前选中的那一栏 → **默认栏** → 导航栏，见「返回键：一套语义」），
+   页面一行都不用写；「默认栏」也是它自己记的（打开时选中的那一栏），
+   别在页面里假设它是第 0 栏。竖排的 `VerticalTabBar` 同样接了。
 6. 每个输入框套 `TvTextField`（里面的 `TextField` 要"一进来就能打字"的话
    补 `autofocus: !Pref.tvFocus`）；宿主自己请求焦点的地方按 `Pref.tvFocus`
    决定落在导航态还是输入框上（见「输入框」一节）。
@@ -2281,6 +2497,10 @@ TvMediaKeys.remove(target);
    那三页，见「按键切页之后把焦点接走」）：按键切页之后焦点要送进"这个导航项
    对应的当前内容区"，主界面的 `_tvRegionOf` 只能按标签反查。新加一个子栏 /
    分类时同步补上，返回 `null` 就是"焦点留在导航项上"。
+   返回键那套**页面内退法**在两条路上各挂了一次（`appBack()` 那份管桌面 /
+   手柄 / 鼠标侧键，主界面 shell 的 `onPopInvokedWithResult` 那份管**安卓系统
+   返回键**——系统那条直接 `popRoute`，到不了 `appBack()`）：加导航栏时不用管，
+   但要知道链子在哪儿，别只改一处。
 9. 跑 `flutter test test/tv_focus_test.dart`，`flutter analyze` 零新增告警。
 10. 动播放器（`PlayerFocus` / `PlayerTvOsd` / `TvSeekBar` / `TvPlayerSurface`）时记得
    **视频页和直播页共用**这套代码、共用同一个「手柄播放器模型」（`isPlayerTvMode()`
@@ -2329,10 +2549,22 @@ TvMediaKeys.remove(target);
   `TvRouteFocusObserver` 和 `TvShortcuts`（按键要经过它才能测"第一下唤进页面"）。
   换页后的断言一律用 `FocusManager.instance.primaryFocus`，比找某个
   `FocusNode` 更贴近"用户看到的预选框在哪"。
-- **`TvInputMode` 那一组必须放在文件末尾**：它的 `init()` 装的是**进程级**监听
-  （`pointerRouter` + `HardwareKeyboard`），会把 `highlightStrategy` 翻成
-  `alwaysTraditional` / `alwaysTouch`，后面任何用例都会跟着变——放在中间，
-  那些用例的"预选框没画"断言就会莫名其妙地红。
+- **`TvInputMode` 的两个全局监听：默认不挂，谁要谁挂**。它们装在 `pointerRouter`
+  和 `HardwareKeyboard` 上（进程级），挂上之后每个 `tester.tap()` 都会顺带把
+  `highlightStrategy` 翻成 `alwaysTouch`，还会 `TvRegions.focusAt()` 挪焦点；
+  别的组里"预选框没画 / 焦点还在原处"这类断言会跟着莫名其妙地红。所以这套宿主
+  默认**一条都不挂**，要测输入源本身的组（「输入源」「返回键：页面内三级退法」）
+  自己 `setUp(TvInputMode.init)`。
+- **`init()` 每个用例都得重挂一遍，`setUpAll` 只够第一条**：框架每个用例收尾都会
+  `HardwareKeyboard.instance.clearState()`（框架注释写着"为了让用例互相隔离"），
+  那一下会把**所有**按键处理器连锅端掉，而 `init()` 的幂等闸拦着不让重挂。
+  于是 `setUpAll(TvInputMode.init)` 之后的用例里按键事件全是哑的——`fromKeys`
+  不翻、高亮策略不动、`pointer` 的账还是上一条用例留下的，测试却在别处"碰巧"
+  绿着（"顺序一变就红、单跑就绿"就是这么来的）。文件顶部的全局 `setUp` 先
+  `TvInputMode.reset()`，把两个钩子和内部状态（`_applied` / `_pointer` /
+  `_userActed` / `_playerPages`）一起撤干净，需要的那组再 `setUp(TvInputMode.init)`。
+  `reset()` 是 `@visibleForTesting` 的，生产上不需要：`main()` 里挂一次，
+  那两个钩子是进程级的，没人清它。
 - **"焦点被列表刷新掉了"这类用例要真删节点**：只 `setState` 重建是不够的，
   要像「退栈归还：离开时那张卡被删了」那样把节点从 `ValueNotifier` 的列表里
   拿掉。这条用例正好钉着 `TvRegions.isPainted` 那个坑（框架 `detach` 不清
@@ -2510,6 +2742,25 @@ TvMediaKeys.remove(target);
   （控制器上现在是普通 `bool`，改了不触发重建），不值得为这一条改控制器接口。
   Android 的画中画是另一回事：activity 级、不切 `isFullScreen`、窗口本身也拿不到
   按键输入，不在这套语义的讨论范围里。
+- **返回键的页面内退法只认按键，不认鼠标**：鼠标侧键按下去是 `PointerDownEvent`
+  （`TvInputMode.fromKeys` 判得出来），所以鼠标用户按返回键照旧一路退到底，
+  不会被那三级截走。代价是**桌面鼠标用户按 Esc 会被算成"按键"**（Esc 是
+  key event），他本想退页面，会先看到焦点跳回标签栏上——那一下得再按一次。
+  取舍的依据：Esc 在桌面上的主用户是键盘用户（"退一级"正是他们想要的），
+  而鼠标用户手里那个侧键本来就退页面；为了"鼠标的 Esc"给键盘用户砍掉退一级，
+  不值当。
+- **"点空白处"不再动焦点**：`TvRegions.focusAt` 跳过整页大小的候选之后，点面板
+  空白 / 列表缝隙 / `Scaffold` 底上那一片，**焦点就留在原地**（返回 false）——
+  这是有意的，"点哪儿焦点在哪儿"在没有候选时不该退化成"焦点交给页面"。
+  例外只有登记过的锚点和落脚点（播放器画面、`TvSelectionArea` 正文）：那里
+  点一下确实是要聚焦（点画面开始用画面、点正文进去选字）。代价是"点空白想
+  把焦点从播放器画面挪开"做不到——按方向键挪，那是键盘的活。
+- **焦点放大效果做成用户开关，而不是"默认不放大"**：`Pref.tvFocusScale` 默认
+  **关**，也就是说默认手感是"只有描边和底纹在动"（按需求指定）。代价是这条
+  手感和 blbl（scale 1.04）不一致，所以保留 `TvFocusSpec.scale` 作为控件级逃生阀
+  ——底栏那一格仍然吃 `scale: 1.0` 的硬编码，和用户开关无关（它上下贴着栏边，
+  弹起来观感多余）。两个开关互不干扰：用户开的是"允不允许弹"，控件说的是
+  "这一处要不要弹"。
 - **全屏收栏时"↑/↓ 唤栏"——但左右键没有跟着一起改**：唤栏这一套是"上下栏一露
   出来焦点就落在播放/暂停上"的拆解版（BBLL 是一步，这里是"先亮栏、焦点送到
   播放/暂停，再按方向键走进栏里"），因为"看片时跳一点"比"把预选框点出来"常用得多，

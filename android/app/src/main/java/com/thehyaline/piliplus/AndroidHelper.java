@@ -6,24 +6,28 @@ import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
 import android.app.RemoteAction;
 import android.app.SearchManager;
+import android.app.UiModeManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
+import android.hardware.display.DisplayManager;
 import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Rational;
+import android.view.Display;
 import android.view.WindowManager;
 
 import androidx.annotation.DrawableRes;
@@ -45,12 +49,45 @@ public final class AndroidHelper {
 
     public static final boolean isPipAvailable;
 
+    /** 电视 / 电视盒子（Dart 侧入口是 {@code DeviceUtils.isTv}）。 */
+    public static final boolean isTelevision;
+
     public static volatile boolean isPipMode = false;
 
     static {
-        PackageManager pm = getContext().getPackageManager();
+        Context context = getContext();
+        PackageManager pm = context.getPackageManager();
         isFoldable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
         isPipAvailable = pm.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+        isTelevision = isTelevisionDevice(context, pm);
+    }
+
+    /**
+     * 电视判定，三条任一成立即算：系统按电视 UI 模式跑、声明了 leanback 特性
+     * （认证过的 Android TV 必有）、声明了电视设备类型特性。
+     *
+     * 兜底是"没有触摸屏"：手机和平板一定有触摸屏，没有触摸屏的 Android 只剩
+     * 电视、盒子和车机这类固定横屏的大屏设备（非触屏 Chromebook 也算在内，
+     * 对它们"横屏 + 宽布局"同样成立），它们全都该按电视处理。
+     *
+     * 反过来不能拿屏幕尺寸猜：电视的逻辑短边只有 540dp（1080p@xhdpi 是 960x540），
+     * 够不到 600dp 那条平板门槛，"够不够大"判不出电视。
+     */
+    private static boolean isTelevisionDevice(Context context, PackageManager pm) {
+        try {
+            UiModeManager uiModeManager = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
+            if (uiModeManager != null
+                    && uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+        if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                || pm.hasSystemFeature("android.hardware.type.television")) {
+            return true;
+        }
+        return !pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
+                && !pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH);
     }
 
     private AndroidHelper() {
@@ -227,19 +264,38 @@ public final class AndroidHelper {
         }
     }
 
+    /**
+     * 屏幕最大尺寸（dp），用来判断当前窗口是不是被分屏 / 小窗缩过
+     * （Dart 侧 {@code MaxScreenSize.isWindowMode}）。
+     *
+     * 顺序不保证：调用方宽高两个方向都拿这个值比，所以不用补旋转。
+     */
     public static int[] maxScreenSize() {
         Context context = getContext();
-        WindowManager wm = context.getSystemService(WindowManager.class);
         try {
-            float density = context.getResources().getDisplayMetrics().density;
+            final Point maxSize = new Point();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Rect maxBounds = wm.getMaximumWindowMetrics().getBounds();
-                return new int[]{Math.round(maxBounds.width() / density), Math.round(maxBounds.height() / density)};
+                Rect maxBounds = context.getSystemService(WindowManager.class)
+                        .getMaximumWindowMetrics()
+                        .getBounds();
+                maxSize.set(maxBounds.width(), maxBounds.height());
             } else {
-                Point realSize = new Point();
-                wm.getDefaultDisplay().getRealSize(realSize);
-                return new int[]{Math.round(realSize.x / density), Math.round(realSize.y / density)};
+                // R 以下没有 WindowMetrics，Display 那批尺寸方法（getRealSize 等）在
+                // API 30 全废弃了，剩下的非废弃接口只有 display mode：它给的是面板原生
+                // 分辨率，不随旋转变，而调用方两个方向都比，正好不用补旋转。
+                Display display = context.getSystemService(DisplayManager.class)
+                        .getDisplay(Display.DEFAULT_DISPLAY);
+                if (display == null) {
+                    return null;
+                }
+                Display.Mode mode = display.getMode();
+                if (mode == null) {
+                    return null;
+                }
+                maxSize.set(mode.getPhysicalWidth(), mode.getPhysicalHeight());
             }
+            float density = context.getResources().getDisplayMetrics().density;
+            return new int[]{Math.round(maxSize.x / density), Math.round(maxSize.y / density)};
         } catch (Exception ignored) {
             return null;
         }
@@ -266,25 +322,37 @@ public final class AndroidHelper {
         }
     }
 
+    /**
+     * 系统字体族名列表；取不到时返回 null（Dart 侧会退回自己的内置列表）。
+     *
+     * Typeface 至今没有公开的枚举接口，只能反射它的私有字体表；两条路都是隐藏 API，
+     * Android 9 起反射会被拦，拦下来就返回 null。
+     */
     @SuppressLint("BlockedPrivateApi")
     public static String[] fontFamilies() {
-        Map<String, Typeface> systemFontMap = null;
+        Object systemFontMap = null;
         try {
             Method method = Typeface.class.getDeclaredMethod("getSystemFontMap");
             method.setAccessible(true);
-            systemFontMap = (Map<String, Typeface>) method.invoke(null);
+            systemFontMap = method.invoke(null);
         } catch (Exception ignored) {
             try {
                 @SuppressLint("DiscouragedPrivateApi") Field field = Typeface.class.getDeclaredField("sSystemFontMap");
                 field.setAccessible(true);
-                systemFontMap = (Map<String, Typeface>) field.get(null);
+                systemFontMap = field.get(null);
             } catch (Exception ignored0) {
             }
         }
-        if (null != systemFontMap) {
-            return systemFontMap.keySet().toArray(new String[0]);
+        // 那张表是 Map<String, Typeface>，但泛型运行时已经擦除：直接转成
+        // Map<String, Typeface> 会触发 unchecked 警告，真碰上非 String 的键还会在
+        // toArray 里炸 ArrayStoreException。按 Map<?, ?> 收下、只挑 String 键，两边都避开。
+        if (!(systemFontMap instanceof Map<?, ?> fontMap)) {
+            return null;
         }
-        return null;
+        return fontMap.keySet().stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .toArray(String[]::new);
     }
 
     public static void updateDocProvider(boolean enabled) {

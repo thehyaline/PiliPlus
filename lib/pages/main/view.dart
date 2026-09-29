@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/focus/focus_ring.dart';
+import 'package:PiliPlus/common/widgets/focus/tv_focus_back.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_input_mode.dart';
 import 'package:PiliPlus/common/widgets/focus/tv_region.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -351,6 +352,14 @@ class _MainAppState extends PopScopeState<MainApp>
     if (_mainController.directExitOnBack) {
       _onBack();
     } else {
+      // 手柄 / 遥控器还在**页面里**（内容区 → 顶部标签栏 → 默认栏 → 导航栏所选项）
+      // 时，这一下返回不该把整页退掉。桌面端的手柄 B / Esc 走 `appBack()`，
+      // 已经在那儿问过一遍；安卓的返回键走的是路由这条（系统直接 popRoute，
+      // 到不了 `appBack()`），得在这儿补上同一套——门槛一样（只有按键来的那一下
+      // 才算，见 TvFocusBack），触摸用户按返回键照旧回首页 / 退出。
+      if (Platform.isAndroid && TvFocusBack.handle()) {
+        return;
+      }
       if (_mainController.selectedIndex.value != 0) {
         // 走 [_selectNav] 而不是直接 `setIndex`：返回键（遥控器/手柄 B）切回首页
         // 之后，焦点要跟着从"看不见的那一栏"回到首页入口，否则预选框留在
@@ -460,26 +469,35 @@ class _MainAppState extends PopScopeState<MainApp>
         );
       } else if (_mainController.enableMYBar) {
         bottomNav = Obx(
-          () => NavigationBar(
-            maintainBottomViewPadding: true,
-            onDestinationSelected: _selectNav,
-            selectedIndex: _mainController.selectedIndex.value,
-            destinations: _mainController.navigationBars
-                .map(
-                  (e) => TvNavDestination(
-                    debugLabel: 'nav-${e.name}',
-                    // 这一格不弹：上下都贴着栏边，放大只会在贴边那一侧被裁掉
-                    // （放大现在收在格子自己的矩形里，见该类）
-                    scale: 1.0,
-                    child: NavigationDestination(
-                      label: e.label,
-                      icon: _buildIcon(type: e),
-                      selectedIcon: _buildIcon(type: e, selected: true),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
+          () {
+            final selectedIndex = _mainController.selectedIndex.value;
+            return NavigationBar(
+              maintainBottomViewPadding: true,
+              onDestinationSelected: _selectNav,
+              selectedIndex: selectedIndex,
+              destinations: _mainController.navigationBars.indexed
+                  .map(
+                    (item) {
+                      final (index, e) = item;
+                      return TvNavDestination(
+                        debugLabel: 'nav-${e.name}',
+                        // 返回键"退到最后一级"要把焦点送到当前选中的这一格
+                        navIndex: index,
+                        selected: index == selectedIndex,
+                        // 这一格不弹：上下都贴着栏边，放大只会在贴边那一侧被裁掉
+                        // （放大现在收在格子自己的矩形里，见该类）
+                        scale: 1.0,
+                        child: NavigationDestination(
+                          label: e.label,
+                          icon: _buildIcon(type: e),
+                          selectedIcon: _buildIcon(type: e, selected: true),
+                        ),
+                      );
+                    },
+                  )
+                  .toList(),
+            );
+          },
         );
       } else {
         bottomNav = Obx(
@@ -602,6 +620,7 @@ class _MainAppState extends PopScopeState<MainApp>
                           icon: _buildIcon(type: e),
                           selectedIcon: _buildIcon(type: e, selected: true),
                           selected: index == selectedIndex,
+                          navIndex: index,
                           debugLabel: 'tablet-nav-${e.name}',
                           onTap: () => _selectNav(index),
                         ),

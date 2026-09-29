@@ -145,21 +145,17 @@ class _TvFocusOverlayState extends State<TvFocusOverlay> {
     // 整窗口那么大的一圈不画：进页面/切布局的头一两帧、焦点被路由入口按在
     // "页面那一层"上时，兜底层会照着整页描一圈（用户看到的就是
     // "窗口大小的预选框闪一下"）。详见 [TvFocusSpec.coversWholeView]
-    final viewSize = _viewSize(focus);
+    final viewSize = TvFocusSpec.viewSizeOf(focus.context);
     if (viewSize != null && TvFocusSpec.coversWholeView(rect, viewSize)) {
       TvFocusSpec.reportWholeViewRing('兜底环', rect, viewSize);
       return null;
     }
+    // 大得可疑的（比视口小一圈，一票否决管不到）照样画，但报一行是谁——
+    // 这种框十有八九是落点选错了，见 [TvFocusSpec.nearWholeView]
+    if (viewSize != null && TvFocusSpec.nearWholeView(rect, viewSize)) {
+      TvFocusSpec.reportNearWholeViewRing('兜底环', rect, viewSize);
+    }
     return (rect, TvFocusOverlay.isCircular(rect));
-  }
-
-  /// 焦点节点所在 `View` 的逻辑尺寸（拿不到就不做那条一票否决）。
-  static Size? _viewSize(FocusNode focus) {
-    final context = focus.context;
-    if (context == null) return null;
-    final view = View.maybeOf(context);
-    if (view == null) return null;
-    return view.physicalSize / view.devicePixelRatio;
   }
 
   @override

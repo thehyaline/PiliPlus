@@ -2043,6 +2043,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           : EpisodeType.pgc,
       cover: videoDetailController.cover.value,
       enableSlide: enableSlide,
+      // 弹层形态：打开就把手柄预选框落在**正在播放的那一台**上（数据没加载完
+      // 也等它，见 `TvFocusOnOpen.target`）。上面那两条内嵌的（简介区竖排 /
+      // 横屏侧栏）不开，它们跟页面一起建出来，抢初始焦点会和入口落点打架。
+      focusCurrentOnOpen: true,
       initialTabIndex: index ?? 0,
       bvid: bvid!,
       aid: aid,

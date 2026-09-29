@@ -31,6 +31,7 @@ import 'package:PiliPlus/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/file_ext.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -87,25 +88,38 @@ List<SettingsGroup> get styleSettings => [
         defaultVal: true,
         needReboot: true,
       ),
+      // 默认关：满屏都在"弹一下"有人嫌晃，放大只是锦上添花，关掉只留预选框。
+      // 只改视觉（`FocusRing.scale` 一律按 1.0 走），所以不用重启，也不挂在
+      // 总开关下面——总开关关着时本来就没有预选框。
+      SwitchModel(
+        title: '焦点放大效果',
+        subtitle: '手柄焦点选中时放大控件；关掉只留预选框（描边 + 底纹），不缩放',
+        leading: Icon(MdiIcons.arrowExpandAll),
+        setKey: SettingBoxKey.tvFocusScale,
+        defaultVal: false,
+      ),
     ],
   ),
   SettingsGroup(
     title: '布局',
     items: [
-      SwitchModel(
-        title: '横屏适配',
-        subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
-        leading: const Icon(Icons.phonelink_outlined),
-        setKey: SettingBoxKey.horizontalScreen,
-        defaultVal: Pref.horizontalScreen,
-        onChanged: (value) {
-          if (value) {
-            fullMode();
-          } else {
-            portraitUpMode();
-          }
-        },
-      ),
+      // 电视上不显示：电视恒为横屏（见 Pref.horizontalScreen），这个开关既关不掉
+      // 横屏布局，显示的又是存储里那个"首启按屏幕尺寸算错"的值，留着只会误导。
+      if (!DeviceUtils.isTv)
+        SwitchModel(
+          title: '横屏适配',
+          subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
+          leading: const Icon(Icons.phonelink_outlined),
+          setKey: SettingBoxKey.horizontalScreen,
+          defaultVal: Pref.horizontalScreen,
+          onChanged: (value) {
+            if (value) {
+              fullMode();
+            } else {
+              portraitUpMode();
+            }
+          },
+        ),
       const SwitchModel(
         title: '改用侧边栏',
         subtitle: '开启后底栏与顶栏被替换，且相关设置失效',
