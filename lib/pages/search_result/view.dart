@@ -47,8 +47,6 @@ class _SearchResultPageState extends State<SearchResultPage>
       initialIndex: Get.arguments?['initIndex'] ?? 0,
       length: SearchType.values.length,
     );
-    // 切换类型时按当前面板的卡片区域重新对齐过滤器
-    _tabController.addListener(_onTabChanged);
 
     if (_isFromSearch) {
       try {
@@ -64,15 +62,10 @@ class _SearchResultPageState extends State<SearchResultPage>
     sSearchController?.initIndex = _tabController.index;
   }
 
-  void _onTabChanged() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
     _tabController
       ..removeListener(listener)
-      ..removeListener(_onTabChanged)
       ..dispose();
     super.dispose();
   }
@@ -151,13 +144,10 @@ class _SearchResultPageState extends State<SearchResultPage>
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                // 桌面端视频/直播面板的卡片区域带外边距且可能居中，
-                // 类型过滤器随之对齐；其余类型面板网格铺满全宽保持原样
-                final type = SearchType.values[_tabController.index];
-                final hPad =
-                    PlatformUtils.isDesktop &&
-                        (type == SearchType.video ||
-                            type == SearchType.live_room)
+                // 桌面端各类型面板的卡片区域都带外边距且可能居中
+                // （与 searchPanelHPad 同口径），类型过滤器随之对齐；
+                // 移动端保持原样
+                final hPad = PlatformUtils.isDesktop
                     ? Style.safeSpace +
                           Grid.videoGridPadding(
                             constraints.maxWidth - 2 * Style.safeSpace,

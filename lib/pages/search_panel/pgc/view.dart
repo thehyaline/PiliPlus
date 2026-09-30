@@ -53,28 +53,42 @@ class _SearchPgcPanelState
 
   @override
   Widget buildList(ThemeData theme, List<SearchPgcItemModel> list) {
-    return SliverGrid.builder(
-      gridDelegate: gridDelegate,
-      itemBuilder: (BuildContext context, int index) {
-        if (index == list.length - 1) {
-          controller.onLoadMore();
-        }
-        return SearchPgcItem(item: list[index]);
-      },
-      itemCount: list.length,
+    return SliverLayoutBuilder(
+      builder: (context, constraints) => SliverPadding(
+        padding: EdgeInsets.symmetric(
+          horizontal: searchPanelHPad(constraints.crossAxisExtent),
+        ),
+        sliver: SliverGrid.builder(
+          gridDelegate: gridDelegate,
+          itemBuilder: (BuildContext context, int index) {
+            if (index == list.length - 1) {
+              controller.onLoadMore();
+            }
+            return SearchPgcItem(item: list[index]);
+          },
+          itemCount: list.length,
+        ),
+      ),
     );
   }
 
   @override
-  Widget get buildLoading => SliverGrid(
-    gridDelegate: SliverGridDelegateWithExtentAndRatio(
-      mainAxisSpacing: 2,
-      maxCrossAxisExtent: Grid.smallCardWidth * 2,
-      childAspectRatio: Style.aspectRatio * 1.5,
-    ),
-    delegate: const SliverSingleChildDelegate(
-      count: 10,
-      child: MediaPgcSkeleton(),
+  Widget get buildLoading => SliverLayoutBuilder(
+    builder: (context, constraints) => SliverPadding(
+      padding: EdgeInsets.symmetric(
+        horizontal: searchPanelHPad(constraints.crossAxisExtent),
+      ),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithExtentAndRatio(
+          mainAxisSpacing: 2,
+          maxCrossAxisExtent: Grid.smallCardWidth * 2,
+          childAspectRatio: Style.aspectRatio * 1.5,
+        ),
+        delegate: const SliverSingleChildDelegate(
+          count: 10,
+          child: MediaPgcSkeleton(),
+        ),
+      ),
     ),
   );
 }

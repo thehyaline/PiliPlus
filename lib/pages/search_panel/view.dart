@@ -1,11 +1,25 @@
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/pages/search_panel/controller.dart';
+import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+
+/// 桌面端面板内容区（网格与过滤器行）的左右内边距。
+///
+/// 与视频/直播面板的卡片区同口径：外层 [Style.safeSpace] 加上网格居中留白
+/// [Grid.videoGridPadding]，因此各类型面板的内容块宽度和左右外边距与视频
+/// 面板完全一致，切换类型时不会忽宽忽窄。移动端沿用卡片自带的内边距，
+/// 这里返回 0（各面板保持原样）。
+double searchPanelHPad(double crossAxisExtent) => PlatformUtils.isDesktop
+    ? Style.safeSpace +
+          Grid.videoGridPadding(crossAxisExtent - 2 * Style.safeSpace)
+    : 0;
 
 abstract class CommonSearchPanel extends StatefulWidget {
   const CommonSearchPanel({
