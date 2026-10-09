@@ -13,8 +13,10 @@ import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -36,6 +38,12 @@ class MainController extends GetxController
   RxBool? showBottomBar;
   late final bool hideBottomBar;
   final barHideType = Pref.barHideType.obs;
+  /// 主界面这一帧走不走**手机档**（底部导航栏 + 顶栏那一套）。
+  ///
+  /// [MainApp] 每次依赖变化都按 [useBottomNavOf] 重算一遍存下来：拿得到 context
+  /// 的页面直接用那个函数（顺带把 MediaQuery 依赖注册上，const 单例的首页 /
+  /// 我的页才跟着窗口缩放重建），拿不到 context 的（滚动收起的命中判定、标签栏
+  /// 居中）读这里。
   bool useBottomNav = false;
   late dynamic controller;
   final RxInt selectedIndex = 0.obs;
@@ -61,12 +69,28 @@ class MainController extends GetxController
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
 
-  /// 平板导航栏（96 宽的抽屉）是否已经露面过。
+  /// 主界面这一帧该不该走手机档（底部导航栏）：**导航栏档位的唯一口径**。
   ///
-  /// 一露面就钉住：窗口之后收窄/变成竖屏比例也不再换成底部导航栏
-  /// （见 `MainPage.build` 里的 `useBottomNav`）。侧边栏现在只有这一套写法，
-  /// 所以固定打开、只剩这一个运行时状态。
-  bool tabletNavPinned = false;
+  /// - 改用侧边栏（[Pref.useSideBar]）：不走；
+  /// - 遥控器模式开着（[Pref.tvFocus]）：只有手机才走——电视 / 平板 / 桌面恒走
+  ///   左侧导航栏，窗口怎么变都不落回手机档（遥控器用户手里那条导航栏是一个
+  ///   不动的落脚点）。手机照旧按窗口形状切换：总开关默认是开的，左侧栏在竖屏
+  ///   手机上要吃掉四分之一宽度（见 [DeviceUtils.isPhone]）；
+  /// - 其余情况（遥控器模式关着）按窗口形状切换：竖屏比例 = 手机档，横屏比例 =
+  ///   左侧栏（手机横屏也算左侧栏）。
+  ///
+  /// 顺带把 MediaQuery 依赖注册上：首页 / 我的页是 const 单例，只靠这个依赖
+  /// 跟着窗口缩放重建。前两条直接返回时不读 MediaQuery——那两枝的结果与窗口
+  /// 无关，本来也不需要跟着窗口重建。
+  ///
+  /// 最后那句的 `isPortrait` 不是框架的（`Size` 没有这个成员）：是
+  /// [SizeExt.isPortrait]——窄屏 / 竖屏形态（`width < 600` 或高 ≥ 宽）算手机档，
+  /// 电视恒不算（电视盒子逻辑宽度可能很窄，按宽度会被判成手机）。
+  static bool useBottomNavOf(BuildContext context) {
+    if (Pref.useSideBar) return false;
+    if (Pref.tvFocus && !DeviceUtils.isPhone) return false;
+    return MediaQuery.sizeOf(context).isPortrait;
+  }
 
   late bool directExitOnBack = Pref.directExitOnBack;
   late bool showTrayIcon = Pref.showTrayIcon;

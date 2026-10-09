@@ -893,19 +893,30 @@ onTap: (index) {
 ## 主界面导航栏（抽屉 / 底栏 / 侧栏）
 
 主界面一共有四条导航栏：手机底栏的三支（M3 `NavigationBar` / M2
-`BottomNavigationBar` / 悬浮胶囊 `FloatingNavigationBar`）和窄侧栏
-（`NavigationRail`，手机横屏 / 桌面走这支），外加平板上的这条 96 宽
-`NavigationDrawer`。**切页的交接口只有一处**（`_selectNav`），谁当班都一样；
-差别在焦点环怎么落到"一格 tab"上，见「底栏与侧栏：`TvNavDestination`」和
-「按键切页之后把焦点接走」。
+`BottomNavigationBar` / 悬浮胶囊 `FloatingNavigationBar`）和这条 96 宽的
+`NavigationDrawer`（手机横屏 / 平板 / 电视 / 桌面都走它）。**切页的交接口只有
+一处**（`_selectNav`），谁当班都一样；差别在焦点环怎么落到"一格 tab"上，见
+「底栏与侧栏：`TvNavDestination`」和「按键切页之后把焦点接走」。
 
-**这一条一锁到底**（原「优化平板导航栏」开关，已并进总开关）：只要走侧边栏这条
-路（平板 / 手机横屏 / 桌面，且导航项多于一个），就只有下面这套 96 宽抽屉了——
-原来还有"窗口收窄落回 `NavigationRail`、再窄落回只有搜索的裸列"两条按宽度
-换栏的回落分支，现在都删掉，尺寸怎么变都是它（导航项只剩一条时那 80 宽的一列
-不是回落，是"没有导航栏可言"）。平板上一露面就把 `MainController.tabletNavPinned`
-置位，之后窗口变高（竖屏比例）也不会落回手机底栏（见 `MainPage.build` 里的
-`useBottomNav`）；手机尺寸下竖横屏照旧切换。
+**档位只有一条口径**：`MainController.useBottomNavOf`（主页面依赖一变就重算一遍
+存进 `useBottomNav`；首页的顶栏、我的页底部留白都读同一处，不各自再判一遍）。
+
+| 遥控器模式（`Pref.tvFocus`） | 设备 | 走哪一条 |
+| --- | --- | --- |
+| 开（默认） | 非手机（电视 / 平板 / 桌面，`!DeviceUtils.isPhone`） | 恒左侧栏：窗口怎么变都不落回手机底栏 |
+| 开 | 手机（`DeviceUtils.isPhone`） | 按窗口形状（同下一行） |
+| 关 | 所有设备 | 按窗口形状：`SizeExt.isPortrait`（`width < 600` 或高 ≥ 宽；电视恒不算）→ 手机档底栏，否则左侧栏 |
+
+非手机设备在遥控器模式下**不随屏幕宽度变化**：遥控器用户手里那条导航栏是返回键
+阶梯的最后一档（见「返回键：一套语义」），得是一个不动的落脚点——窗口被拖窄、
+变高只该动布局，不该把整条导航栏换成手机那套底栏。手机不看这一条：总开关默认
+是开的，而左侧栏在竖屏手机上要吃掉四分之一宽度。关掉总开关时没有"遥控器"这回事，
+就照窗口形状来（手机横屏也算横屏，走左侧栏）。
+
+原来还有"窗口收窄落回 `NavigationRail`、再窄落回只有搜索的裸列"两条按宽度换栏的
+回落分支（原「优化平板导航栏」开关，已并进总开关），以及"平板一露面就钉住"的
+`tabletNavPinned`，现在都删掉：栏与栏之间没有第二套写法了，档位也只认上面这张
+表（导航项只剩一条时那 80 宽的一列不是回落，是"没有导航栏可言"）。
 
 先讲平板抽屉。主界面的左侧是一条 96 宽的 `NavigationDrawer`：上面
 是头像 / 消息 / 搜索，下面是首页 / 动态 / 我的。**形状按"这一格是什么"分两种**：
@@ -967,9 +978,9 @@ onTap: (index) {
 ### 头像 / 消息 / 搜索
 
 这三颗是**共用控件**（`home/view.dart` 的 `userAvatar` / `msgBadge`、`main/view.dart`
-的 `_searchButton`），平板抽屉、平板侧栏的 `NavigationRail.leading`、手机顶栏
-（`customAppBar`）、「我的」页头部用的是同一份。所以圆环加在控件里面：四处一起
-带上，形状一致。统一走 `FocusRing` 旁边那个 `circularFocusRing`：
+的 `_searchButton`），平板抽屉、手机顶栏（`customAppBar`）、「我的」页头部用的是
+同一份。所以圆环加在控件里面：几处一起带上，形状一致。统一走 `FocusRing` 旁边
+那个 `circularFocusRing`：
 
 ```dart
 Widget _searchButton() {
@@ -1007,7 +1018,7 @@ header: Expanded(
 "余量要留就得留在抽屉**里面**（裁剪线内侧）"这条经验现在只剩历史价值：
 `test/tv_focus_test.dart` 的「头像：紧贴抽屉上沿时环也不会被裁剪线切掉」量的是
 "环 == 头像矩形 + 环整个落在抽屉里"，把 `top: 4` 去掉照样过。
-`userAndSearchVertical()` 本身不动——`NavigationRail.leading` 和窄侧栏也在用它，
+`userAndSearchVertical()` 本身不动——只剩一项导航时那 80 宽的一列也在用它，
 那里没有抽屉上沿要躲（`FocusRing` 直接当 `Expanded` 的孩子还会被拉成整段高度，
 得待在 `Column` 里，和 `userAndSearchVertical()` 一样）。
 
@@ -1037,18 +1048,18 @@ header: Expanded(
 `scale: 1.0` 控件，想放开就删掉这一行（`test/tv_focus_test.dart` 的「底栏导航项」
 里那条断言（`AnimatedScale` 都不建）要跟着改）。
 
-四条栏里**只有 M3 底栏（`Pref.enableMYBar`，也是默认）套上了**，剩下三种情况
-是"套不了"，不是"忘了"：
+框架那三支导航栏里**只有 M3 底栏（`Pref.enableMYBar`，也是默认）套上了**，其余
+两支是"套不了"，不是"忘了"（窄侧栏那一支已经删掉，见下表末行）：
 
 | 导航栏 | 焦点环 | 为什么 |
 | --- | --- | --- |
 | M3 `NavigationBar`（默认） | `TvNavDestination` | destination 是 widget，能包 |
 | M2 `BottomNavigationBar` | 框架自带的 focus 底纹 | `BottomNavigationBarItem` **是数据类**（`label` / `icon` / `activeIcon`），没有 widget 能包 |
 | 悬浮胶囊 `FloatingNavigationBar` | 同上 | 同样收数据类，而且外层有个 `ClipPath` 会把矩形环切成斜边 |
-| 窄侧栏 `NavigationRail` | 同上 | `NavigationRailDestination` 也是数据类（`icon` / `label` / `selectedIcon`） |
+| 窄侧栏 `NavigationRail`（分支已删） | — | `NavigationRailDestination` 也是数据类（`icon` / `label` / `selectedIcon`）——这正是侧栏最后改用自搭 `TabletNavItem` 的原因之一 |
 
-数据类那三支真要补，得照 `TabletNavItem` 自己搭一列 / 一排格子（复刻框架的版面），
-而不是"再包一层"——那是另一件事，先记在这里。**切页交接不受影响**：四条栏的
+数据类那两支真要补，得照 `TabletNavItem` 自己搭一列 / 一排格子（复刻框架的版面），
+而不是"再包一层"——那是另一件事，先记在这里。**切页交接不受影响**：各条栏的
 `onDestinationSelected` / `onTap` 都走同一个 `_selectNav`。
 
 ### 导航项的节点登记：`TvNavBar`
@@ -1131,11 +1142,11 @@ void _selectNav(int index) {
   再挂一个 "Tab 1 of 3" 的标签（`MaterialLocalizations.tabLabel`），
   `TabletNavItem` 只保留了 `selected`。电视上的读屏用户几乎没有，先不补；
   真要补就是多传两个参数（序号 / 总数）。
-- **M2 底栏 / 悬浮胶囊 / 窄侧栏的导航项只有框架自带的 focus 底纹**：
-  `BottomNavigationBarItem` 和 `NavigationRailDestination` 都是**数据类**、没有
+- **M2 底栏 / 悬浮胶囊（以及已删的窄侧栏）的导航项只有框架自带的 focus 底纹**：
+  `BottomNavigationBarItem` / `NavigationRailDestination` 都是**数据类**、没有
   widget 能包（`TvNavDestination` 那招用不上），胶囊那支还有个 `ClipPath` 会把
   矩形环切成斜边。要补就得照 `TabletNavItem` 自己搭一列格子（复刻框架的版面），
-  是另一件事。M3 底栏（默认那支）已经套好了，切页交接四条栏都有。
+  是另一件事。M3 底栏（默认那支）已经套好了，切页交接各条栏都有。
 
 ## 输入框：两段式焦点（`TvTextField`）
 
@@ -2881,10 +2892,15 @@ TvMediaKeys.remove(target);
   候选，焦点停在整页节点上时页内一个候选都过不了闸。兜底扫描不看祖先尺寸、自己
   按"主轴前进 + 2×垂轴偏移"挑最近的可落点，代价是它和框架的遍历策略是两套几何
   （顺序上先试框架的，只在没动时才扫，所以正常布局下行为不变）。
-- **平板导航栏一旦生效就钉住，不再按窗口宽度换回手机导航栏**：同一台设备上
-  "有的导航栏有预选框、有的没有"（`NavigationRailDestination` 是数据类，套不了
-  `TvNavDestination`）比"收窄之后导航栏看着挤"更难受。代价是平板上把窗口收成
-  竖屏比例时左侧仍是 96 宽抽屉，不再换成底部导航栏。
+- **导航栏档位在遥控器模式下钉在左侧栏（非手机设备），不再按窗口宽度换回手机
+  导航栏**（`MainController.useBottomNavOf`）：总开关默认是开的，所以平板 /
+  桌面 / 电视上窗口怎么收窄、怎么变成竖屏比例，都是那条 96 宽抽屉。两条理由：
+  遥控器用户手里那条导航栏是返回键阶梯的最后一档，得有一个不动的落脚点；同一台
+  设备上"有的导航栏有预选框、有的没有"（`NavigationRailDestination` 是数据类，
+  套不了 `TvNavDestination`）比"收窄之后导航栏看着挤"更难受。代价是平板上把
+  窗口收成竖屏比例时左侧仍是 96 宽抽屉，不再换成底部导航栏。手机不钉
+  （`DeviceUtils.isPhone`）——竖屏手机上左侧栏要吃掉四分之一宽度；关掉总开关的
+  设备照窗口形状切换。
 - **幽灵触摸分三层治，而不是只修"判定"那一层**：控件层（`PointerLedger`）只能把
   "这一下算单指还是多指"改对，改不了识别器内部拿幽灵的位置算缩放；所以还要在
   识别器里 `rejectGesture` 掉失联指针（数学层），并在 app 级对"窗口失焦 / 切后台 /

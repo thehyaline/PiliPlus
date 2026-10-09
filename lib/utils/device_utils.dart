@@ -11,6 +11,14 @@ abstract final class DeviceUtils {
     return size.shortestSide >= 600;
   }
 
+  /// 手机：移动端里除电视、平板之外的那一类（触摸小屏设备）。
+  ///
+  /// 和 `context.isPhone` 不是一回事——那条看的是**当前窗口**的短边（桌面窗口
+  /// 缩窄也算手机），这条看设备本身：窗口怎么变都不动。导航栏的档位判定用它，
+  /// 遥控器模式下"不随屏幕宽度变化而落到手机档"要的就是这个不动
+  /// （见 `MainController.useBottomNavOf`）。
+  static bool get isPhone => PlatformUtils.isMobile && !isTv && !isTablet;
+
   /// 电视 / 电视盒子（遥控器、10 英尺界面）。
   ///
   /// 判定只有这一个入口：Android 侧问系统（见 `AndroidHelper.isTelevision`）。

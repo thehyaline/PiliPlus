@@ -11,7 +11,6 @@ import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -139,9 +138,9 @@ class _HomePageState extends CommonPageState<HomePage>
       onNext: _homeController.tabs.length > 1 ? () => _switchTab(1) : null,
       child: Column(
         children: [
-          if (!_mainController.useSideBar &&
-              MediaQuery.sizeOf(context).isPortrait)
-            customAppBar(),
+          // 顶栏只属于手机档：左侧栏那条路上头像 / 消息 / 搜索都在抽屉里
+          // （`useBottomNavOf` 是导航栏档位的唯一口径，和主界面同步）
+          if (MainController.useBottomNavOf(context)) customAppBar(),
           tabBar,
           Expanded(
             child: onBuild(

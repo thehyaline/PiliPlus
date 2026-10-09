@@ -26,8 +26,6 @@ import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -104,16 +102,9 @@ class _MainAppState extends PopScopeState<MainApp>
         windowManager.setBrightness(brightness);
       }
     }
-    if (!_mainController.useSideBar) {
-      // 平板导航栏一旦生效就不再换回去：窗口变高（竖屏比例）只影响布局，
-      // 不该让整条导航栏换成手机那套底部导航栏——同一台设备上"两种导航栏
-      // 换着出现"是用户明确要避免的。窄到不是平板尺寸（手机）时照旧跟着
-      // 竖横屏切换。
-      if (MediaQuery.sizeOf(context).isPortrait &&
-          !_mainController.tabletNavPinned) {
-        _mainController.useBottomNav = true;
-      }
-    }
+    // 导航栏档位（底栏 / 左侧栏）由 `MainController.useBottomNavOf` 一处口径算：
+    // 遥控器模式开着时非手机设备恒走左侧栏，其余按窗口形状。
+    _mainController.useBottomNav = MainController.useBottomNavOf(context);
   }
 
   @override
@@ -548,18 +539,13 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _sideBar() {
-    // 侧边栏只有一套：96 宽的平板抽屉，导航项是自己搭的 [TabletNavItem]
+    // 侧边栏只有这一套：96 宽的平板抽屉，导航项是自己搭的 [TabletNavItem]
     // （`NavigationDrawerDestination` 内部那个 `InkWell` 自己建焦点节点、
-    // 外面拿不到，预选框就画不出来）。手机横屏、电视、平板都走它——
+    // 外面拿不到，预选框就画不出来）。手机横屏、电视、平板、桌面都走它——
     // 原来这里还分「平板抽屉 / `NavigationRail` / 只有搜索的 80 宽兜底列」
     // 三种，前两者换着出现会让同一台设备上"有的导航栏有预选框、有的没有"
     // （`NavigationRailDestination` 是个数据类，套不了 `TvNavDestination`），
     // 那个设置项和 `NavigationRail` 那条分支都已经删掉了。
-    if (context.isTablet) {
-      // 平板导航栏一露面就钉住：窗口之后收窄/变高也不再换回底部导航栏
-      // （见 `build` 里的 `useBottomNav`）
-      _mainController.tabletNavPinned = true;
-    }
     if (_mainController.navigationBars.length > 1) {
       return Padding(
         padding: const .only(top: 25),

@@ -21,7 +21,6 @@ import 'package:PiliPlus/pages/mine/widgets/item.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -104,9 +103,10 @@ class _MediaPageState extends CommonPageState<MinePage>
     final secondary = theme.colorScheme.secondary;
     // 底部避让：导航栏在底部时 152 = 100(原值) + 2×26(两板块 200→_kCardRowHeight 缩减)，保持总滚动长度不变；
     // 否则仅移动端保留系统手势条高度（底部小横条），桌面端不留多余空白
-    // 用 MediaQuery 而非 useBottomNav：本页是 const 单例，需注册依赖以便窗口缩放时重建
-    final double bottomPad =
-        !_mainController.useSideBar && MediaQuery.sizeOf(context).isPortrait
+    // 判定走 `MainController.useBottomNavOf`（导航栏档位的唯一口径，遥控器模式下
+    // 非手机设备走左侧栏，这里就不该再留白）：本页是 const 单例，主页面重建带不动
+    // 它，所以在 build 里现算——顺带读上 MediaQuery，窗口缩放时才跟着重建。
+    final double bottomPad = MainController.useBottomNavOf(context)
         ? 152
         : PlatformUtils.isMobile
         ? MediaQuery.viewPaddingOf(context).bottom
